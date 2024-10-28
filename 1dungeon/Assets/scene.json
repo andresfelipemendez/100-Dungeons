@@ -12,24 +12,17 @@
         },
         {
           "type": "translation",
-          "position": [ -0.01, 0.5, 0]
+          "position": [ -0.01, 0.5, 0 ]
         },
         {
           "type": "rotation",
           "euler": [ 0, 0, -90 ]
-        },
-        {
-          "type": "movement"
-        },
-        {
-          "type": "input",
-          "angularSpeed": 1,
-          "forwardSpeed": 30
         }
+
       ]
     },
     {
-      "name": "cube",
+      "name": "floor1",
       "components": [
         {
           "type": "model",
@@ -52,7 +45,74 @@
           "type": "rotation",
           "euler": [ 90, 0, 0 ]
         }
-
+      ]
+    },
+    {
+      "name": "player",
+      "components": [
+        {
+          "type": "model",
+          "filePath": "Knight.glb"
+        },
+        {
+          "type": "texture",
+          "filePath": "dungeon_texture.png"
+        },
+        {
+          "type": "material",
+          "shader": "Skinned",
+          "color": [ 1, 0, 0 ]
+        },
+        {
+          "type": "translation",
+          "position": [ 0, -2, -0.8 ]
+        },
+        {
+          "type": "rotation",
+          "euler": [ 90, 0, 0 ]
+        },
+        {
+          "type": "movement"
+        },
+        {
+          "type": "input",
+          "angularSpeed": 1,
+          "forwardSpeed": 30
+        }
+      ]
+    },
+    {
+      "name": "enemy",
+      "components": [
+        {
+          "type": "model",
+          "filePath": "Skeleton_Minion.glb"
+        },
+        {
+          "type": "texture",
+          "filePath": "dungeon_texture.png"
+        },
+        {
+          "type": "material",
+          "shader": "Skinned",
+          "color": [ 1, 0, 0 ]
+        },
+        {
+          "type": "translation",
+          "position": [ 1, -3, -1 ]
+        },
+        {
+          "type": "rotation",
+          "euler": [ 90, 0, 0 ]
+        },
+        {
+          "type": "movement"
+        },
+        {
+          "type": "input",
+          "angularSpeed": 1,
+          "forwardSpeed": 30
+        }
       ]
     },
     {
@@ -74,24 +134,7 @@
           "specColor": [ 0.8, 0.8, 0.8 ]
         }
       ]
-    },
-    {
-      "name": "sprite example",
-      "components": [
-        {
-          "type": "sprite",
-          "filePath": "Radar.png"
-        },
-        {
-          "type": "material",
-          "shader": "Sprite",
-          "color": [ 1, 0, 0 ]
-        },
-        {
-          "type": "translation",
-          "position": [ 0, 0, 0 ]
-        }
-      ]
     }
+
   ]
 }

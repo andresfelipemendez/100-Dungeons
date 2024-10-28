@@ -1,5 +1,9 @@
 # 100 Dungeons
 
+![dungeon1](dungeon1.gif)
+## Screen capture of the first dungeon's current engine status. 
+The engine currently only renders static meshes. Skinned animation support is planned for future implementation.
+
 ## Overview
 
 **100 Dungeons** is a personal project inspired by the legendary Zelda games and serves as a way to apply my knowledge of data-oriented design and game engine architecture. The goal is to design and create 100 unique dungeons, each inspired by the classic Zelda-style gameplay, but in a 3D environment. This project aims to not only develop interesting dungeons but also iterate on the game engine that supports these small, simple, but engaging levels.
@@ -24,8 +28,8 @@ The project is a learning journey focused on dungeon design, putting into practi
 1. **Install Dependencies:** Ensure you have the required libraries installed (Flecs, GLFW, GLAD, GLM, etc.).
 2. **Clone the Repository:**
    ```sh
-   git clone https://github.com/andresfelipemendez/100dungeons.git
-   cd 100dungeons
+   git clone https://github.com/andresfelipemendez/100-Dungeons.git
+   cd 100-Dungeons
    ```
 3. **Build the Project:**
    Use the provided build script to compile the code withing each dungeon:

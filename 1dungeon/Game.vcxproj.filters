@@ -71,5 +71,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\scene.json" />
+    <None Include="Assets\dungeon1.toml" />
   </ItemGroup>
 </Project>
