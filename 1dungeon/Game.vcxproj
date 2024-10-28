@@ -71,7 +71,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(SolutionDir)..\Lib\glm;$(SolutionDir)..\Lib\toml\include;$(SolutionDir)..\Lib\stb;$(SolutionDir)..\Lib\glew-2.1.0\include;$(SolutionDir)..\Lib\entt\include;$(SolutionDir)..\Lib\SDL2\include;$(SolutionDir)..\Lib\SDL2_image\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)..\Lib\glm;$(SolutionDir)..\Lib\toml\include;$(SolutionDir)..\Lib\stb;$(SolutionDir)..\Lib\glew-2.1.0\include;$(SolutionDir)..\Lib\entt\include;$(SolutionDir)..\Lib\SDL2\include;$(SolutionDir)..\Lib\SDL2_image\include;$(SolutionDir)..\Lib\rapidjson-1.1.0\include\rapidjson;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)..\Lib\toml\lib;$(SolutionDir)..\Lib\glew-2.1.0\lib\Release\lib\x64;$(SolutionDir)..\Lib\SDL2_image\lib\x64;$(SolutionDir)..\Lib\SDL2\lib\x64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

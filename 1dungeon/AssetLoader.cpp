@@ -12,6 +12,13 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <optional>
+
+#include "document.h"
+#include "writer.h"
+#include "stringbuffer.h"
+
+#define TINYGLTF_USE_RAPIDJSON
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "tiny_gltf.h"
@@ -41,14 +48,22 @@ ImageFile::~ImageFile() {
 
 
 template <typename T>
-std::optional<T> get_json_value(const nlohmann::json& j, const std::string& key) {
-    if (j.contains(key) && !j[key].is_null()) {
-        return j[key].get<T>();
+std::optional<T> get_json_value(const rapidjson::Value& j, const char* key) {
+    if (j.HasMember(key)) {
+        const auto& value = j[key];
+        if constexpr (std::is_same_v<T, float> && value.IsNumber()) {
+            return value.GetFloat();
+        }
+        else if constexpr (std::is_same_v<T, std::string> && value.IsString()) {
+            return value.GetString();
+        }
+        else if constexpr (std::is_same_v<T, int> && value.IsInt()) {
+            return value.GetInt();
+        }
+        // Add other types as needed
     }
-    else {
-        std::cerr << "Missing or null field: " << key << std::endl;
-        return std::nullopt;
-    }
+    std::cerr << "Missing or incompatible field: " << key << std::endl;
+    return std::nullopt;
 }
 
 void LoadScene(entt::registry* registry, const std::string& path) {
@@ -58,33 +73,47 @@ void LoadScene(entt::registry* registry, const std::string& path) {
         return;
     }
 
-    nlohmann::json data = nlohmann::json::parse(f, nullptr, false);
-    if (data.is_discarded()) {
+    std::string jsonString((std::istreambuf_iterator<char>(f)),
+        std::istreambuf_iterator<char>());
+    f.close();
+
+    rapidjson::Document data;
+    if (data.Parse(jsonString.c_str()).HasParseError()) {
         std::cerr << "Failed to parse JSON from file: " << path << std::endl;
         return;
     }
-
+    
     f.close();
 
-    if (!data.contains("entities") || !data["entities"].is_array()) {
+    if (!data.HasMember("entities") || !data["entities"].IsArray()) {
         std::cerr << "Invalid or missing 'entities' field in JSON." << std::endl;
         return;
     }
 
-    for (auto& entity : data["entities"]) {
+    for (const auto& entity : data["entities"].GetArray()) {
         auto e = registry->create();
 
-        for (auto& component : entity["components"]) {
-            std::string type = component.value("type", "");
+        for (auto& component : entity["components"].GetArray()) {
+            std::string type = component.HasMember("type") && component["type"].IsString()
+                ? component["type"].GetString()
+                : "";
+
             if (type.empty()) {
                 std::cerr << "Component type is missing or empty." << std::endl;
                 continue;
             }
 
             if (type == "camera") {
-                auto fov = get_json_value<float>(component, "fov");
+                float fov = component["fov"].GetFloat();
+                float _near = component["fov"].GetFloat();
+                float _far = component["far"].GetFloat();
+
+                /*auto fov = get_json_value<float>(component, "fov");
                 auto _near = get_json_value<float>(component, "near");
-                auto _far = get_json_value<float>(component, "far");
+                auto _far = get_json_value<float>(component, "far");*/
+                /*auto fov = get_json_value<float>(component, "fov");
+                auto _near = get_json_value<float>(component, "near");
+                auto _far = get_json_value<float>(component, "far");*/
 
                 // I should bring these from the scene
                 Matrix4 view = Matrix4::CreateLookAt(
@@ -94,18 +123,18 @@ void LoadScene(entt::registry* registry, const std::string& path) {
                 );
 
                 Matrix4 projection = Matrix4::CreatePerspectiveFOV(
-                    Math::ToRadians(*fov),
+                    Math::ToRadians(fov),
                     1024, // width hardcoded for now
                     768, // height 
-                    *_near,
-                    *_far
+                    _near,
+                    _far
                 );
 
                 if (fov && _near && _far) {
                     auto& cam = registry->emplace<Camera>(e);
-                    cam.fov = *fov;
-                    cam.nearPlane = *_near;
-                    cam.farPlane = *_far;
+                    cam.fov = fov;
+                    cam.nearPlane = _near;
+                    cam.farPlane = _far;
                     cam.viewMatrix = view;
                     cam.projectionMatrix = projection;
                 }
@@ -115,12 +144,12 @@ void LoadScene(entt::registry* registry, const std::string& path) {
             }
 
             if (type == "translation") {
-                if (component["position"].is_array() && component["position"].size() == 3) {
+                if (component.HasMember("position") && component["position"].IsArray() &&
+                    component["position"].Size() == 3) {
                     auto& pos = registry->emplace<Translation>(e);
-					pos.position.x = component["position"][0];
-					pos.position.y = component["position"][1];
-					pos.position.z = component["position"][2];
-
+                    pos.position.x = component["position"][0].GetFloat();
+                    pos.position.y = component["position"][1].GetFloat();
+                    pos.position.z = component["position"][2].GetFloat();
                 }
                 else {
                     std::cerr << "Translation component skipped due to missing data." << std::endl;
@@ -128,16 +157,17 @@ void LoadScene(entt::registry* registry, const std::string& path) {
             }
 
             if (type == "rotation") {
-                if (component["euler"].is_array() && component["euler"].size() == 3) {
-					Vector3 rotEuler;
-                    rotEuler.x = component["euler"][0];
-                    rotEuler.y = component["euler"][1];
-                    rotEuler.z = component["euler"][2];
+                if (component.HasMember("euler") && component["euler"].IsArray() &&
+                    component["euler"].Size() == 3) {
+                    Vector3 rotEuler;
+                    rotEuler.x = component["euler"][0].GetFloat();
+                    rotEuler.y = component["euler"][1].GetFloat();
+                    rotEuler.z = component["euler"][2].GetFloat();
                     auto& rot = registry->emplace<Rotation>(e);
-					rot.rotation = Quaternion::EulerToQuaternion(rotEuler);
-				}
-				else {
-					std::cerr << "Rotation component skipped due to missing data." << std::endl;
+                    rot.rotation = Quaternion::EulerToQuaternion(rotEuler);
+                }
+                else {
+                    std::cerr << "Rotation component skipped due to missing data." << std::endl;
                 }
             }
 
@@ -152,13 +182,13 @@ void LoadScene(entt::registry* registry, const std::string& path) {
                 input.backKey = SDL_SCANCODE_S;
                 input.clockwiseKey = SDL_SCANCODE_D;
                 input.counterClockwiseKey = SDL_SCANCODE_A;
-                input.maxFwdSpeed = component["forwardSpeed"]; 
-                input.maxAngSpeed = component["angularSpeed"];
+                input.maxFwdSpeed = component["forwardSpeed"].GetFloat(); 
+                input.maxAngSpeed = component["angularSpeed"].GetFloat();
             }
 
 			if (type == "mesh") {
-                if (component["filePath"].is_string()) {
-                    std::string path = component["filePath"];
+                if (component["filePath"].IsString()) {
+                    std::string path = component["filePath"].GetString();
                     path = "Assets/" + path;
                     Mesh vertexArray{};                    
                     if (path.ends_with(".obj") && !LoadOBJMesh(path, vertexArray)) {
@@ -174,8 +204,8 @@ void LoadScene(entt::registry* registry, const std::string& path) {
 			}
 
             if (type == "model") {
-                if (component["filePath"].is_string()) {
-                    std::string path = component["filePath"];
+                if (component["filePath"].IsString()) {
+                    std::string path = component["filePath"].GetString();
                     path = "Assets/" + path;
                     Mesh vertexArray{};
                     if (path.ends_with(".gltf") || path.ends_with(".glb")) {
@@ -189,9 +219,9 @@ void LoadScene(entt::registry* registry, const std::string& path) {
             }
 
             if (type == "material") {
-                if (component["shader"].is_string())
+                if (component["shader"].IsString())
                 {
-                    std::string path = component["shader"];
+                    std::string path = component["shader"].GetString();
                     std::string fragmentPath = "Assets/" + path + ".frag";
                     std::string vertexPath = "Assets/" + path + ".vert";
                     Shader shaderProgramID = LoadShader(vertexPath, fragmentPath);
@@ -201,8 +231,8 @@ void LoadScene(entt::registry* registry, const std::string& path) {
             }
 
             if (type == "texture") {
-                if (component["filePath"].is_string()) {
-                    std::string path = component["filePath"];
+                if (component["filePath"].IsArray()) {
+                    std::string path = component["filePath"].GetString();
                     path = "Assets/" + path; 
                     Texture t;
                     t = LoadTexture(path);
@@ -215,8 +245,8 @@ void LoadScene(entt::registry* registry, const std::string& path) {
             }
 
             if (type == "sprite") {
-                if (component["filePath"].is_string()) {
-                    std::string path = component["filePath"];
+                if (component["filePath"].IsArray()) {
+                    std::string path = component["filePath"].GetString();
                     path = "Assets/" + path;
                     auto t = LoadTexture(path);
                     auto& sprite = registry->emplace<Sprite>(e);
@@ -236,28 +266,28 @@ void LoadScene(entt::registry* registry, const std::string& path) {
             }
 
             if (type == "ambientLight") {
-                if (component["color"].is_array() && component["color"].size() == 3) {
+                if (component["color"].IsArray() && component["color"].Size() == 3) {
                     auto& alc = registry->emplace<AmbientLightColor>(e);
-                    alc.color.x = component["color"][0];
-                    alc.color.y = component["color"][1];
-                    alc.color.z = component["color"][2];
+                    alc.color.x = component["color"][0].GetFloat();
+                    alc.color.y = component["color"][1].GetFloat();
+                    alc.color.z = component["color"][2].GetFloat();
                 }
             }
 
             if (type == "directionalLight") {
-                if (component["direction"].is_array() && component["direction"].size() == 3) {
+                if (component["direction"].IsArray() && component["direction"].Size() == 3) {
                     auto& alc = registry->emplace<DirectionalLight>(e);
-                    alc.direction.x = component["direction"][0];
-                    alc.direction.y = component["direction"][1];
-                    alc.direction.z = component["direction"][2];
+                    alc.direction.x = component["direction"][0].GetFloat();
+                    alc.direction.y = component["direction"][1].GetFloat();
+                    alc.direction.z = component["direction"][2].GetFloat();
 
-                    alc.diffuseColor.x = component["diffuseColor"][0];
-                    alc.diffuseColor.y = component["diffuseColor"][1];
-                    alc.diffuseColor.z = component["diffuseColor"][2];
+                    alc.diffuseColor.x = component["diffuseColor"][0].GetFloat();
+                    alc.diffuseColor.y = component["diffuseColor"][1].GetFloat();
+                    alc.diffuseColor.z = component["diffuseColor"][2].GetFloat();
 
-                    alc.specColor.x = component["specColor"][0];
-                    alc.specColor.y = component["specColor"][1];
-                    alc.specColor.z = component["specColor"][2];
+                    alc.specColor.x = component["specColor"][0].GetFloat();
+                    alc.specColor.y = component["specColor"][1].GetFloat();
+                    alc.specColor.z = component["specColor"][2].GetFloat();
                 }
             }
 
