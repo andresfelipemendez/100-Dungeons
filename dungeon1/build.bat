@@ -1,22 +1,27 @@
 @echo off
-call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
+setlocal enabledelayedexpansion
 
-set COMPILER="C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.38.33130\bin\Hostx64\x64\cl.exe"
+:: Set the project root directory (assuming the script is in the project root)
+set "PROJECT_ROOT=%~dp0"
+set "BUILD_DIR=%PROJECT_ROOT%build"
 
-set FLAGS=/std:c++17 /EHsc /Zi /Iinclude /Ilib/flecs /Ilib/GLFW/include /Ilib /Ilib/glad  /Ilib/tinygltf /Isrc
+:: Check if build directory exists
+if not exist "%BUILD_DIR%" (
+    echo Build directory does not exist. Please run generate.bat first.
+    exit /b 1
+)
 
-set LINK_FLAGS=ws2_32.lib kernel32.lib user32.lib gdi32.lib shell32.lib winmm.lib advapi32.lib lib\glfw\lib-vc2022\glfw3.lib ucrt.lib vcruntime.lib msvcrt.lib /NODEFAULTLIB:libcmt
+:: Build the project
+echo Building the project...
+cmake --build "%BUILD_DIR%" --config Debug
 
-set SOURCE_C=lib\flecs\flecs.c 
-set OBJECT_C=lib\flecs\flecs.obj 
+:: Check if the build was successful
+if %ERRORLEVEL% neq 0 (
+    echo Build failed.
+    exit /b %ERRORLEVEL%
+)
 
-set SOURCE=src\main.cpp src\model.cpp
-set OUTPUT=bin\game.exe
+echo Build completed successfully.
+echo Executable can be found in %BUILD_DIR%\Debug\
 
-%COMPILER% /c %SOURCE_C% /Fo%OBJECT_C% /Zi
-
-%COMPILER% /c lib\glad\glad.c /Folib\glad\glad.obj /Zi
-
-%COMPILER% %FLAGS% %SOURCE% %OBJECT_C% lib\glad\glad.obj /link %LINK_FLAGS% /OUT:%OUTPUT% /DEBUG
-
-%OUTPUT%
+endlocal
