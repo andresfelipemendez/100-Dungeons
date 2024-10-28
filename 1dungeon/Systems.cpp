@@ -132,6 +132,8 @@ void RenderSystem(GameData *gd, entt::registry *registry) {
       const Texture, 
       const Translation, 
       const Rotation>();
+  auto a = spriteView.size_hint();
+
   spriteView.each([&viewProj,&alc, &invView, &dl]
     (
         const Shader& shader, 
