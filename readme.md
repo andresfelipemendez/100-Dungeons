@@ -5,10 +5,12 @@
 The engine currently only renders static meshes. Skinned animation support is planned for future implementation.
 
 ## Overview
+100 Dungeons is a personal project inspired by the legendary Zelda games and serves as a way to apply my knowledge of data-oriented design and game engine architecture. The goal is to design and create 100 unique dungeons, each inspired by the classic Zelda-style gameplay but in a 3D environment. This project is not only about developing engaging dungeons but also about iterating on the game engine that supports these small, simple, but immersive levels.
 
-**100 Dungeons** is a personal project inspired by the legendary Zelda games and serves as a way to apply my knowledge of data-oriented design and game engine architecture. The goal is to design and create 100 unique dungeons, each inspired by the classic Zelda-style gameplay, but in a 3D environment. This project aims to not only develop interesting dungeons but also iterate on the game engine that supports these small, simple, but engaging levels.
+The project integrates elements from previous engines I've developed, including systems I built when [reimplementing](https://github.com/andresfelipemendez/GP1) examples from "Game Programming in C++" by Sanjay Madhav, as well as hot-reloading features from [Anitra](https://github.com/andresfelipemendez/anitra). In Anitra, I implemented directory watching to recompile when source files are saved and added support for ImGui reloading. These experiences will help enhance 100 Dungeons by making development efficient and modular.
 
-The project is a learning journey focused on dungeon design, putting into practice what I've learned about data-oriented design and game engine development to create these experiences. The idea is to learn how to develop dungeons systematically while iteratively improving the tools and technologies that make them come to life.
+Additionally, I’ll be replacing the scene description format from JSON to YAML for this engine, favoring YAML for its compactness and readability and for the ability to specify data types, such as !!float. The engine will also replace the ENTT ECS architecture from GP1 with Flecs, allowing for a more flexible and performance-oriented approach to entity management.
+
 
 ## Features
 - **Manually Designed Dungeons:** Each of the 100 dungeons will vary in size, layout, and complexity, providing a variety of challenges.
