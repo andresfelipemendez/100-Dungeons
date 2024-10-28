@@ -1,0 +1,38 @@
+[
+{
+  "directory": "C:/Users/fmend/Development/GP1/Chapter 5 ECS/build/build",
+  "command": "C:\\PROGRA~1\\LLVM\\bin\\CLANG_~1.EXE  -I\"C:/Users/fmend/Development/GP1/Lib/stb\" -I\"C:/Users/fmend/Development/GP1/Lib/glew-2.1.0/include\" -I\"C:/Users/fmend/Development/GP1/Lib/SDL2/include\" -I\"C:/Users/fmend/Development/GP1/Lib/entt/include\" -I\"C:/Users/fmend/Development/GP1/Lib/SDL2_image/include\" -O0 -g -Xclang -gcodeview -std=gnu++17 -D_DEBUG -D_DLL -D_MT -Xclang --dependent-lib=msvcrtd -o CMakeFiles\\Game.dir\\Main.cpp.obj -c \"C:\\Users\\fmend\\Development\\GP1\\Chapter 5 ECS\\Main.cpp\"",
+  "file": "C:\\Users\\fmend\\Development\\GP1\\Chapter 5 ECS\\Main.cpp",
+  "output": "CMakeFiles\\Game.dir\\Main.cpp.obj"
+},
+{
+  "directory": "C:/Users/fmend/Development/GP1/Chapter 5 ECS/build/build",
+  "command": "C:\\PROGRA~1\\LLVM\\bin\\CLANG_~1.EXE  -I\"C:/Users/fmend/Development/GP1/Lib/stb\" -I\"C:/Users/fmend/Development/GP1/Lib/glew-2.1.0/include\" -I\"C:/Users/fmend/Development/GP1/Lib/SDL2/include\" -I\"C:/Users/fmend/Development/GP1/Lib/entt/include\" -I\"C:/Users/fmend/Development/GP1/Lib/SDL2_image/include\" -O0 -g -Xclang -gcodeview -std=gnu++17 -D_DEBUG -D_DLL -D_MT -Xclang --dependent-lib=msvcrtd -o CMakeFiles\\Game.dir\\Game.cpp.obj -c \"C:\\Users\\fmend\\Development\\GP1\\Chapter 5 ECS\\Game.cpp\"",
+  "file": "C:\\Users\\fmend\\Development\\GP1\\Chapter 5 ECS\\Game.cpp",
+  "output": "CMakeFiles\\Game.dir\\Game.cpp.obj"
+},
+{
+  "directory": "C:/Users/fmend/Development/GP1/Chapter 5 ECS/build/build",
+  "command": "C:\\PROGRA~1\\LLVM\\bin\\CLANG_~1.EXE  -I\"C:/Users/fmend/Development/GP1/Lib/stb\" -I\"C:/Users/fmend/Development/GP1/Lib/glew-2.1.0/include\" -I\"C:/Users/fmend/Development/GP1/Lib/SDL2/include\" -I\"C:/Users/fmend/Development/GP1/Lib/entt/include\" -I\"C:/Users/fmend/Development/GP1/Lib/SDL2_image/include\" -O0 -g -Xclang -gcodeview -std=gnu++17 -D_DEBUG -D_DLL -D_MT -Xclang --dependent-lib=msvcrtd -o CMakeFiles\\Game.dir\\Systems.cpp.obj -c \"C:\\Users\\fmend\\Development\\GP1\\Chapter 5 ECS\\Systems.cpp\"",
+  "file": "C:\\Users\\fmend\\Development\\GP1\\Chapter 5 ECS\\Systems.cpp",
+  "output": "CMakeFiles\\Game.dir\\Systems.cpp.obj"
+},
+{
+  "directory": "C:/Users/fmend/Development/GP1/Chapter 5 ECS/build/build",
+  "command": "C:\\PROGRA~1\\LLVM\\bin\\CLANG_~1.EXE  -I\"C:/Users/fmend/Development/GP1/Lib/stb\" -I\"C:/Users/fmend/Development/GP1/Lib/glew-2.1.0/include\" -I\"C:/Users/fmend/Development/GP1/Lib/SDL2/include\" -I\"C:/Users/fmend/Development/GP1/Lib/entt/include\" -I\"C:/Users/fmend/Development/GP1/Lib/SDL2_image/include\" -O0 -g -Xclang -gcodeview -std=gnu++17 -D_DEBUG -D_DLL -D_MT -Xclang --dependent-lib=msvcrtd -o CMakeFiles\\Game.dir\\Math.cpp.obj -c \"C:\\Users\\fmend\\Development\\GP1\\Chapter 5 ECS\\Math.cpp\"",
+  "file": "C:\\Users\\fmend\\Development\\GP1\\Chapter 5 ECS\\Math.cpp",
+  "output": "CMakeFiles\\Game.dir\\Math.cpp.obj"
+},
+{
+  "directory": "C:/Users/fmend/Development/GP1/Chapter 5 ECS/build/build",
+  "command": "C:\\PROGRA~1\\LLVM\\bin\\CLANG_~1.EXE  -I\"C:/Users/fmend/Development/GP1/Lib/stb\" -I\"C:/Users/fmend/Development/GP1/Lib/glew-2.1.0/include\" -I\"C:/Users/fmend/Development/GP1/Lib/SDL2/include\" -I\"C:/Users/fmend/Development/GP1/Lib/entt/include\" -I\"C:/Users/fmend/Development/GP1/Lib/SDL2_image/include\" -O0 -g -Xclang -gcodeview -std=gnu++17 -D_DEBUG -D_DLL -D_MT -Xclang --dependent-lib=msvcrtd -o CMakeFiles\\Game.dir\\Random.cpp.obj -c \"C:\\Users\\fmend\\Development\\GP1\\Chapter 5 ECS\\Random.cpp\"",
+  "file": "C:\\Users\\fmend\\Development\\GP1\\Chapter 5 ECS\\Random.cpp",
+  "output": "CMakeFiles\\Game.dir\\Random.cpp.obj"
+},
+{
+  "directory": "C:/Users/fmend/Development/GP1/Chapter 5 ECS/build/build",
+  "command": "C:\\PROGRA~1\\LLVM\\bin\\CLANG_~1.EXE  -I\"C:/Users/fmend/Development/GP1/Lib/stb\" -I\"C:/Users/fmend/Development/GP1/Lib/glew-2.1.0/include\" -I\"C:/Users/fmend/Development/GP1/Lib/SDL2/include\" -I\"C:/Users/fmend/Development/GP1/Lib/entt/include\" -I\"C:/Users/fmend/Development/GP1/Lib/SDL2_image/include\" -O0 -g -Xclang -gcodeview -std=gnu++17 -D_DEBUG -D_DLL -D_MT -Xclang --dependent-lib=msvcrtd -o CMakeFiles\\Game.dir\\Random.cpp.obj -c \"C:\\Users\\fmend\\Development\\GP1\\Chapter 5 ECS\\Random.cpp\"",
+  "file": "C:\\Users\\fmend\\Development\\GP1\\Chapter 5 ECS\\Rendering.cpp",
+  "output": "CMakeFiles\\Game.dir\\Rendering.cpp.obj"
+}
+]
