@@ -1,1 +1,5 @@
-﻿  Game.vcxproj -> C:\Users\andres\Development\100 Dungeons\1dungeon\x64\Debug\Game.exe
+﻿  AssetLoader.cpp
+  Systems.cpp
+  Generating Code...
+  LINK : C:\Users\andres\Development\100 Dungeons\1dungeon\x64\Debug\Game.exe not found or not built by the last incremental link; performing full link
+  Game.vcxproj -> C:\Users\andres\Development\100 Dungeons\1dungeon\x64\Debug\Game.exe
