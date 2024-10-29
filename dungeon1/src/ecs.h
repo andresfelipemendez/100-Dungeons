@@ -14,10 +14,34 @@ struct Transforms {
     Vec3* positions;
 };
 
+struct Rotations {
+    size_t count;
+    size_t* entity_ids;
+    Vec3* rotations;
+};
+
 struct Models {
     size_t count;
     size_t* entity_ids;
     Vec3* positions;
+};
+
+struct Shaders {
+    size_t count;
+    size_t* entity_ids;
+    unsigned int *program_IDs;
+};
+
+struct Texture {
+	unsigned int textureID;
+	int texWidth;
+	int texHeight;
+};
+
+struct Textures {
+    size_t count;
+    size_t* entity_ids;
+    Texture *textures;
 };
 
 struct World {

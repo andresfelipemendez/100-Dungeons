@@ -18,6 +18,9 @@
     X(rotation)      \
     X(fov)           \
     X(intensity)     \
+    X(model)         \
+    X(material)      \
+    X(texture)       \
     X(file)
 
 enum SubkeyType {
@@ -96,6 +99,15 @@ void load_level(game* g, const char* levelFilePath) {
 
                             printf("  %s = { r = %.2f, g = %.2f, b = %.2f }\n", type_key, r.u.d, g.u.d, b.u.d);
                         }
+                        break;
+                    }
+                    case model_TYPE: {
+                        break;
+                    }
+                    case material_TYPE: {
+                        break;
+                    }
+                    case texture_TYPE: {
                         break;
                     }
                     case fov_TYPE: {
