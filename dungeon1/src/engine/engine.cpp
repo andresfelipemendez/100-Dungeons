@@ -29,8 +29,8 @@ EXPORT void hotreloadable_imgui_draw(game *g) {
 
   ImGui::InputText("New Entity Name", new_name, IM_ARRAYSIZE(new_name));
   if (ImGui::Button("Add New Entity")) {
-        MySaveFunction(g, new_name);  // Create a new entity with the specified name
-        new_name[0] = '\0';           // Clear the name input after creation
+        MySaveFunction(g, new_name);  
+        new_name[0] = '\0';           
     }
   ImGui::End();
 }

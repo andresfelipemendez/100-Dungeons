@@ -7,8 +7,10 @@
 #include <imgui_impl_opengl3.h>
 
 #include <GLFW/glfw3.h>
+#include <corecrt_malloc.h>
 
-#include <flecs.h>
+#include <levelLoader.h>
+
 hotreloadable_imgui_draw_func g_imguiUpdate = NULL;
 
 ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -16,6 +18,8 @@ ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 static void glfw_error_callback(int error, const char *description) {
   fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
+
+
 EXPORT int init_externals(game *g) {
   glfwSetErrorCallback(glfw_error_callback);
 
@@ -25,8 +29,8 @@ EXPORT int init_externals(game *g) {
   }
 
   const char *glsl_version = "#version 150";
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // 3.2+ only
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);           // 3.0+ only
 
@@ -52,9 +56,9 @@ EXPORT int init_externals(game *g) {
   ImGuiIO &io = ImGui::GetIO();
   (void)io;
   io.ConfigFlags |=
-      ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+      ImGuiConfigFlags_NavEnableKeyboard;
   io.ConfigFlags |=
-      ImGuiConfigFlags_NavEnableGamepad; // Enable Gamepad Controls
+      ImGuiConfigFlags_NavEnableGamepad; 
 
   ImGui::StyleColorsDark();
   ImGui::SetCurrentContext(ctx);
@@ -82,6 +86,9 @@ EXPORT int init_externals(game *g) {
   ImGui::GetAllocatorFunctions(&g->alloc_func, &g->free_func, &g->user_data);
 
   g->world = calloc(1, 1024);
+
+  load_level(g, "scene.toml");
+
   return 1;
 }
 
