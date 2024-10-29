@@ -5,26 +5,27 @@
 The engine currently only renders static meshes. Skinned animation support is planned for future implementation.
 
 ## Overview
-100 Dungeons is a personal project inspired by the legendary Zelda games and serves as a way to apply my knowledge of data-oriented design and game engine architecture. The goal is to design and create 100 unique dungeons, each inspired by the classic Zelda-style gameplay but in a 3D environment. This project is not only about developing engaging dungeons but also about iterating on the game engine that supports these small, simple, but immersive levels.
+**100 Dungeons** is a personal project inspired by the legendary Zelda games, aimed at designing 100 unique, immersive dungeons with classic Zelda-style gameplay in a 3D environment. This project is both a creative and technical challenge, allowing me to iterate on my game engine architecture while creating simple yet engaging dungeon experiences.
 
-The project integrates elements from previous engines I've developed, including systems I built when [reimplementing](https://github.com/andresfelipemendez/GP1) examples from "Game Programming in C++" by Sanjay Madhav, as well as hot-reloading features from [Anitra](https://github.com/andresfelipemendez/anitra). In Anitra, I implemented directory watching to recompile when source files are saved and added support for ImGui reloading. These experiences will help enhance 100 Dungeons by making development efficient and modular.
+The engine builds upon systems from previous projects, incorporating modular design and real-time updates via hot-reloading and directory-watching features from [Anitra](https://github.com/andresfelipemendez/anitra). Additionally, the project draws on my experience [reimplementing](https://github.com/andresfelipemendez/GP1) examples from *Game Programming in C++* by Sanjay Madhav to create a streamlined development workflow.
 
-Additionally, I’ll be replacing the scene description format from JSON to YAML for this engine, favoring YAML for its compactness and readability and for the ability to specify data types, such as !!float. The engine will also replace the ENTT ECS architecture from GP1 with Flecs, allowing for a more flexible and performance-oriented approach to entity management.
+For the scene description format, I’ve replaced JSON with TOML, which provides straightforward handling of data types without YAML's added complexity. I’m also developing a custom ECS tailored to this engine's needs, reusing my knowledge of manual memory layout from the "direct x pong engine" project ([DirectX Pong Engine](https://github.com/andresfelipemendez/C-D3D11-Engine)). This ECS gives me precise memory control from within the hot-reloaded DLL, enhancing flexibility and performance.
 
+Here's the updated overview with your choice of *fastgltf* integrated:
 
 ## Features
-- **Manually Designed Dungeons:** Each of the 100 dungeons will vary in size, layout, and complexity, providing a variety of challenges.
-- **Iterative Engine Development:** The engine is being continuously developed and improved as the project progresses, focusing on features that support dungeon creation and gameplay.
-- **Flecs-based ECS Architecture:** The engine utilizes the Flecs ECS (Entity Component System) to manage game entities, making the code modular and efficient.
-- **OpenGL 4.5 Rendering:** The project uses OpenGL 4.5 for rendering the dungeons, allowing for flexibility and control over the graphical output.
-- **GLTF for Mesh and Animation Loading:** Assets are loaded using the glTF format, which allows for efficient loading of 3D models and animations.
+- **Manually Designed Dungeons:** Each of the 100 dungeons will be unique, offering varied layouts and challenges.
+- **Iterative Engine Development:** The engine undergoes continuous improvements, adding features tailored to dungeon creation and gameplay as development progresses.
+- **Custom ECS Architecture:** A streamlined, custom-built ECS system allows direct memory management within the hot-reloaded DLL, drawing on manual memory layout techniques from prior engine projects.
+- **OpenGL 4.5 Rendering:** Rendering is handled via OpenGL 4.5, providing extensive control over graphical output and flexibility in visual presentation.
+- **GLTF for Mesh and Animation Loading:** The engine uses *fastgltf* to handle glTF assets, ensuring efficient loading of 3D models and animations.
 
 ## Libraries and Tools
-- **[Flecs](https://github.com/SanderMertens/flecs):** Used for managing entities and components.
-- **[GLFW](https://github.com/glfw/glfw):** For window management and input handling.
-- **[GLAD](https://glad.dav1d.de/):** For loading OpenGL 4.5 extensions.
-- **[GLM](https://github.com/g-truc/glm):** Mathematics library for OpenGL to handle transformations.
-- **Assimp or tinygltf:** For loading 3D models and animations in glTF format.
+- **[GLFW](https://github.com/glfw/glfw):** Manages windowing and input handling.
+- **[GLAD](https://glad.dav1d.de/):** Loads OpenGL 4.5 extensions.
+- **[GLM](https://github.com/g-truc/glm):** A mathematics library used for OpenGL transformations.
+- **[tomlc99](https://github.com/cktan/tomlc99):** Parses TOML files for managing scene descriptions and configurations.
+- **[fastgltf](https://github.com/spnda/fastgltf):** Supports efficient loading of 3D models and animations in the glTF format.
 
 ## How to Run
 1. **Install Dependencies:** Ensure you have the required libraries installed (Flecs, GLFW, GLAD, GLM, etc.).

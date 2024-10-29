@@ -16,10 +16,40 @@ void MySaveFunction(game *g, const char* entity_name) {
   w->entity_count  ++;
 }
 
-static char new_name[128] = ""; 
-
 EXPORT void init_engine(game *g) {
   printf("init_engine\n");
+
+  MemoryHeader* header = (MemoryHeader*)g->world;
+
+  // size_t total_entities = header->world.entity_count;
+  // size_t offset = sizeof(MemoryHeader);
+
+  // header->world.entity_ids = (size_t*)((char*)header + offset);
+  // offset += sizeof(size_t) * total_entities;
+
+  // header->world.component_masks = (uint32_t*)((char*)header + offset);
+  // offset += sizeof(uint32_t) * total_entities; 
+
+  // header->transforms.count = total_entities;
+  // header->transforms.offset = offset;
+  // offset += sizeof(size_t) * total_entities + sizeof(Vec3) * total_entities;
+
+  // header->rotations.count = total_entities;
+  // header->rotations.offset = offset;
+  // offset += sizeof(size_t) * total_entities + sizeof(Vec3) * total_entities;
+
+  // header->models.count = total_entities;
+  // header->models.offset = offset;
+  // offset += sizeof(size_t) * total_entities + sizeof(Vec3) * total_entities;
+
+  // header->shaders.count = total_entities;
+  // header->shaders.offset = offset;
+  // offset += sizeof(size_t) * total_entities + sizeof(unsigned int) * total_entities;
+
+  // header->textures.count = total_entities;
+  // header->textures.offset = offset;
+  // offset += sizeof(size_t) * total_entities + sizeof(Texture) * total_entities;
+
 }
 
 EXPORT void hotreloadable_imgui_draw(game *g) {
@@ -33,12 +63,6 @@ EXPORT void hotreloadable_imgui_draw(game *g) {
      w->entity_count = static_cast<size_t>(temp_entity_count);
   }
 
-  ImGui::Separator();
-
-  ImGui::InputText("New Entity Name", new_name, IM_ARRAYSIZE(new_name));
-  if (ImGui::Button("Add New Entity")) {
-        MySaveFunction(g, new_name);  
-        new_name[0] = '\0';           
-    }
+ 
   ImGui::End();
 }

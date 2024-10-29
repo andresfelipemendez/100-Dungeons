@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+
 union Vec3 {
     struct { float x, y, z; };         
     struct { float r, g, b; };         
@@ -50,3 +51,17 @@ struct World {
     uint32_t* component_masks;
 };
 
+struct ComponentTable {
+    size_t count;         
+    size_t offset;        
+};
+
+struct MemoryHeader {
+    World world;
+    ComponentTable transforms;
+    ComponentTable rotations;
+    ComponentTable models;
+    ComponentTable shaders;
+    ComponentTable textures;
+    size_t total_size;     
+};
