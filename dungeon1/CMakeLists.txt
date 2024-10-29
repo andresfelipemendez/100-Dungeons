@@ -48,6 +48,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE GLFW_STATIC)
 
 set(EXTERNALS_SRC_FILES
     src/externals/externals.cpp
+    src/externals/LevelSerializer.cpp
     ${IMGUI_DIR}/imgui.cpp
     ${IMGUI_DIR}/imgui_demo.cpp
     ${IMGUI_DIR}/imgui_draw.cpp

@@ -9,7 +9,7 @@
 #include <GLFW/glfw3.h>
 #include <corecrt_malloc.h>
 
-#include <levelLoader.h>
+#include "LevelSerializer.h"
 
 hotreloadable_imgui_draw_func g_imguiUpdate = NULL;
 

@@ -1,7 +1,5 @@
-#pragma once
-#include <toml.h>
+#include "LevelSerializer.h"
 
-#include <game.h>
 
 #include <fstream>
 #include <string>
@@ -46,6 +44,7 @@ void load_level(game* g, const char* levelFilePath) {
         }
     }
 }
+
 
 
 
