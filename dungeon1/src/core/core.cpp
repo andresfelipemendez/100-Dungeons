@@ -57,6 +57,10 @@ EXPORT void init() {
   signalThread.detach();
 
   game g;
+  g.world = malloc(100 * 1024);
+  if (g.world != NULL) {
+    memset(g.world, 0, 100 * 1024);  // Set all allocated memory to zero
+  }
 
   std::string src = cwd + "\\build\\debug\\engine.dll";
   std::string dest = cwd + "\\build\\debug\\engine_copy.dll";

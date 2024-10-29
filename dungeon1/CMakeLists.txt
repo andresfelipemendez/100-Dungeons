@@ -61,11 +61,12 @@ add_library(externals SHARED ${EXTERNALS_SRC_FILES})
 
 target_include_directories(
   externals
-  PRIVATE "${CMAKE_SOURCE_DIR}/src/engine"
-          "${CMAKE_SOURCE_DIR}/src/core"
-          "${CMAKE_SOURCE_DIR}/src/externals"
+  PRIVATE 
           "${CMAKE_SOURCE_DIR}/src"
           "${CMAKE_SOURCE_DIR}/include"
+          "${CMAKE_SOURCE_DIR}/src/core"
+          "${CMAKE_SOURCE_DIR}/src/engine"
+          "${CMAKE_SOURCE_DIR}/src/externals"
           "${IMGUI_DIR}"
           "${IMGUI_DIR}/backends"
           "${OPENGL_INCLUDE_DIR}"
@@ -97,10 +98,11 @@ target_include_directories(
           "${GLFW_INCLUDE_DIR}"
           "${TOML_INCLUDE_DIR}")
 
-target_link_libraries(core PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH} ${RYML_LIB_PATH}
-                                   externals toml)
+target_link_libraries(core PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH} ${RYML_LIB_PATH} externals toml)
 
-set(ENGINE_SRC_FILES src/engine/engine.cpp)
+              
+file(GLOB ENGINE_SRC_FILES "src/engine/*.cpp")
+file(GLOB ENGINE_HEADER_FILES "src/engine/*.h")
 
 add_library(engine SHARED ${ENGINE_SRC_FILES})
 

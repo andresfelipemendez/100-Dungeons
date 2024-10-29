@@ -1,13 +1,15 @@
+#pragma once
 #include <stdlib.h>
 #include <stdint.h>
 
+#define ENTITY_NAME_LENGTH 16
 
-union Vec3 {
+typedef union Vec3 {
     struct { float x, y, z; };         
     struct { float r, g, b; };         
     struct { float pitch, yaw, roll; };
     float data[3];                     
-};
+} Vec3;
 
 struct Transforms {
     size_t count;
@@ -33,28 +35,29 @@ struct Shaders {
     unsigned int *program_IDs;
 };
 
-struct Texture {
+typedef struct Texture {
 	unsigned int textureID;
 	int texWidth;
 	int texHeight;
-};
+} Texture;
 
-struct Textures {
+typedef struct Textures {
     size_t count;
     size_t* entity_ids;
     Texture *textures;
-};
+} Textures;
 
-struct World {
+typedef struct World {
     size_t entity_count;
     size_t* entity_ids;
     uint32_t* component_masks;
-};
+    char (*entity_names)[ENTITY_NAME_LENGTH];
+} World;
 
-struct ComponentTable {
+typedef struct ComponentTable {
     size_t count;         
     size_t offset;        
-};
+} ComponentTable;
 
 struct MemoryHeader {
     World world;
@@ -65,3 +68,5 @@ struct MemoryHeader {
     ComponentTable textures;
     size_t total_size;     
 };
+
+size_t create_entity(struct game* g);

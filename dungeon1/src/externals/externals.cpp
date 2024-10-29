@@ -84,8 +84,6 @@ EXPORT int init_externals(game *g) {
   g->ctx = ctx;
   ImGui::GetAllocatorFunctions(&g->alloc_func, &g->free_func, &g->user_data);
 
-  g->world = calloc(1, 1024);
-
   load_level(g, "scene.toml");
 
   return 1;
