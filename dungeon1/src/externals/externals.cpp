@@ -7,9 +7,8 @@
 #include <imgui_impl_opengl3.h>
 
 #include <GLFW/glfw3.h>
+
 #include <flecs.h>
-
-
 hotreloadable_imgui_draw_func g_imguiUpdate = NULL;
 
 ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -26,8 +25,8 @@ EXPORT int init_externals(game *g) {
   }
 
   const char *glsl_version = "#version 150";
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // 3.2+ only
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);           // 3.0+ only
 
@@ -78,11 +77,11 @@ EXPORT int init_externals(game *g) {
   }
 
   g->play = true;
+
   g->ctx = ctx;
   ImGui::GetAllocatorFunctions(&g->alloc_func, &g->free_func, &g->user_data);
 
-  g->world = ecs_init();
-
+  g->world = calloc(1, 1024);
   return 1;
 }
 

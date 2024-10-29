@@ -22,22 +22,28 @@ add_executable(${PROJECT_NAME} ${SRC_FILES})
 
 find_package(OpenGL REQUIRED)
 
-set(GLFW_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lib/glfw/include")
-set(GLFW_LIB_PATH "${CMAKE_SOURCE_DIR}/lib/glfw/lib/glfw3.lib")
-
-set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/lib/imgui-1.90.9")
 
 set(FLECS_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lib/flecs")
 set(FLECS_SRC_FILES "${CMAKE_SOURCE_DIR}/lib/flecs/flecs.c")
-add_library(flecs SHARED ${FLECS_SRC_FILES})
+add_library(flecs STATIC  ${FLECS_SRC_FILES})
+
+set(GLFW_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lib/glfw/include")
+set(GLFW_LIB_PATH    "${CMAKE_SOURCE_DIR}/lib/glfw/lib/glfw3.lib")
+
+set(TOML_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lib/toml")
+set(TOML_SRC_FILES "${CMAKE_SOURCE_DIR}/lib/toml/toml.c")
+
+add_library(toml STATIC ${TOML_SRC_FILES})
+
+
+set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/lib/imgui-1.90.9")
 
 target_include_directories(
   ${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/include" "${OPENGL_INCLUDE_DIR}"
-                          "${GLFW_INCLUDE_DIR}" )
+                          "${GLFW_INCLUDE_DIR}" "${RYML_INCLUDE_DIR}")
 
-
-
-target_link_libraries(${PROJECT_NAME} PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH})
+target_link_libraries(${PROJECT_NAME} PRIVATE ${OPENGL_LIBRARIES}
+                                              ${GLFW_LIB_PATH}  ${RYML_LIB_PATH})
 
 if(WIN32)
   target_link_libraries(${PROJECT_NAME} PRIVATE gdi32 user32 shell32)
@@ -92,9 +98,10 @@ target_include_directories(
           "${IMGUI_DIR}/backends"
           "${OPENGL_INCLUDE_DIR}"
           "${GLFW_INCLUDE_DIR}"
-          "${FLECS_INCLUDE_DIR}")
+          "${TOML_INCLUDE_DIR}")
 
-target_link_libraries(core PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH} externals flecs)
+target_link_libraries(core PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH} ${RYML_LIB_PATH}
+                                   externals toml)
 
 set(ENGINE_SRC_FILES src/engine/engine.cpp)
 
@@ -113,6 +120,7 @@ target_include_directories(
           "${GLFW_INCLUDE_DIR}"
           "${FLECS_INCLUDE_DIR}")
 
-target_link_libraries(engine PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH} externals flecs)
+target_link_libraries(engine PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH}
+                                     externals flecs)
 
 target_compile_definitions(engine PRIVATE GLFW_STATIC)

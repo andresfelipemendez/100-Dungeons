@@ -2,7 +2,6 @@
 #include "core/loadlibrary.h"
 #include <stdio.h>
 
-
 int main() {
   const char *libname = "core";
   void *lib = loadlibrary(libname);
@@ -18,6 +17,7 @@ int main() {
     return 1;
   }
 
+  // Call the init function from core.c
   init();
 
   return 0;

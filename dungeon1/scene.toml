@@ -1,0 +1,14 @@
+[camera]
+position = { x = 0.00, y = 1.00, z = 5.00 }
+fov = 45.00
+
+[light]
+position = { x = 10.00, y = 10.00, z = 10.00 }
+color = { r = 1.00, g = 1.00, b = 1.00 }
+intensity = 2.00
+
+[mesh]
+position = { x = 0.00, y = 0.00, z = 0.00 }
+scale = { x = 1.00, y = 1.00, z = 1.00 }
+rotation = { pitch = 0.00, yaw = 0.00, roll = 0.00 }
+file = "assets/models/cube.obj"
