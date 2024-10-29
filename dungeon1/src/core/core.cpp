@@ -39,7 +39,7 @@ void waitforreloadsignal(HANDLE hEvent) {
 
 std::string getCurrentWorkingDirectory() {
   char buffer[MAX_PATH];
-  GetCurrentDirectory(MAX_PATH, buffer);
+  GetCurrentDirectoryA(MAX_PATH, buffer);
   return std::string(buffer);
 }
 
@@ -49,7 +49,7 @@ EXPORT void init() {
   std::string cwd = getCurrentWorkingDirectory();
   std::cout << "Current working directory: " << cwd << std::endl;
 
-  HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, HOTRELOAD_EVENT_NAME);
+  HANDLE hEvent = CreateEventA(NULL, TRUE, FALSE, HOTRELOAD_EVENT_NAME);
   if (hEvent == NULL) {
     std::cerr << "CreateEvent failed (" << GetLastError() << ")" << std::endl;
   }
@@ -92,7 +92,7 @@ void copy_dll(const std::string &src, const std::string &dest) {
 void watch_src_directory() {
 
   std::cout << "inside watch_src_directory" << std::endl;
-  HANDLE hDir = CreateFile(
+  HANDLE hDir = CreateFileA(
       "src", FILE_LIST_DIRECTORY,
       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
       OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, NULL);

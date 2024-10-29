@@ -19,7 +19,6 @@ static void glfw_error_callback(int error, const char *description) {
   fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
-
 EXPORT int init_externals(game *g) {
   glfwSetErrorCallback(glfw_error_callback);
 

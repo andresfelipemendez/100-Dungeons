@@ -1,6 +1,5 @@
 #include "LevelSerializer.h"
 
-
 #include <fstream>
 #include <string>
 #include <sstream>
@@ -53,7 +52,6 @@ void load_level(game* g, const char* levelFilePath) {
         return;
     }
 
-    // Iterate through top-level tables (friendly names)
     for (int i = 0; ; i++) {
         const char *friendly_name = toml_key_in(level, i);
         if (!friendly_name) break;
@@ -62,7 +60,6 @@ void load_level(game* g, const char* levelFilePath) {
         if (attributes) {
             printf("[%s]\n", friendly_name);
 
-            // Handle known subkeys within each top-level entry
             for (int j = 0; ; j++) {
                 const char *type_key = toml_key_in(attributes, j);
                 if (!type_key) break;
@@ -125,36 +122,35 @@ void load_level(game* g, const char* levelFilePath) {
         }
     }
 
-    // Cleanup
     toml_free(level);
 }
 
 
 
-void write_scene_toml(const Scene *scene, const char *file_path) {
-    FILE *file = fopen(file_path, "w");
-    if (!file) {
-        fprintf(stderr, "Failed to open file for writing: %s\n", file_path);
-        return;
-    }
+void write_scene_toml(const World *scene, const char *file_path) {
+    // FILE *file = fopen(file_path, "w");
+    // if (!file) {
+    //     fprintf(stderr, "Failed to open file for writing: %s\n", file_path);
+    //     return;
+    // }
 
-    // Write camera data
-    fprintf(file, "[camera]\n");
-    fprintf(file, "position = { x = %.2f, y = %.2f, z = %.2f }\n", scene->camera.position.x, scene->camera.position.y, scene->camera.position.z);
-    fprintf(file, "fov = %.2f\n\n", scene->camera.fov);
+    // // Write camera data
+    // fprintf(file, "[camera]\n");
+    // fprintf(file, "position = { x = %.2f, y = %.2f, z = %.2f }\n", scene->camera.position.x, scene->camera.position.y, scene->camera.position.z);
+    // fprintf(file, "fov = %.2f\n\n", scene->camera.fov);
 
-    // Write light data
-    fprintf(file, "[light]\n");
-    fprintf(file, "position = { x = %.2f, y = %.2f, z = %.2f }\n", scene->light.position.x, scene->light.position.y, scene->light.position.z);
-    fprintf(file, "color = { r = %.2f, g = %.2f, b = %.2f }\n", scene->light.color.x, scene->light.color.y, scene->light.color.z);
-    fprintf(file, "intensity = %.2f\n\n", scene->light.intensity);
+    // // Write light data
+    // fprintf(file, "[light]\n");
+    // fprintf(file, "position = { x = %.2f, y = %.2f, z = %.2f }\n", scene->light.position.x, scene->light.position.y, scene->light.position.z);
+    // fprintf(file, "color = { r = %.2f, g = %.2f, b = %.2f }\n", scene->light.color.x, scene->light.color.y, scene->light.color.z);
+    // fprintf(file, "intensity = %.2f\n\n", scene->light.intensity);
 
-    // Write mesh data
-    fprintf(file, "[mesh]\n");
-    fprintf(file, "position = { x = %.2f, y = %.2f, z = %.2f }\n", scene->mesh.position.x, scene->mesh.position.y, scene->mesh.position.z);
-    fprintf(file, "scale = { x = %.2f, y = %.2f, z = %.2f }\n", scene->mesh.scale.x, scene->mesh.scale.y, scene->mesh.scale.z);
-    fprintf(file, "rotation = { pitch = %.2f, yaw = %.2f, roll = %.2f }\n", scene->mesh.rotation.x, scene->mesh.rotation.y, scene->mesh.rotation.z);
-    fprintf(file, "file = \"%s\"\n", scene->mesh.file);
+    // // Write mesh data
+    // fprintf(file, "[mesh]\n");
+    // fprintf(file, "position = { x = %.2f, y = %.2f, z = %.2f }\n", scene->mesh.position.x, scene->mesh.position.y, scene->mesh.position.z);
+    // fprintf(file, "scale = { x = %.2f, y = %.2f, z = %.2f }\n", scene->mesh.scale.x, scene->mesh.scale.y, scene->mesh.scale.z);
+    // fprintf(file, "rotation = { pitch = %.2f, yaw = %.2f, roll = %.2f }\n", scene->mesh.rotation.x, scene->mesh.rotation.y, scene->mesh.rotation.z);
+    // fprintf(file, "file = \"%s\"\n", scene->mesh.file);
 
-    fclose(file);
+    // fclose(file);
 }
