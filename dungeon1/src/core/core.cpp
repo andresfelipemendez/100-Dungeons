@@ -64,6 +64,9 @@ EXPORT void init() {
 
   g.engine_lib = loadlibrary("engine_copy");
 
+  hotreloadable_imgui_draw_func init_engine = (hotreloadable_imgui_draw_func)getfunction(g.engine_lib, "init_engine");
+  init_engine(&g);
+
   assign_hotreloadable((hotreloadable_imgui_draw_func)getfunction(
       g.engine_lib, "hotreloadable_imgui_draw"));
 
@@ -161,6 +164,8 @@ void begin_game_loop(game &g) {
           src, dest, std::filesystem::copy_options::overwrite_existing);
 
       g.engine_lib = loadlibrary("engine_copy");
+      hotreloadable_imgui_draw_func init_engine = (hotreloadable_imgui_draw_func)getfunction(g.engine_lib, "init_engine");
+      init_engine(&g);
       assign_hotreloadable((hotreloadable_imgui_draw_func)getfunction(
           g.engine_lib, "hotreloadable_imgui_draw"));
     }

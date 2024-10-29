@@ -18,6 +18,10 @@ void MySaveFunction(game *g, const char* entity_name) {
 
 static char new_name[128] = ""; 
 
+EXPORT void init_engine(game *g) {
+  printf("init_engine\n");
+}
+
 EXPORT void hotreloadable_imgui_draw(game *g) {
   World* w  = (World*) g->world;
   ImGui::SetCurrentContext(g->ctx);

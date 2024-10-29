@@ -21,7 +21,6 @@ if %ERRORLEVEL% neq 0 (
     exit /b %ERRORLEVEL%
 )
 
-echo Build completed successfully.
-echo Executable can be found in %BUILD_DIR%\Debug\
+powershell -Command "Write-Host 'Core and External DLL build successfully.' -ForegroundColor Green"
 
 endlocal

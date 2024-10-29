@@ -17,7 +17,6 @@ if %ERRORLEVEL% neq 0 (
     exit /b %ERRORLEVEL%
 )
 
-echo Build completed successfully.
-echo Engine DLL can be found in %BUILD_DIR%\Debug\
+powershell -Command "Write-Host 'Engine DLL build successfully.' -ForegroundColor Green"
 
 endlocal
