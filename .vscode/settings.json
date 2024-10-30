@@ -84,5 +84,11 @@
         "cinttypes": "cpp",
         "regex": "cpp"
     },
-    "C_Cpp.default.compilerPath": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\Llvm\\x64\\bin\\clang++.exe"
+    "C_Cpp.default.compilerPath": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\Llvm\\x64\\bin\\clang++.exe",
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "[cpp]": {
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true
+    }
 }
