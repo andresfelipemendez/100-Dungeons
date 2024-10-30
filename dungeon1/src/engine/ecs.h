@@ -86,11 +86,6 @@ typedef struct World {
     char (*entity_names)[ENTITY_NAME_LENGTH];
 } World;
 
-typedef struct ComponentTable {
-    size_t count;         
-    size_t offset;        
-} ComponentTable;
-
 struct MemoryHeader {
     World world;
     Transforms* transforms;
@@ -98,6 +93,7 @@ struct MemoryHeader {
 };
 
 size_t create_entity(World* w);
+void set_entity_name(World* w, size_t entity,const char* friendly_name);
 void add_component(MemoryHeader* h, size_t entity_id, uint32_t component_mask);
 bool get_component_value(MemoryHeader* h, size_t entity_id, uint32_t component_mask, Vec3* value);
 bool set_component_value(MemoryHeader* h, size_t entity_id, uint32_t component_mask, Vec3 value);

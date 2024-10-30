@@ -2,7 +2,7 @@
 #include <game.h>
 #include "memory.h"
 #include <stdio.h>
-
+#include <assert.h>
 #include <string.h>
 #ifdef _WIN32
     #define strcasecmp _stricmp
@@ -30,6 +30,12 @@ size_t create_entity(World* w) {
     w->component_masks[entity_id] = 0;
     w->entity_count++;
     return entity_id;
+}
+
+void set_entity_name(World* w, size_t entity,const char* friendly_name) {
+    assert(entity < w->entity_count && "Entity ID is out of bounds");
+    strncpy(w->entity_names[entity], friendly_name, ENTITY_NAME_LENGTH - 1);
+    w->entity_names[entity][ENTITY_NAME_LENGTH - 1] = '\0';
 }
 
 void add_component(MemoryHeader* h, size_t entity_id, uint32_t component_mask) {

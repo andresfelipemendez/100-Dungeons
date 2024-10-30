@@ -38,11 +38,14 @@ EXPORT void load_level(game *g, const char *sceneFilePath)
 		if (!friendly_name)
 			break;
 
+		size_t entity = create_entity(w);
+		set_entity_name(w,entity,friendly_name);
+		
 		toml_table_t *attributes = toml_table_in(level, friendly_name);
 		if (attributes)
 		{
 			printf("[%s]\n", friendly_name);
-			size_t entity = create_entity(w);
+			
 			for (int j = 0;; j++)
 			{
 				const char *type_key = toml_key_in(attributes, j);
