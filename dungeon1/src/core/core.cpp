@@ -68,8 +68,10 @@ EXPORT void init() {
 
   g.engine_lib = loadlibrary("engine_copy");
 
-  hotreloadable_imgui_draw_func init_engine = (hotreloadable_imgui_draw_func)getfunction(g.engine_lib, "init_engine");
+  init_engine_func init_engine = (init_engine_func)getfunction(g.engine_lib, "init_engine");
   init_engine(&g);
+  load_level_func  load_level = (load_level_func)getfunction(g.engine_lib, "load_level");
+  load_level(&g, "scene.toml");
 
   assign_hotreloadable((hotreloadable_imgui_draw_func)getfunction(
       g.engine_lib, "hotreloadable_imgui_draw"));

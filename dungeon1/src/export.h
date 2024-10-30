@@ -20,6 +20,10 @@ typedef void (*hotreloadable_imgui_draw_func)(struct game *g);
   EXPORT void func(const char *str);                                           \
   typedef void (*func##_func)(const char *str);
 
+#define DECLARE_FUNC_VOID_pGAME_pCHAR(func)                                    \
+  EXPORT void func(struct game* g, const char *str);                           \
+  typedef void (*func##_func)(struct game* g, const char *str);
+
 #define DECLARE_FUNC_INT_pGAME(func)                                           \
   EXPORT int func(struct game *g);                                             \
   typedef int (*func##_func)(struct game * g);

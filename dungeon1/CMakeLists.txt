@@ -37,8 +37,7 @@ target_include_directories(
   ${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/include" "${OPENGL_INCLUDE_DIR}"
                           "${GLFW_INCLUDE_DIR}" )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE ${OPENGL_LIBRARIES}
-                                              ${GLFW_LIB_PATH}  )
+target_link_libraries(${PROJECT_NAME} PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH})
 
 if(WIN32)
   target_link_libraries(${PROJECT_NAME} PRIVATE gdi32 user32 shell32)
@@ -48,7 +47,6 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE GLFW_STATIC)
 
 set(EXTERNALS_SRC_FILES
     src/externals/externals.cpp
-    src/externals/LevelSerializer.cpp
     ${IMGUI_DIR}/imgui.cpp
     ${IMGUI_DIR}/imgui_demo.cpp
     ${IMGUI_DIR}/imgui_draw.cpp
@@ -117,8 +115,9 @@ target_include_directories(
           "${IMGUI_DIR}/backends"
           "${OPENGL_INCLUDE_DIR}"
           "${GLFW_INCLUDE_DIR}"
-          "${FLECS_INCLUDE_DIR}")
+          "${FLECS_INCLUDE_DIR}"
+          "${TOML_INCLUDE_DIR}")
 
-target_link_libraries(engine PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH} externals)
+target_link_libraries(engine PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH} externals toml)
 
 target_compile_definitions(engine PRIVATE GLFW_STATIC)

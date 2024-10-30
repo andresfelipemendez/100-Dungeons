@@ -1,6 +1,7 @@
 #pragma once
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
 #define ENTITY_NAME_LENGTH 16
 
@@ -15,6 +16,14 @@
     X(MATERIAL)          \
     X(TEXTURE)           
 
+enum SubkeyType {
+    #define X(name) name##_TYPE,
+    SUBKEY_TYPES
+    #undef X
+    UNKNOWN_TYPE
+};
+
+SubkeyType mapStringToSubkeyType(const char* type_key);
 
 #define EXPAND_AS_ENUM(name, index) COMPONENT_##name = (1 << index),
 
@@ -88,5 +97,9 @@ struct MemoryHeader {
     size_t total_size;     
 };
 
-size_t create_entity(struct game* g);
-void add_component(World* w, size_t entity_id, uint32_t component_mask);
+size_t create_entity(World* w);
+void add_component(MemoryHeader* h, size_t entity_id, uint32_t component_mask);
+bool get_component_value(MemoryHeader* h, size_t entity_id, uint32_t component_mask, Vec3* value);
+bool set_component_value(MemoryHeader* h, size_t entity_id, uint32_t component_mask, Vec3 value);
+
+void save_level(MemoryHeader* h, const char* saveFilePath);

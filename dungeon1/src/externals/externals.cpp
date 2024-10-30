@@ -9,7 +9,6 @@
 #include <GLFW/glfw3.h>
 #include <corecrt_malloc.h>
 
-#include "LevelSerializer.h"
 
 hotreloadable_imgui_draw_func g_imguiUpdate = NULL;
 
@@ -83,8 +82,6 @@ EXPORT int init_externals(game *g) {
 
   g->ctx = ctx;
   ImGui::GetAllocatorFunctions(&g->alloc_func, &g->free_func, &g->user_data);
-
-  load_level(g, "scene.toml");
 
   return 1;
 }
