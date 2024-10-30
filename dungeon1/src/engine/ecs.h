@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 
+
 #define ENTITY_NAME_LENGTH 16
 
 #define SUBKEY_TYPES     \
@@ -98,4 +99,5 @@ void add_component(MemoryHeader* h, size_t entity_id, uint32_t component_mask);
 bool get_component_value(MemoryHeader* h, size_t entity_id, uint32_t component_mask, Vec3* value);
 bool set_component_value(MemoryHeader* h, size_t entity_id, uint32_t component_mask, Vec3 value);
 
+void ecs_load_level(struct game* g, const char* saveFilePath);
 void save_level(MemoryHeader* h, const char* saveFilePath);

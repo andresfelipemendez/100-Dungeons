@@ -5,7 +5,7 @@ project(AnitraEngine)
 # Set C99 standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MDd")
 include_directories(include)
 
 # Source files for the main executable
@@ -33,10 +33,8 @@ add_library(toml STATIC ${TOML_SRC_FILES})
 
 set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/lib/imgui-1.90.9")
 
-target_include_directories(
-  ${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/include" "${OPENGL_INCLUDE_DIR}"
-                          "${GLFW_INCLUDE_DIR}" )
-
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/include" "${OPENGL_INCLUDE_DIR}" "${GLFW_INCLUDE_DIR}")
+target_link_options(${PROJECT_NAME} PRIVATE "/NODEFAULTLIB:MSVCRT")
 target_link_libraries(${PROJECT_NAME} PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH})
 
 if(WIN32)
