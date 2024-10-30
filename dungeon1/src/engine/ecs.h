@@ -4,6 +4,25 @@
 
 #define ENTITY_NAME_LENGTH 16
 
+#define SUBKEY_TYPES     \
+    X(POSITION)          \
+    X(COLOR)             \
+    X(SCALE)             \
+    X(ROTATION)          \
+    X(FOV)               \
+    X(INTENSITY)         \
+    X(MODEL)             \
+    X(MATERIAL)          \
+    X(TEXTURE)           
+
+#define EXPAND_AS_ENUM(name, index) COMPONENT_##name = (1 << index),
+
+enum ComponentBitmask {
+    #define X(name) EXPAND_AS_ENUM(name, __COUNTER__)
+    SUBKEY_TYPES
+    #undef X
+};
+
 typedef union Vec3 {
     struct { float x, y, z; };         
     struct { float r, g, b; };         

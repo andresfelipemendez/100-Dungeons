@@ -26,6 +26,10 @@ EXPORT void hotreloadable_imgui_draw(game *g) {
 
   static size_t selected_entity = SIZE_MAX; 
 
+  if(ImGui::Button("add entity")) {
+    selected_entity = create_entity(g);
+  }
+
   ImGui::Text("Entity List:");
   for (size_t i = 0; i < count; ++i) {
     if(ImGui::Selectable(w->entity_names[i], selected_entity == i)){
@@ -33,8 +37,16 @@ EXPORT void hotreloadable_imgui_draw(game *g) {
     }
   }
 
-  if(ImGui::Button("add entity")) {
-    selected_entity = create_entity(g);
+  ImGui::Separator();
+
+  if (selected_entity != SIZE_MAX) {
+    ImGui::Text("Inspecting Entity: %s", w->entity_names[selected_entity]);
+
+    if (w->component_masks[selected_entity] & COMPONENT_POSITION) {
+      ImGui::Text("Position:");
+      //  ImGui::InputFloat3("Position", (float*)&w->positions[selected_entity]);
+    }
   }
+
   ImGui::End();
 }
