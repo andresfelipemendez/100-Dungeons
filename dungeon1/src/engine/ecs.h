@@ -84,12 +84,9 @@ typedef struct ComponentTable {
 
 struct MemoryHeader {
     World world;
-    ComponentTable transforms;
-    ComponentTable rotations;
-    ComponentTable models;
-    ComponentTable shaders;
-    ComponentTable textures;
+    Transforms* transforms;
     size_t total_size;     
 };
 
 size_t create_entity(struct game* g);
+void add_component(World* w, size_t entity_id, uint32_t component_mask);

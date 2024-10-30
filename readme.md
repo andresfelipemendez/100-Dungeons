@@ -7,6 +7,8 @@ The engine currently only renders static meshes. Skinned animation support is pl
 ## Overview
 **100 Dungeons** is a personal project inspired by the legendary Zelda games, aimed at designing 100 unique, immersive dungeons with classic Zelda-style gameplay in a 3D environment. This project is both a creative and technical challenge, allowing me to iterate on my game engine architecture while creating simple yet engaging dungeon experiences.
 
+The current focus is on dungeon1, which is a continuation of my Anitra project. I plan to gradually migrate code from 1dungeon (based on my earlier GP1 project) to dungeon1, combining Anitra with GP1 along with new features to enhance functionality. To build dungeon1, you need to first run `generate.bat` and then `build.bat`. The `anitra.exe` will subsequently call `build_engine.bat` to generate the engine DLL for hot reloading.
+
 The engine builds upon systems from previous projects, incorporating modular design and real-time updates via hot-reloading and directory-watching features from [Anitra](https://github.com/andresfelipemendez/anitra). Additionally, the project draws on my experience [reimplementing](https://github.com/andresfelipemendez/GP1) examples from *Game Programming in C++* by Sanjay Madhav to create a streamlined development workflow.
 
 For the scene description format, I’ve replaced JSON with TOML, which provides straightforward handling of data types without YAML's added complexity. I’m also developing a custom ECS tailored to this engine's needs, reusing my knowledge of manual memory layout from the "direct x pong engine" project ([DirectX Pong Engine](https://github.com/andresfelipemendez/C-D3D11-Engine)). This ECS gives me precise memory control from within the hot-reloaded DLL, enhancing flexibility and performance.
@@ -36,9 +38,12 @@ Here's the updated overview with your choice of *fastgltf* integrated:
    ```
 3. **Build the Project:**
    Use the provided build script to compile the code withing each dungeon:
-   ```sh
+   ```batch
+   cd dungeon#
+   .\generate.bat
    .\build.bat
    ```
+   Replace `#` with the specific dungeon number you want to build. This will generate the engine DLL with hot reloading capability.
 4. **Run the Game:**
    Execute the compiled `game.exe` to start exploring the dungeons.
 

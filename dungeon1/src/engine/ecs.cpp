@@ -20,3 +20,16 @@ size_t create_entity(struct game* g) {
     w->entity_count++;
     return entity_id;
 }
+
+void add_component(World* w, size_t entity_id, uint32_t component_mask) {
+    switch (component_mask)
+    {
+    case COMPONENT_POSITION:
+        
+        break;
+    
+    default:
+        break;
+    }
+    w->component_masks[entity_id] |= component_mask;
+}
