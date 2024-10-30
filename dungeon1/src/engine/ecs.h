@@ -15,7 +15,11 @@
     X(MATERIAL)          \
     X(TEXTURE)           
 
+
 #define EXPAND_AS_ENUM(name, index) COMPONENT_##name = (1 << index),
+
+extern const char* component_names[];
+extern size_t component_count;
 
 enum ComponentBitmask {
     #define X(name) EXPAND_AS_ENUM(name, __COUNTER__)

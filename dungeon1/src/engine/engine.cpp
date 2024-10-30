@@ -42,6 +42,15 @@ EXPORT void hotreloadable_imgui_draw(game *g) {
   if (selected_entity != SIZE_MAX) {
     ImGui::Text("Inspecting Entity: %s", w->entity_names[selected_entity]);
 
+    static int selected_component = -1;
+     if (ImGui::BeginCombo("Add Component", "Select Component")) {
+      for (int i = 0; i < component_count; ++i) {
+        if (ImGui::Selectable(component_names[i], selected_component == i)) {
+          selected_component = i;
+        }
+      }
+       ImGui::EndCombo();
+     }
     if (w->component_masks[selected_entity] & COMPONENT_POSITION) {
       ImGui::Text("Position:");
       //  ImGui::InputFloat3("Position", (float*)&w->positions[selected_entity]);

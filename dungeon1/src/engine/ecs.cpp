@@ -3,6 +3,14 @@
 #include "memory.h"
 #include <stdio.h>
 
+const char* component_names[] = {
+    #define X(name) #name,
+    SUBKEY_TYPES
+    #undef X
+};
+
+extern size_t component_count =  sizeof(component_names) / sizeof(component_names[0]);
+
 size_t create_entity(struct game* g) {
     World* w = get_world(g);
     size_t entity_id = w->entity_count;
