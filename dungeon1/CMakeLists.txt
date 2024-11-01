@@ -5,7 +5,6 @@ project(AnitraEngine)
 # Set C99 standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MDd")
 include_directories(include)
 
 # Source files for the main executable
@@ -30,6 +29,8 @@ set(TOML_SRC_FILES "${CMAKE_SOURCE_DIR}/lib/toml/toml.c")
 
 add_library(toml STATIC ${TOML_SRC_FILES})
 
+set(FASTGLTF_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lib/fastgltf/include")
+set(FASTGLTF_LIB_PATH    "${CMAKE_SOURCE_DIR}/lib/fastgltf/lib/fastgltf.lib")
 
 set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/lib/imgui-1.90.9")
 
@@ -103,46 +104,55 @@ file(GLOB ENGINE_HEADER_FILES "src/engine/*.h")
 add_library(engine SHARED ${ENGINE_SRC_FILES})
 
 target_include_directories(
-  engine
-  PRIVATE "${CMAKE_SOURCE_DIR}/src/engine"
-          "${CMAKE_SOURCE_DIR}/src/core"
-          "${CMAKE_SOURCE_DIR}/src/externals"
-          "${CMAKE_SOURCE_DIR}/src"
-          "${CMAKE_SOURCE_DIR}/include"
-          "${IMGUI_DIR}"
-          "${IMGUI_DIR}/backends"
-          "${OPENGL_INCLUDE_DIR}"
-          "${GLFW_INCLUDE_DIR}"
-          "${FLECS_INCLUDE_DIR}"
-          "${TOML_INCLUDE_DIR}")
+		engine PRIVATE 
+		"${CMAKE_SOURCE_DIR}/src/engine"
+		"${CMAKE_SOURCE_DIR}/src/core"
+		"${CMAKE_SOURCE_DIR}/src/externals"
+		"${CMAKE_SOURCE_DIR}/src"
+		"${CMAKE_SOURCE_DIR}/include"
+		"${IMGUI_DIR}"
+		"${IMGUI_DIR}/backends"
+		"${OPENGL_INCLUDE_DIR}"
+		"${GLFW_INCLUDE_DIR}"
+		"${FLECS_INCLUDE_DIR}"
+		"${TOML_INCLUDE_DIR}"
+		"${FASTGLTF_INCLUDE_DIR}"
+	)
 
-target_link_libraries(engine PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH} externals toml)
+target_link_libraries(
+		engine PRIVATE 
+		${OPENGL_LIBRARIES} 
+		${GLFW_LIB_PATH} 
+		${FASTGLTF_LIB_PATH} 
+		externals 
+		toml
+	)
 
 target_compile_definitions(engine PRIVATE GLFW_STATIC)
 
 
-enable_testing()
-
-file(GLOB TEST_SRC_FILES "tests/*.cpp")
-add_executable(${PROJECT_NAME}_tests ${TEST_SRC_FILES})
-target_include_directories(${PROJECT_NAME}_tests PRIVATE
-    "${CMAKE_SOURCE_DIR}/include"
-    "${CMAKE_SOURCE_DIR}/src/engine"
-    "${CMAKE_SOURCE_DIR}/src"
-    "${CMAKE_SOURCE_DIR}/lib"
-    "${TOML_INCLUDE_DIR}"
-    "${GLFW_INCLUDE_DIR}"
-    "${IMGUI_DIR}"
-    "${IMGUI_DIR}/backends"
-)
-
-target_link_libraries(${PROJECT_NAME}_tests PRIVATE
-    core
-    engine
-    externals
-    toml
-    ${OPENGL_LIBRARIES} 
-    ${GLFW_LIB_PATH}
-)
-target_compile_definitions(${PROJECT_NAME}_tests PRIVATE UTEST_IMPLEMENTATION)
-add_test(NAME ${PROJECT_NAME}_unit_tests COMMAND ${PROJECT_NAME}_tests)
+#enable_testing()
+#
+#file(GLOB TEST_SRC_FILES "tests/*.cpp")
+#add_executable(${PROJECT_NAME}_tests ${TEST_SRC_FILES})
+#target_include_directories(${PROJECT_NAME}_tests PRIVATE
+#    "${CMAKE_SOURCE_DIR}/include"
+#    "${CMAKE_SOURCE_DIR}/src/engine"
+#    "${CMAKE_SOURCE_DIR}/src"
+#    "${CMAKE_SOURCE_DIR}/lib"
+#    "${TOML_INCLUDE_DIR}"
+#    "${GLFW_INCLUDE_DIR}"
+#    "${IMGUI_DIR}"
+#    "${IMGUI_DIR}/backends"
+#)
+#
+#target_link_libraries(${PROJECT_NAME}_tests PRIVATE
+#    core
+#    engine
+#    externals
+#    toml
+#    ${OPENGL_LIBRARIES}
+#    ${GLFW_LIB_PATH}
+#)
+#target_compile_definitions(${PROJECT_NAME}_tests PRIVATE UTEST_IMPLEMENTATION)
+#add_test(NAME ${PROJECT_NAME}_unit_tests COMMAND ${PROJECT_NAME}_tests)

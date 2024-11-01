@@ -4,6 +4,7 @@
 #include <game.h>
 #include <stdio.h>
 
+#include "asset_loader.h"
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -21,6 +22,7 @@ EXPORT void load_level(game *g, const char *sceneFilePath)
 EXPORT void init_engine(game *g)
 {
 	init_engine_memory(g);
+	LoadGLTFMeshes("");
 }
 
 EXPORT void hotreloadable_imgui_draw(game *g)
@@ -36,7 +38,6 @@ EXPORT void hotreloadable_imgui_draw(game *g)
 
 	static size_t selected_entity = SIZE_MAX;
 
-	 // Button to save ECS world
     if (ImGui::Button("Save World"))
     {
         const char* saveFilePath = "ecs_world_save.toml";

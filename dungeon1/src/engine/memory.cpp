@@ -37,6 +37,7 @@ void init_engine_memory(game *g)
 
 MemoryHeader* get_header(game* g) {
     return (MemoryHeader *)g->world;
+
 }
 
 World* get_world(game* g) {
