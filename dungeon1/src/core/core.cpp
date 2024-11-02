@@ -81,7 +81,8 @@ EXPORT void init()
 	load_level_func load_level = (load_level_func)getfunction(g.engine_lib, "load_level");
 	load_level(&g, "scene.toml");
 
-	assign_hotreloadable((hotreloadable_imgui_draw_func)getfunction(g.engine_lib, "hotreloadable_imgui_draw"));
+	g.g_imguiUpdate = (hotreloadable_imgui_draw_func)getfunction(g.engine_lib, "hotreloadable_imgui_draw");
+	//assign_hotreloadable();
 
 	init_externals(&g);
 
@@ -194,8 +195,7 @@ void begin_game_loop(game &g)
 			g.engine_lib = loadlibrary("engine_copy");
 			hotreloadable_imgui_draw_func init_engine = (hotreloadable_imgui_draw_func)getfunction(g.engine_lib, "init_engine");
 			init_engine(&g);
-			assign_hotreloadable((hotreloadable_imgui_draw_func)getfunction(
-			                         g.engine_lib, "hotreloadable_imgui_draw"));
+			//assign_hotreloadable((hotreloadable_imgui_draw_func)getfunction(g.engine_lib, "hotreloadable_imgui_draw"));
 		}
 		update_externals(&g);
 	}

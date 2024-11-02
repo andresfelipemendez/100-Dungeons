@@ -15,9 +15,7 @@
 
 #include <GLFW/glfw3.h>
 
-
-
-hotreloadable_imgui_draw_func g_imguiUpdate = NULL;
+//hotreloadable_imgui_draw_func g_imguiUpdate = NULL;
 
 ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
@@ -36,8 +34,8 @@ EXPORT int init_externals(game *g) {
 	const char *glsl_version = "#version 150";
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // 3.2+ only
-  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);           // 3.0+ only
+  	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); 
+  	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);           
 
   g->window = glfwCreateWindow(640, 480, "Hello World", NULL, NULL);
   if (!g->window) {
@@ -106,7 +104,8 @@ glfwMakeContextCurrent(g->window);
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
 
-	g_imguiUpdate(g);
+	g->g_imguiUpdate(g);
+	//g_imguiUpdate(g);
 
 	ImGui::SetCurrentContext(g->ctx);
 	ImGui::SetAllocatorFunctions(g->alloc_func, g->free_func, g->user_data);
@@ -126,9 +125,5 @@ glfwMakeContextCurrent(g->window);
 }
 
 EXPORT void end_externals(game *g) {}
-
-EXPORT void assign_hotreloadable(hotreloadable_imgui_draw_func func) {
-	g_imguiUpdate = func;
-}
 
 EXPORT ImGuiContext *GetImguiContext() { return ImGui::GetCurrentContext(); }

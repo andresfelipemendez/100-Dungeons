@@ -5,6 +5,9 @@ typedef void (*ImGuiMemFreeFunc)(void *ptr, void *user_data);
 
 typedef void* (* GLADloadproc)(const char *name);
 
+
+#include <externals.h>
+
 typedef struct game {
   int play;
   struct GLFWwindow *window;
@@ -16,4 +19,5 @@ typedef struct game {
   void *world; 
 
   GLADloadproc loader;
+  hotreloadable_imgui_draw_func g_imguiUpdate = nullptr;
 } game;
