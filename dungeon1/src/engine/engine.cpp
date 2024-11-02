@@ -12,6 +12,13 @@
 
 #include "ecs.h"
 
+
+#define GLAD_GLAPI_EXPORT 
+#include <glad.h>
+
+#include <GLFW/glfw3.h>
+
+
 EXPORT void load_level(game *g, const char *sceneFilePath)
 {
 	printf("load level at path %s\n", sceneFilePath);
@@ -21,12 +28,29 @@ EXPORT void load_level(game *g, const char *sceneFilePath)
 
 EXPORT void init_engine(game *g)
 {
+	
 	init_engine_memory(g);
+	
+}
+
+EXPORT void init_opengl(game *g)
+{
+	glfwMakeContextCurrent(g->window);
+	if (!glfwGetCurrentContext()) {
+	    fprintf(stderr, "No current OpenGL context detected in DLL\n");
+	    return;
+	}
+	if (!gladLoadGLLoader((GLADloadproc)g->loader)) {
+	   	printf("Failed to initialize GLAD in DLL\n");
+	    return;
+	}
 	LoadGLTFMeshes("");
+	glfwMakeContextCurrent(NULL);
 }
 
 EXPORT void hotreloadable_imgui_draw(game *g)
 {
+
 	ImGui::SetCurrentContext(g->ctx);
 	ImGui::SetAllocatorFunctions(g->alloc_func, g->free_func, g->user_data);
 	ImGui::Begin("Hello! world from reloadable dll!");

@@ -87,9 +87,10 @@ target_include_directories(
           "${OPENGL_INCLUDE_DIR}"
           "${GLFW_INCLUDE_DIR}"
           "${FLECS_INCLUDE_DIR}"
-          "${TOML_INCLUDE_DIR}")
+          "${TOML_INCLUDE_DIR}"
+          "${GLAD_INCLUDE_DIR}")
 
-target_link_libraries(externals PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH} toml)
+target_link_libraries(externals PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH} toml glad)
 
 set(CORE_SRC_FILES src/core/core.cpp)
 if(WIN32)

@@ -1,3 +1,5 @@
 [floor1]
-position = { x = 3.00, y = 2.00, z = 1.00 }
+
+[Entity 1]
+position = { x = 0.00, y = 3.00, z = 1.00 }
 

@@ -2,6 +2,9 @@
 typedef void *(*ImGuiMemAllocFunc)(size_t sz, void *user_data);
 typedef void (*ImGuiMemFreeFunc)(void *ptr, void *user_data);
 
+
+typedef void* (* GLADloadproc)(const char *name);
+
 typedef struct game {
   int play;
   struct GLFWwindow *window;
@@ -11,4 +14,6 @@ typedef struct game {
   void *user_data;
   void *engine_lib;
   void *world; 
+
+  GLADloadproc loader;
 } game;

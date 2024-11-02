@@ -85,6 +85,10 @@ EXPORT void init()
 
 	init_externals(&g);
 
+	
+	init_opengl_func init_opengl = (init_opengl_func)getfunction(g.engine_lib, "init_opengl");
+	init_opengl(&g);
+
 	begin_watch_src_directory(g);
 
 	begin_game_loop(g);

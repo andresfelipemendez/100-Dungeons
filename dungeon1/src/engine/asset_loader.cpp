@@ -34,7 +34,7 @@ bool LoadGLTFMeshes(const char* meshFilePath) {
 		outMesh.primitives.resize(mesh.primitives.size());
 	    for (auto it = mesh.primitives.begin(); it != mesh.primitives.end(); ++it) {
 	    	GLuint vao = GL_NONE;
-	        //glCreateVertexArrays(1, &vao);
+	        glCreateVertexArrays(1, &vao);
 
 			std::size_t baseColorTexcoordIndex = 0;
 
