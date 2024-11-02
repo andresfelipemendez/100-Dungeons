@@ -27,15 +27,33 @@ set(GLFW_LIB_PATH    "${CMAKE_SOURCE_DIR}/lib/glfw/lib/glfw3.lib")
 set(TOML_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lib/toml")
 set(TOML_SRC_FILES "${CMAKE_SOURCE_DIR}/lib/toml/toml.c")
 
+set(GLEW_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lib/toml")
+set(GLEW_SRC_FILES "${CMAKE_SOURCE_DIR}/lib/toml/toml.c")
+
 add_library(toml STATIC ${TOML_SRC_FILES})
 
 set(FASTGLTF_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lib/fastgltf/include")
 set(FASTGLTF_LIB_PATH    "${CMAKE_SOURCE_DIR}/lib/fastgltf/lib/fastgltf.lib")
 
+
+file(GLOB GLAD_SRC_FILES "${CMAKE_SOURCE_DIR}/lib/glad/*.c")
+set(GLAD_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lib/glad")
+
+add_library(glad STATIC ${GLAD_SRC_FILES})
+target_include_directories(glad PRIVATE ${OPENGL_INCLUDE_DIR} ${GLAD_INCLUDE_DIR})
+
 set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/lib/imgui-1.90.9")
 
-target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/include" "${OPENGL_INCLUDE_DIR}" "${GLFW_INCLUDE_DIR}")
-target_link_options(${PROJECT_NAME} PRIVATE "/NODEFAULTLIB:MSVCRT")
+target_include_directories(
+		${PROJECT_NAME} PRIVATE 
+		"${CMAKE_SOURCE_DIR}/include" 
+		"${OPENGL_INCLUDE_DIR}" 
+		"${GLFW_INCLUDE_DIR}"
+	)
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+	target_link_options(${PROJECT_NAME} PRIVATE "/NODEFAULTLIB:MSVCRT")
+endif()
 target_link_libraries(${PROJECT_NAME} PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH})
 
 if(WIN32)
@@ -117,6 +135,7 @@ target_include_directories(
 		"${FLECS_INCLUDE_DIR}"
 		"${TOML_INCLUDE_DIR}"
 		"${FASTGLTF_INCLUDE_DIR}"
+		"${GLAD_INCLUDE_DIR}"
 	)
 
 target_link_libraries(
@@ -126,6 +145,7 @@ target_link_libraries(
 		${FASTGLTF_LIB_PATH} 
 		externals 
 		toml
+		glad
 	)
 
 target_compile_definitions(engine PRIVATE GLFW_STATIC)

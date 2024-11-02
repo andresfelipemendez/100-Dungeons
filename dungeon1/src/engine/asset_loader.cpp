@@ -1,26 +1,51 @@
 #include "asset_loader.h"
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
+#include <fastgltf/tools.hpp>
 #include <filesystem>
 
-bool LoadGLTFMeshes(const char* meshFilePath){
+uint32_t LoadSkinnedMesh() {
+	return 0;
+}
+
+bool LoadGLTFMeshes(const char* meshFilePath) {
+
+	constexpr auto gltfOptions =
+        fastgltf::Options::LoadExternalBuffers |
+        fastgltf::Options::LoadExternalImages |
+		fastgltf::Options::GenerateMeshIndices;
+
 	fastgltf::Parser parser;
 
 	std::filesystem::path path = "assets/models/static/Knight.glb";
 	auto data = fastgltf::GltfDataBuffer::FromPath(path);
 	if (data.error() != fastgltf::Error::None) {
-		// The file couldn't be loaded, or the buffer could not be allocated.
 		return false;
 	}
 
-	auto asset = parser.loadGltf(data.get(), path.parent_path(), fastgltf::Options::None);
+	auto asset = parser.loadGltf(data.get(), path.parent_path(), gltfOptions);
 	if (auto error = asset.error(); error != fastgltf::Error::None) {
-		// Some error occurred while reading the buffer, parsing the JSON, or validating the data.
 		return false;
 	}
 
-	fastgltf::validate(asset.get());
 
-	printf("Loaded GLTF Model %s\n", path.string().c_str());
+	for (auto& mesh : asset.get().meshes) {
+	 	Mesh outMesh = {};
+		outMesh.primitives.resize(mesh.primitives.size());
+	    for (auto it = mesh.primitives.begin(); it != mesh.primitives.end(); ++it) {
+	    	GLuint vao = GL_NONE;
+	        //glCreateVertexArrays(1, &vao);
+
+			std::size_t baseColorTexcoordIndex = 0;
+
+			auto* positionIt = it->findAttribute("POSITION");
+			auto index = std::distance(mesh.primitives.begin(), it);
+			auto& primitive = outMesh.primitives[index];
+			primitive.primitiveType = fastgltf::to_underlying(it->type);
+		}
+	}
+		
+
+	uint32_t id = LoadSkinnedMesh();
 	return true;
 }
