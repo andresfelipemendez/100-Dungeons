@@ -82,10 +82,8 @@ EXPORT void init()
 	load_level(&g, "scene.toml");
 
 	g.g_imguiUpdate = (hotreloadable_imgui_draw_func)getfunction(g.engine_lib, "hotreloadable_imgui_draw");
-	//assign_hotreloadable();
-
+	
 	init_externals(&g);
-
 	
 	init_opengl_func init_opengl = (init_opengl_func)getfunction(g.engine_lib, "init_opengl");
 	init_opengl(&g);
@@ -189,13 +187,12 @@ void begin_game_loop(game &g)
 			std::string cwd = getCurrentWorkingDirectory();
 			std::string src = cwd + "\\build\\Debug\\engine.dll";
 			std::string dest = cwd + "\\build\\Debug\\engine_copy.dll";
-			std::filesystem::copy_file(
-			    src, dest, std::filesystem::copy_options::overwrite_existing);
+			std::filesystem::copy_file(src, dest, std::filesystem::copy_options::overwrite_existing);
 
 			g.engine_lib = loadlibrary("engine_copy");
 			hotreloadable_imgui_draw_func init_engine = (hotreloadable_imgui_draw_func)getfunction(g.engine_lib, "init_engine");
+			g.g_imguiUpdate = (hotreloadable_imgui_draw_func)getfunction(g.engine_lib, "hotreloadable_imgui_draw");
 			init_engine(&g);
-			//assign_hotreloadable((hotreloadable_imgui_draw_func)getfunction(g.engine_lib, "hotreloadable_imgui_draw"));
 		}
 		update_externals(&g);
 	}
