@@ -40,6 +40,8 @@ set(FASTGLTF_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lib/fastgltf/include")
 set(FASTGLTF_LIB_PATH    "${CMAKE_SOURCE_DIR}/lib/fastgltf/lib/fastgltf.lib")
 
 
+set(STB_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lib/stb")
+
 file(GLOB GLAD_SRC_FILES "${CMAKE_SOURCE_DIR}/lib/glad/*.c")
 set(GLAD_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lib/glad")
 
@@ -139,6 +141,7 @@ target_include_directories(
 		"${TOML_INCLUDE_DIR}"
 		"${FASTGLTF_INCLUDE_DIR}"
 		"${GLAD_INCLUDE_DIR}"
+		"${STB_INCLUDE_DIR}"
 	)
 
 target_link_libraries(

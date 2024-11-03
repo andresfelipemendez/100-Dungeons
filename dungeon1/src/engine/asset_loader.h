@@ -16,6 +16,11 @@ struct IndirectDrawCommand {
     std::uint32_t baseInstance;
 };
 
+struct Vertex {
+	fastgltf::math::fvec3 position;
+	fastgltf::math::fvec2 uv;
+};
+
 struct Primitive {
     IndirectDrawCommand draw;
     GLenum primitiveType;

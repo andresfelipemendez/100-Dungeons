@@ -54,7 +54,7 @@ EXPORT void init_opengl(game *g)
 	//     return;
 	// }
 
-	LoadGLTFMeshes("");
+	//LoadGLTFMeshes("");
 
 	//glfwMakeContextCurrent(NULL);
 }
