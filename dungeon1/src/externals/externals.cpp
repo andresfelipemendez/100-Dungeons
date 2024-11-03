@@ -97,7 +97,8 @@ EXPORT int init_externals(game *g) {
 }
 
 EXPORT void update_externals(game *g) {
-glfwMakeContextCurrent(g->window);
+	glfwMakeContextCurrent(g->window);
+	
 	glfwPollEvents();
 
 	ImGui_ImplOpenGL3_NewFrame();

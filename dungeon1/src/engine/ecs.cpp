@@ -70,10 +70,10 @@ bool get_component_value(MemoryHeader* h, size_t entity_id, uint32_t component_m
 			}
 		}
 		break;
+		}
 	}
-}
 
-
+	return false;
 }
 
 bool set_component_value(MemoryHeader* h, size_t entity_id, uint32_t component_mask, Vec3 value) {

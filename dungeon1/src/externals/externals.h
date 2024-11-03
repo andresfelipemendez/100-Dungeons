@@ -8,5 +8,4 @@ DECLARE_FUNC_VOID_pGAME(end_externals)
 
 DECLARE_FUNC_VOID_pHOTRELOADABLE_IMGUI_DRAW(assign_hotreloadable)
 
-DECLARE_FUNC_VOID_pGAME(init_opengl)
 #endif

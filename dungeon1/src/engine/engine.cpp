@@ -43,7 +43,12 @@ EXPORT void init_opengl(game *g)
 	    return;
 	}
 
-	//gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+	//;
+	
+	if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
+	   	printf("Failed to initialize GLAD in DLL\n");
+	    return;
+	}
 	// if (!gladLoadGLLoader((GLADloadproc)g->loader)) {
 	//    	printf("Failed to initialize GLAD in DLL\n");
 	//     return;
@@ -51,7 +56,7 @@ EXPORT void init_opengl(game *g)
 
 	LoadGLTFMeshes("");
 
-	glfwMakeContextCurrent(NULL);
+	//glfwMakeContextCurrent(NULL);
 }
 
 EXPORT void hotreloadable_imgui_draw(game *g)
