@@ -92,7 +92,7 @@ EXPORT int init_externals(game *g) {
   g->ctx = ctx;
   ImGui::GetAllocatorFunctions(&g->alloc_func, &g->free_func, &g->user_data);
 
-  glfwMakeContextCurrent(NULL);
+  //glfwMakeContextCurrent(NULL);
   return 1;
 }
 
@@ -104,6 +104,7 @@ glfwMakeContextCurrent(g->window);
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
 
+	g->init_opengl(g);
 	g->g_imguiUpdate(g);
 	//g_imguiUpdate(g);
 

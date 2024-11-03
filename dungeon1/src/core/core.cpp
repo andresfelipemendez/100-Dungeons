@@ -81,13 +81,12 @@ EXPORT void init()
 	load_level_func load_level = (load_level_func)getfunction(g.engine_lib, "load_level");
 	load_level(&g, "scene.toml");
 
+	g.init_opengl = (init_opengl_func)getfunction(g.engine_lib, "init_opengl");
+
 	g.g_imguiUpdate = (hotreloadable_imgui_draw_func)getfunction(g.engine_lib, "hotreloadable_imgui_draw");
 	
 	init_externals(&g);
 	
-	init_opengl_func init_opengl = (init_opengl_func)getfunction(g.engine_lib, "init_opengl");
-	init_opengl(&g);
-
 	begin_watch_src_directory(g);
 
 	begin_game_loop(g);

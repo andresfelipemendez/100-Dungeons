@@ -35,3 +35,6 @@ typedef void (*hotreloadable_imgui_draw_func)(struct game *g);
 #define DECLARE_FUNC_VOID_pHOTRELOADABLE_IMGUI_DRAW(func)                      \
   EXPORT void func(hotreloadable_imgui_draw_func g);                           \
   typedef void (*func##_func)(hotreloadable_imgui_draw_func g);
+
+  
+DECLARE_FUNC_VOID_pGAME(init_opengl)

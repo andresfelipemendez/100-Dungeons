@@ -18,11 +18,15 @@ elseif(UNIX)
 endif()
 
 add_executable(${PROJECT_NAME} ${SRC_FILES})
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"${CMAKE_SOURCE_DIR}/lib/glfw/lib/glfw3.dll"
+		$<TARGET_FILE_DIR:${PROJECT_NAME}>)
 
 find_package(OpenGL REQUIRED)
 
 set(GLFW_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lib/glfw/include")
-set(GLFW_LIB_PATH    "${CMAKE_SOURCE_DIR}/lib/glfw/lib/glfw3.lib")
+set(GLFW_LIB_PATH    "${CMAKE_SOURCE_DIR}/lib/glfw/lib/glfw3dll.lib")
 
 set(TOML_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lib/toml")
 set(TOML_SRC_FILES "${CMAKE_SOURCE_DIR}/lib/toml/toml.c")
@@ -59,8 +63,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PAT
 if(WIN32)
   target_link_libraries(${PROJECT_NAME} PRIVATE gdi32 user32 shell32)
 endif()
-
-target_compile_definitions(${PROJECT_NAME} PRIVATE GLFW_STATIC)
 
 set(EXTERNALS_SRC_FILES
     src/externals/externals.cpp
@@ -148,9 +150,6 @@ target_link_libraries(
 		toml
 		glad
 	)
-
-target_compile_definitions(engine PRIVATE GLFW_STATIC)
-
 
 #enable_testing()
 #

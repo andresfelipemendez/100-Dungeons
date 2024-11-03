@@ -2,9 +2,7 @@
 typedef void *(*ImGuiMemAllocFunc)(size_t sz, void *user_data);
 typedef void (*ImGuiMemFreeFunc)(void *ptr, void *user_data);
 
-
 typedef void* (* GLADloadproc)(const char *name);
-
 
 #include <externals.h>
 
@@ -20,4 +18,5 @@ typedef struct game {
 
   GLADloadproc loader;
   hotreloadable_imgui_draw_func g_imguiUpdate = nullptr;
+  init_opengl_func init_opengl = nullptr;
 } game;

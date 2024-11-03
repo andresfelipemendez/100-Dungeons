@@ -27,18 +27,30 @@ EXPORT void init_engine(game *g)
 	init_engine_memory(g);	
 }
 
+
+static void glfw_error_callback(int error, const char *description) {
+	fprintf(stderr, "GLFW Error %d: %s\n", error, description);
+}
+
 EXPORT void init_opengl(game *g)
 {
+	glfwSetErrorCallback(glfw_error_callback);
+
 	glfwMakeContextCurrent(g->window);
+
 	if (!glfwGetCurrentContext()) {
 	    fprintf(stderr, "No current OpenGL context detected in DLL\n");
 	    return;
 	}
-	if (!gladLoadGLLoader((GLADloadproc)g->loader)) {
-	   	printf("Failed to initialize GLAD in DLL\n");
-	    return;
-	}
+
+	//gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+	// if (!gladLoadGLLoader((GLADloadproc)g->loader)) {
+	//    	printf("Failed to initialize GLAD in DLL\n");
+	//     return;
+	// }
+
 	LoadGLTFMeshes("");
+
 	glfwMakeContextCurrent(NULL);
 }
 
