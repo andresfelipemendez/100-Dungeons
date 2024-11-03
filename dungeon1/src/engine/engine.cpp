@@ -16,6 +16,14 @@
 #include <glad.h>
 #include <GLFW/glfw3.h>
 
+#include <vector>
+
+unsigned int VAO, VBO, shaderProgram;
+
+EXPORT void load_shader(game *g) {
+
+}
+
 EXPORT void load_level(game *g, const char *sceneFilePath)
 {
 	printf("load level at path %s\n", sceneFilePath);
@@ -24,49 +32,99 @@ EXPORT void load_level(game *g, const char *sceneFilePath)
 
 EXPORT void init_engine(game *g)
 {
-	init_engine_memory(g);	
+	init_engine_memory(g);
 }
 
+static std::vector<Mesh> meshes;
+
+
+EXPORT void load_meshes(game *g) {
+	meshes = LoadGLTFMeshes("");
+
+     // Define vertices for a triangle
+    float vertices[] = {
+        0.0f,  0.5f, 0.0f,  // top vertex
+        -0.5f, -0.5f, 0.0f, // bottom left vertex
+        0.5f, -0.5f, 0.0f   // bottom right vertex
+    };
+
+    // Create VAO and VBO with DSA
+    glCreateVertexArrays(1, &VAO);
+    glCreateBuffers(1, &VBO);
+
+    glNamedBufferData(VBO, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    // Bind the buffer to the VAO directly (OpenGL 4.5 DSA)
+    glVertexArrayVertexBuffer(VAO, 0, VBO, 0, 3 * sizeof(float));
+    glEnableVertexArrayAttrib(VAO, 0);
+    glVertexArrayAttribFormat(VAO, 0, 3, GL_FLOAT, GL_FALSE, 0);
+    glVertexArrayAttribBinding(VAO, 0, 0);
+
+    const char *vertexShaderSource = "#version 450 core\n"
+                                     "layout (location = 0) in vec3 aPos;\n"
+                                     "void main()\n"
+                                     "{\n"
+                                     "   gl_Position = vec4(aPos, 1.0);\n"
+                                     "}\0";
+
+    const char *fragmentShaderSource = "#version 450 core\n"
+                                       "out vec4 FragColor;\n"
+                                       "void main()\n"
+                                       "{\n"
+                                       "   FragColor = vec4(1.0, 1.0, 0.2, 1.0);\n"
+                                       "}\0";
+    // Compile and link shaders
+    shaderProgram = createShaderProgram(vertexShaderSource, fragmentShaderSource);
+
+    printf("this should be done only once when the engine begins");
+}
 
 static void glfw_error_callback(int error, const char *description) {
 	fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
-EXPORT void init_opengl(game *g)
+EXPORT void begin_frame(game *g)
 {
 	glfwSetErrorCallback(glfw_error_callback);
-
 	glfwMakeContextCurrent(g->window);
-
 	if (!glfwGetCurrentContext()) {
 	    fprintf(stderr, "No current OpenGL context detected in DLL\n");
 	    return;
 	}
 
-	//;
-	
 	if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
 	   	printf("Failed to initialize GLAD in DLL\n");
 	    return;
 	}
-	// if (!gladLoadGLLoader((GLADloadproc)g->loader)) {
-	//    	printf("Failed to initialize GLAD in DLL\n");
-	//     return;
+
+
+    //viewer.modelMatrixUniform = glGetUniformLocation(program, "modelMatrix");
+}
+
+EXPORT void draw_opengl(game *g) {
+	
+
+	// for( const auto& mesh : meshes) {
+	// 	 glBindBuffer(GL_DRAW_INDIRECT_BUFFER, mesh.drawsBuffer);
+	// 	 glUniformMatrix4fv(viewer->modelMatrixUniform, 1, GL_FALSE, &matrix[0][0]);
 	// }
 
-	//LoadGLTFMeshes("");
+	
 
-	//glfwMakeContextCurrent(NULL);
+    // Use the shader program and draw the triangle
+    glUseProgram(shaderProgram);
+    glBindVertexArray(VAO);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glBindVertexArray(0);
+
 }
 
 EXPORT void hotreloadable_imgui_draw(game *g)
 {
-
 	ImGui::SetCurrentContext(g->ctx);
 	ImGui::SetAllocatorFunctions(g->alloc_func, g->free_func, g->user_data);
 	ImGui::Begin("Hello! world from reloadable dll!");
 	
-
 	World *w = get_world(g);
 	MemoryHeader *h = get_header(g);
 	size_t count = w->entity_count;

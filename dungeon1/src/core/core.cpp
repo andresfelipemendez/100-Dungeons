@@ -4,16 +4,13 @@
 #include <externals.h>
 
 #include <game.h>
-
 #include <stdio.h>
 
 #include <Windows.h>
 
 #include <iostream>
 #include <thread>
-
 #include <filesystem>
-
 #include <fstream>
 #include <string>
 #include <sstream>
@@ -81,12 +78,16 @@ EXPORT void init()
 	load_level_func load_level = (load_level_func)getfunction(g.engine_lib, "load_level");
 	load_level(&g, "scene.toml");
 
-	g.init_opengl = (init_opengl_func)getfunction(g.engine_lib, "init_opengl");
+	g.begin_frame = (begin_frame_func)getfunction(g.engine_lib, "begin_frame");
 
 	g.g_imguiUpdate = (hotreloadable_imgui_draw_func)getfunction(g.engine_lib, "hotreloadable_imgui_draw");
-	
 	init_externals(&g);
 	
+	g.begin_frame(&g);
+	load_meshes_func load_meshes = (load_meshes_func)getfunction(g.engine_lib, "load_meshes");
+	load_meshes(&g);
+	g.draw_opengl =  (draw_opengl_func)getfunction(g.engine_lib, "draw_opengl");
+
 	begin_watch_src_directory(g);
 
 	begin_game_loop(g);
@@ -95,9 +96,7 @@ EXPORT void init()
 void compile_dll()
 {
 	std::string cwd = getCurrentWorkingDirectory();
-	std::string command =
-	    "cd /d " + cwd +
-	    " && build_engine.bat"; // Use /d to change the drive as well
+	std::string command = "cd /d " + cwd + " && build_engine.bat";
 	std::cout << "Compiling DLL with command: " << command << std::endl;
 	system(command.c_str());
 }
@@ -192,7 +191,16 @@ void begin_game_loop(game &g)
 			hotreloadable_imgui_draw_func init_engine = (hotreloadable_imgui_draw_func)getfunction(g.engine_lib, "init_engine");
 			g.g_imguiUpdate = (hotreloadable_imgui_draw_func)getfunction(g.engine_lib, "hotreloadable_imgui_draw");
 			init_engine(&g);
+			
+			g.begin_frame = (begin_frame_func)getfunction(g.engine_lib, "begin_frame");
+			g.begin_frame(&g);
+
+			g.draw_opengl =  (draw_opengl_func)getfunction(g.engine_lib, "draw_opengl");
+
+			load_meshes_func load_meshes = (load_meshes_func)getfunction(g.engine_lib, "load_meshes");
+			load_meshes(&g);
 		}
+		
 		update_externals(&g);
 	}
 }

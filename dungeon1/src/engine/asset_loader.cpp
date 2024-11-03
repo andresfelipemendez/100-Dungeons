@@ -4,14 +4,14 @@
 #include <fastgltf/tools.hpp>
 #include <filesystem>
 
-#include <vector>
 
 uint32_t LoadSkinnedMesh() {
 	return 0;
 }
 
-bool LoadGLTFMeshes(const char* meshFilePath) {
 
+std::vector<Mesh> LoadGLTFMeshes(const char* meshFilePath) {
+	std::vector<Mesh> meshes;
 	constexpr auto gltfOptions =
 	fastgltf::Options::LoadExternalBuffers |
 	fastgltf::Options::LoadExternalImages |
@@ -22,15 +22,14 @@ bool LoadGLTFMeshes(const char* meshFilePath) {
 	std::filesystem::path path = "assets/models/static/Knight.glb";
 	auto data = fastgltf::GltfDataBuffer::FromPath(path);
 	if (data.error() != fastgltf::Error::None) {
-		return false;
+		return meshes;
 	}
 
 	auto asset = parser.loadGltf(data.get(), path.parent_path(), gltfOptions);
 	if (auto error = asset.error(); error != fastgltf::Error::None) {
-		return false;
+		return meshes;
 	}
 
-	std::vector<Mesh> meshes;
 
 	for (auto& mesh : asset.get().meshes) {
 		Mesh outMesh = {};
@@ -101,7 +100,7 @@ bool LoadGLTFMeshes(const char* meshFilePath) {
 
 			auto& indexAccessor = asset.get().accessors[it->indicesAccessor.value()];
 			if(!indexAccessor.bufferViewIndex.has_value())
-				return false;
+				return meshes;
 			draw.count = static_cast<uint32_t>(indexAccessor.count);
 			glCreateBuffers(1,&primitive.indexBuffer);
 
@@ -132,10 +131,51 @@ bool LoadGLTFMeshes(const char* meshFilePath) {
 
 	    //arrput(meshes, outMesh);
 	    meshes.emplace_back(outMesh);
-
 	}
 
-
 	//uint32_t id = LoadSkinnedMesh();
-	return true;
+	return meshes;
+}
+
+unsigned int createShaderProgram(const char* vertexSource,const  char* fragmentShaderSource) {
+ unsigned int vertexShader, fragmentShader;
+    int success;
+    char infoLog[512];
+
+    // Vertex Shader
+    vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &vertexSource, NULL);
+    glCompileShader(vertexShader);
+    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+        fprintf(stderr, "Vertex Shader Compilation Error:\n%s\n", infoLog);
+    }
+
+    // Fragment Shader
+    fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+    glCompileShader(fragmentShader);
+    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
+        fprintf(stderr, "Fragment Shader Compilation Error:\n%s\n", infoLog);
+    }
+
+    // Shader Program
+    unsigned int program = glCreateProgram();
+    glAttachShader(program, vertexShader);
+    glAttachShader(program, fragmentShader);
+    glLinkProgram(program);
+    glGetProgramiv(program, GL_LINK_STATUS, &success);
+    if (!success) {
+        glGetProgramInfoLog(program, 512, NULL, infoLog);
+        fprintf(stderr, "Shader Program Linking Error:\n%s\n", infoLog);
+    }
+
+    // Clean up shaders as they are no longer needed after linking
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    return program;
 }

@@ -92,11 +92,16 @@ EXPORT int init_externals(game *g) {
   g->ctx = ctx;
   ImGui::GetAllocatorFunctions(&g->alloc_func, &g->free_func, &g->user_data);
 
-  //glfwMakeContextCurrent(NULL);
   return 1;
 }
 
 EXPORT void update_externals(game *g) {
+	glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w,
+		clear_color.z * clear_color.w, clear_color.w);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	g->draw_opengl(g);
+
 	glfwMakeContextCurrent(g->window);
 	
 	glfwPollEvents();
@@ -105,9 +110,7 @@ EXPORT void update_externals(game *g) {
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
 
-	g->init_opengl(g);
 	g->g_imguiUpdate(g);
-	//g_imguiUpdate(g);
 
 	ImGui::SetCurrentContext(g->ctx);
 	ImGui::SetAllocatorFunctions(g->alloc_func, g->free_func, g->user_data);
@@ -116,9 +119,8 @@ EXPORT void update_externals(game *g) {
 	int display_w, display_h;
 	glfwGetFramebufferSize(g->window, &display_w, &display_h);
 	glViewport(0, 0, display_w, display_h);
-	glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w,
-		clear_color.z * clear_color.w, clear_color.w);
-	glClear(GL_COLOR_BUFFER_BIT);
+	
+	
 
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 	glfwSwapBuffers(g->window);

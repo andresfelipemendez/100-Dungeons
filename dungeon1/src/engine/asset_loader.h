@@ -4,8 +4,11 @@
 #include <fastgltf/types.hpp>
 #include <glad.h>
 
+#include <vector>
 struct Viewer {
     fastgltf::Asset asset;
+
+    GLint modelMatrixUniform = GL_NONE;
 };
 
 struct IndirectDrawCommand {
@@ -39,6 +42,8 @@ struct Mesh {
     std::vector<Primitive> primitives;
 };
 
-bool LoadGLTFMeshes(const char* meshFilePath);
+std::vector<Mesh> LoadGLTFMeshes(const char* meshFilePath);
 
 //uint32_t LoadSkinnedMesh();
+
+unsigned int createShaderProgram(const char* vertexShaderSource,const  char* fragmentShaderSource);
