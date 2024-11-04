@@ -41,20 +41,17 @@ static std::vector<Mesh> meshes;
 EXPORT void load_meshes(game *g) {
 	meshes = LoadGLTFMeshes("");
 
-     // Define vertices for a triangle
     float vertices[] = {
-        0.0f,  0.5f, 0.0f,  // top vertex
-        -0.5f, -0.5f, 0.0f, // bottom left vertex
-        0.5f, -0.5f, 0.0f   // bottom right vertex
+        0.0f,  0.5f, 0.0f,  
+        -0.5f, -0.5f, 0.0f, 
+        0.5f, -0.5f, 0.0f   
     };
 
-    // Create VAO and VBO with DSA
     glCreateVertexArrays(1, &VAO);
     glCreateBuffers(1, &VBO);
 
     glNamedBufferData(VBO, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    // Bind the buffer to the VAO directly (OpenGL 4.5 DSA)
     glVertexArrayVertexBuffer(VAO, 0, VBO, 0, 3 * sizeof(float));
     glEnableVertexArrayAttrib(VAO, 0);
     glVertexArrayAttribFormat(VAO, 0, 3, GL_FLOAT, GL_FALSE, 0);
@@ -73,10 +70,10 @@ EXPORT void load_meshes(game *g) {
                                        "{\n"
                                        "   FragColor = vec4(1.0, 1.0, 0.2, 1.0);\n"
                                        "}\0";
-    // Compile and link shaders
+    
     shaderProgram = createShaderProgram(vertexShaderSource, fragmentShaderSource);
 
-    printf("this should be done only once when the engine begins");
+    printf("this should be done only once when the engine begins\n");
 }
 
 static void glfw_error_callback(int error, const char *description) {
@@ -97,26 +94,17 @@ EXPORT void begin_frame(game *g)
 	    return;
 	}
 
-
-    //viewer.modelMatrixUniform = glGetUniformLocation(program, "modelMatrix");
 }
 
 EXPORT void draw_opengl(game *g) {
-	
-
+	glUseProgram(shaderProgram);
+    glBindVertexArray(VAO);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glBindVertexArray(0);
 	// for( const auto& mesh : meshes) {
 	// 	 glBindBuffer(GL_DRAW_INDIRECT_BUFFER, mesh.drawsBuffer);
 	// 	 glUniformMatrix4fv(viewer->modelMatrixUniform, 1, GL_FALSE, &matrix[0][0]);
 	// }
-
-	
-
-    // Use the shader program and draw the triangle
-    glUseProgram(shaderProgram);
-    glBindVertexArray(VAO);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-    glBindVertexArray(0);
-
 }
 
 EXPORT void hotreloadable_imgui_draw(game *g)

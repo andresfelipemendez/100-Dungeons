@@ -79,20 +79,22 @@ set(EXTERNALS_SRC_FILES
 add_library(externals SHARED ${EXTERNALS_SRC_FILES})
 
 target_include_directories(
-  externals
-  PRIVATE 
-          "${CMAKE_SOURCE_DIR}/src"
-          "${CMAKE_SOURCE_DIR}/include"
-          "${CMAKE_SOURCE_DIR}/src/core"
-          "${CMAKE_SOURCE_DIR}/src/engine"
-          "${CMAKE_SOURCE_DIR}/src/externals"
-          "${IMGUI_DIR}"
-          "${IMGUI_DIR}/backends"
-          "${OPENGL_INCLUDE_DIR}"
-          "${GLFW_INCLUDE_DIR}"
-          "${FLECS_INCLUDE_DIR}"
-          "${TOML_INCLUDE_DIR}"
-          "${GLAD_INCLUDE_DIR}")
+		externals
+		PRIVATE 
+  		"${CMAKE_SOURCE_DIR}/include"
+		"${CMAKE_SOURCE_DIR}/src"
+		"${CMAKE_SOURCE_DIR}/include"
+		"${CMAKE_SOURCE_DIR}/src/core"
+		"${CMAKE_SOURCE_DIR}/src/engine"
+		"${CMAKE_SOURCE_DIR}/src/externals"
+		"${IMGUI_DIR}"
+		"${IMGUI_DIR}/backends"
+		"${OPENGL_INCLUDE_DIR}"
+		"${GLFW_INCLUDE_DIR}"
+		"${FLECS_INCLUDE_DIR}"
+		"${TOML_INCLUDE_DIR}"
+		"${GLAD_INCLUDE_DIR}"
+	)
 
 target_link_libraries(externals PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH} toml glad)
 
@@ -106,25 +108,38 @@ endif()
 add_library(core SHARED ${CORE_SRC_FILES})
 
 target_include_directories(
-  core
-  PRIVATE "${CMAKE_SOURCE_DIR}/src/engine"
-          "${CMAKE_SOURCE_DIR}/src/core"
-          "${CMAKE_SOURCE_DIR}/src/externals"
-          "${CMAKE_SOURCE_DIR}/src"
-          "${CMAKE_SOURCE_DIR}/include"
-          "${IMGUI_DIR}"
-          "${IMGUI_DIR}/backends"
-          "${OPENGL_INCLUDE_DIR}"
-          "${GLFW_INCLUDE_DIR}"
-          "${TOML_INCLUDE_DIR}")
+		core
+		PRIVATE 
+		"${CMAKE_SOURCE_DIR}/include"
+		"${CMAKE_SOURCE_DIR}/src/engine"
+		"${CMAKE_SOURCE_DIR}/src/core"
+		"${CMAKE_SOURCE_DIR}/src/externals"
+		"${CMAKE_SOURCE_DIR}/src"          
+		"${IMGUI_DIR}"
+		"${IMGUI_DIR}/backends"
+		"${OPENGL_INCLUDE_DIR}"
+		"${GLFW_INCLUDE_DIR}"
+		"${TOML_INCLUDE_DIR}"
+	)
 
-target_link_libraries(core PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH} ${RYML_LIB_PATH} externals toml)
+target_link_libraries(core PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH} ${RYML_LIB_PATH} toml)
 
               
 file(GLOB ENGINE_SRC_FILES "src/engine/*.cpp")
+
+set(IMGUI_SRC_FILES 
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_demo.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+)
+
 file(GLOB ENGINE_HEADER_FILES "src/engine/*.h")
 
-add_library(engine SHARED ${ENGINE_SRC_FILES})
+add_library(engine SHARED ${ENGINE_SRC_FILES}  ${IMGUI_SRC_FILES})
 
 target_include_directories(
 		engine PRIVATE 
@@ -149,7 +164,6 @@ target_link_libraries(
 		${OPENGL_LIBRARIES} 
 		${GLFW_LIB_PATH} 
 		${FASTGLTF_LIB_PATH} 
-		externals 
 		toml
 		glad
 	)

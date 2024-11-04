@@ -13,6 +13,7 @@
 #include <glad.h>
 
 
+#include <printLog.h>
 #include <GLFW/glfw3.h>
 
 //hotreloadable_imgui_draw_func g_imguiUpdate = NULL;
@@ -31,7 +32,7 @@ EXPORT int init_externals(game *g) {
 		return -1;
 	}
 
-	const char *glsl_version = "#version 150";
+	const char *glsl_version = "#version 450";
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
   	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); 
@@ -120,14 +121,35 @@ EXPORT void update_externals(game *g) {
 	glfwGetFramebufferSize(g->window, &display_w, &display_h);
 	glViewport(0, 0, display_w, display_h);
 	
-	
-
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 	glfwSwapBuffers(g->window);
 
 	g->play = !glfwWindowShouldClose(g->window);
 }
 
-EXPORT void end_externals(game *g) {}
+EXPORT void end_externals(game *g) {
+	 
+    if (g->ctx) {
+        ImGui::SetCurrentContext(g->ctx);
+        
+        // Shut down ImGui for GLFW and OpenGL
+        ImGui_ImplOpenGL3_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
+        
+        // Destroy ImGui context
+        ImGui::DestroyContext(g->ctx);
+        g->ctx = nullptr;
+    }
+
+    if (g->window) {
+        glfwDestroyWindow(g->window);
+        g->window = nullptr;
+    }
+
+    glfwTerminate();
+    
+    // Log that externals have been successfully shut down
+    print_log("Externals have been successfully shut down", COLOR_YELLOW);
+}
 
 EXPORT ImGuiContext *GetImguiContext() { return ImGui::GetCurrentContext(); }

@@ -32,12 +32,10 @@ void init_engine_memory(game *g)
 
     // Store total size for memory management or debugging
     header->total_size = offset;
-
 }
 
 MemoryHeader* get_header(game* g) {
     return (MemoryHeader *)g->world;
-
 }
 
 World* get_world(game* g) {
