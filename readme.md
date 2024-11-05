@@ -13,8 +13,6 @@ The engine builds upon systems from previous projects, incorporating modular des
 
 For the scene description format, I’ve replaced JSON with TOML, which provides straightforward handling of data types without YAML's added complexity. I’m also developing a custom ECS tailored to this engine's needs, reusing my knowledge of manual memory layout from the "direct x pong engine" project ([DirectX Pong Engine](https://github.com/andresfelipemendez/C-D3D11-Engine)). This ECS gives me precise memory control from within the hot-reloaded DLL, enhancing flexibility and performance.
 
-Here's the updated overview with your choice of *fastgltf* integrated:
-
 ## Features
 - **Manually Designed Dungeons:** Each of the 100 dungeons will be unique, offering varied layouts and challenges.
 - **Iterative Engine Development:** The engine undergoes continuous improvements, adding features tailored to dungeon creation and gameplay as development progresses.
