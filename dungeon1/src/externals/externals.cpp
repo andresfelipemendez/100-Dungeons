@@ -35,65 +35,95 @@ EXPORT int init_externals(game *g) {
 	const char *glsl_version = "#version 450";
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-  	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); 
-  	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);           
+ glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); 
+ glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);           
 
-  g->window = glfwCreateWindow(1920, 1080, "Hello World", NULL, NULL);
-  if (!g->window) {
-  	fprintf(stderr, "Failed to create GLFW window\n");
-  	glfwTerminate();
-  	return -1;
-  }
+ g->window = glfwCreateWindow(1920, 1080, "Hello World", NULL, NULL);
+ if (!g->window) {
+     fprintf(stderr, "Failed to create GLFW window\n");
+     glfwTerminate();
+     return -1;
+ }
 
-  glfwMakeContextCurrent(g->window);
-  glfwSwapInterval(1);
+ int monitorCount;
+ GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
+ 
+ printf("number of monitors %i", monitorCount);
+ GLFWmonitor* monitor = monitors[0];
+ int monitorX, monitorY;
+ glfwGetMonitorPos(monitor, &monitorX, &monitorY);
 
-  IMGUI_CHECKVERSION();
-  ImGuiContext *ctx = ImGui::CreateContext();
-  if (!ctx) {
-  	fprintf(stderr, "Failed to create ImGui context\n");
-  	glfwDestroyWindow(g->window);
-  	glfwTerminate();
-  	return -1;
-  }
+ printf("monitor pos x %i, y %i\n", monitorX, monitorY);
 
-  ImGuiIO &io = ImGui::GetIO();
-  (void)io;
-  io.ConfigFlags |=
-  ImGuiConfigFlags_NavEnableKeyboard;
-  io.ConfigFlags |=
-  ImGuiConfigFlags_NavEnableGamepad; 
+ const GLFWvidmode* vidMode = glfwGetVideoMode(monitor);
+ if (vidMode == NULL) {
+    fprintf(stderr, "Failed to get video mode for monitor #4\n");
+    glfwDestroyWindow(g->window);
+    glfwTerminate();
+    return -1;
+}
 
-  ImGui::StyleColorsDark();
-  ImGui::SetCurrentContext(ctx);
+printf("monitor widht %i, height %i\n", vidMode->width, vidMode->height);
+if(vidMode->width == 3840 && vidMode->height == 1600) {
+    printf("this is my normal setup so I'll position the window manually\n");
+    int windowWidth = 1920;
+    int windowHeight = 1080;
+    int xpos = monitorX + (vidMode->width - windowWidth);
+    int ypos = monitorY + 30;
+    glfwSetWindowPos(g->window, xpos, ypos);
+}
 
-  if (!ImGui_ImplGlfw_InitForOpenGL(g->window, true)) {
-  	fprintf(stderr, "Failed to initialize ImGui_ImplGlfw\n");
-  	ImGui::DestroyContext(ctx);
-  	glfwDestroyWindow(g->window);
-  	glfwTerminate();
-  	return -1;
-  }
+glfwMakeContextCurrent(g->window);
+glfwSwapInterval(1);
 
-  if (!ImGui_ImplOpenGL3_Init(glsl_version)) {
-  	fprintf(stderr, "Failed to initialize ImGui_ImplOpenGL3\n");
-  	ImGui_ImplGlfw_Shutdown();
-  	ImGui::DestroyContext(ctx);
-  	glfwDestroyWindow(g->window);
-  	glfwTerminate();
-  	return -1;
-  }
+IMGUI_CHECKVERSION();
+ImGuiContext *ctx = ImGui::CreateContext();
+if (!ctx) {
+ fprintf(stderr, "Failed to create ImGui context\n");
+ glfwDestroyWindow(g->window);
+ glfwTerminate();
+ return -1;
+}
 
-  g->loader = (GLADloadproc)glfwGetProcAddress;
-  if (!gladLoadGLLoader((GLADloadproc)g->loader)) {
-  	printf("Failed to initialize GLAD in DLL\n");
-  	return -1;
-  }
-  g->play = true;
-  g->ctx = ctx;
-  ImGui::GetAllocatorFunctions(&g->alloc_func, &g->free_func, &g->user_data);
+ImGuiIO &io = ImGui::GetIO();
+(void)io;
+io.ConfigFlags |=
+ImGuiConfigFlags_NavEnableKeyboard;
+io.ConfigFlags |=
+ImGuiConfigFlags_NavEnableGamepad; 
 
-  return 1;
+ImGui::StyleColorsDark();
+ImGui::SetCurrentContext(ctx);
+
+if (!ImGui_ImplGlfw_InitForOpenGL(g->window, true)) {
+ fprintf(stderr, "Failed to initialize ImGui_ImplGlfw\n");
+ ImGui::DestroyContext(ctx);
+ glfwDestroyWindow(g->window);
+ glfwTerminate();
+ return -1;
+}
+
+if (!ImGui_ImplOpenGL3_Init(glsl_version)) {
+ fprintf(stderr, "Failed to initialize ImGui_ImplOpenGL3\n");
+ ImGui_ImplGlfw_Shutdown();
+ ImGui::DestroyContext(ctx);
+ glfwDestroyWindow(g->window);
+ glfwTerminate();
+ return -1;
+}
+
+
+
+g->loader = (GLADloadproc)glfwGetProcAddress;
+if (!gladLoadGLLoader((GLADloadproc)g->loader)) {
+ printf("Failed to initialize GLAD in DLL\n");
+ return -1;
+}
+g->play = true;
+g->ctx = ctx;
+ImGui::GetAllocatorFunctions(&g->alloc_func, &g->free_func, &g->user_data);
+
+return 1;
 }
 
 EXPORT void update_externals(game *g) {
@@ -128,7 +158,7 @@ EXPORT void update_externals(game *g) {
 }
 
 EXPORT void end_externals(game *g) {
-	 
+  
     if (g->ctx) {
         ImGui::SetCurrentContext(g->ctx);
         
