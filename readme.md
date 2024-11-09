@@ -1,22 +1,32 @@
 # 100 Dungeons
 
 ![dungeon1](dungeon1.gif)
-## Screen capture of the first dungeon's current engine status. 
-The engine currently only renders static meshes. Skinned animation support is planned for future implementation.
+
+## Screen capture of the first dungeon's current engine status
+The engine currently renders static meshes only, with skinned animation support planned for future implementation.
+
+![hotreload](hotreload.gif)
+
+## Showcase of Hot-reloading Capabilities
+This example demonstrates hot-reloading by changing the unlit shader color. The engine supports two levels of hot-reloading: 
+- `engine.dll`, which manages the ECS and rendering,
+- `externals.dll`, which handles window creation and OpenGL initialization.
+
+Reloading `externals.dll` closes the window, but since memory is allocated in `core.dll`, the world state persists after reopening the window.
 
 ## Overview
 **100 Dungeons** is a personal project inspired by the legendary Zelda games, aimed at designing 100 unique, immersive dungeons with classic Zelda-style gameplay in a 3D environment. This project is both a creative and technical challenge, allowing me to iterate on my game engine architecture while creating simple yet engaging dungeon experiences.
 
-The current focus is on dungeon1, which is a continuation of my Anitra project. I plan to gradually migrate code from 1dungeon (based on my earlier GP1 project) to dungeon1, combining Anitra with GP1 along with new features to enhance functionality. To build dungeon1, you need to first run `generate.bat` and then `build.bat`. The `anitra.exe` will subsequently call `build_engine.bat` to generate the engine DLL for hot reloading.
+The current focus is on developing the engine for dungeon1, which is a continuation of my Anitra project. I plan to gradually migrate code from 1dungeon (based on my earlier GP1 project) to dungeon1, combining Anitra with GP1 along with new features to enhance functionality. To build dungeon1, you need to first run `generate.bat` and then `build.bat`. The `anitra.exe` will subsequently call `build_engine.bat` to generate the engine DLL for hot reloading.
 
 The engine builds upon systems from previous projects, incorporating modular design and real-time updates via hot-reloading and directory-watching features from [Anitra](https://github.com/andresfelipemendez/anitra). Additionally, the project draws on my experience [reimplementing](https://github.com/andresfelipemendez/GP1) examples from *Game Programming in C++* by Sanjay Madhav to create a streamlined development workflow.
 
-For the scene description format, I’ve replaced JSON with TOML, which provides straightforward handling of data types without YAML's added complexity. I’m also developing a custom ECS tailored to this engine's needs, reusing my knowledge of manual memory layout from the "direct x pong engine" project ([DirectX Pong Engine](https://github.com/andresfelipemendez/C-D3D11-Engine)). This ECS gives me precise memory control from within the hot-reloaded DLL, enhancing flexibility and performance.
+For the scene description format, I’ve replaced JSON with TOML, which provides straightforward handling of data types without YAML's added complexity. I’m also developing a custom ECS tailored to this engine's needs, reusing my knowledge of manual memory layout from the ([DirectX Pong Engine](https://github.com/andresfelipemendez/C-D3D11-Engine)). This ECS gives me precise memory control from within the hot-reloaded DLL, enhancing flexibility and performance.
 
 ## Features
 - **Manually Designed Dungeons:** Each of the 100 dungeons will be unique, offering varied layouts and challenges.
 - **Iterative Engine Development:** The engine undergoes continuous improvements, adding features tailored to dungeon creation and gameplay as development progresses.
-- **Custom ECS Architecture:** A streamlined, custom-built ECS system allows direct memory management within the hot-reloaded DLL, drawing on manual memory layout techniques from prior engine projects.
+- **Custom ECS Architecture:** A streamlined, custom-built ECS system allows direct memory management within the hot-reloaded DLL, persisting the world state across dll reloads.
 - **OpenGL 4.5 Rendering:** Rendering is handled via OpenGL 4.5, providing extensive control over graphical output and flexibility in visual presentation.
 - **GLTF for Mesh and Animation Loading:** The engine uses *fastgltf* to handle glTF assets, ensuring efficient loading of 3D models and animations.
 
@@ -26,6 +36,20 @@ For the scene description format, I’ve replaced JSON with TOML, which provides
 - **[GLM](https://github.com/g-truc/glm):** A mathematics library used for OpenGL transformations.
 - **[tomlc99](https://github.com/cktan/tomlc99):** Parses TOML files for managing scene descriptions and configurations.
 - **[fastgltf](https://github.com/spnda/fastgltf):** Supports efficient loading of 3D models and animations in the glTF format.
+
+For the prerequisites section, you can provide a more detailed setup to help users prepare their environment smoothly. Here’s a suggestion:
+
+## Prerequisites
+
+To compile and run **100 Dungeons** locally, ensure you have the following setup:
+
+1. **Operating System**: Windows (tested on Windows 11)
+2. **Build Tools**:
+   - **CMake** (version 3.12 or higher)
+   - **Visual Studio** (tested on the latest 2022 version, with C++ development tools installed)
+3. **Graphics Driver**: Ensure that your graphics drivers are up-to-date to support OpenGL 4.5, which the engine uses.
+
+Let me know if you'd like any further adjustments!
 
 ## How to Run
 1. **Install Dependencies:** Ensure you have the required libraries installed (Flecs, GLFW, GLAD, GLM, etc.).
