@@ -56,10 +56,27 @@ struct Rotations {
     Vec3* rotations;
 };
 
-struct Models {
+typedef struct Models {
     size_t count;
     size_t* entity_ids;
     Vec3* positions;
+};
+
+typedef struct SubMesh {
+    unsigned int vertexArray;
+    unsigned int indexBuffer;
+} SubMesh;
+
+typedef struct StaticMesh {
+    size_t entity_id;
+    size_t submesh_count;
+    SubMesh* submeshes;
+} StaticMesh;
+
+struct Meshes {
+    size_t count;
+    size_t* entity_ids;
+    StaticMesh* mesh_data;
 };
 
 struct Shaders {
@@ -90,6 +107,7 @@ typedef struct World {
 struct MemoryHeader {
     World world;
     Transforms* transforms;
+    Meshes* meshes;
     size_t total_size;     
 };
 
@@ -101,3 +119,5 @@ bool set_component_value(MemoryHeader* h, size_t entity_id, uint32_t component_m
 
 void ecs_load_level(struct game* g, const char* saveFilePath);
 void save_level(MemoryHeader* h, const char* saveFilePath);
+
+void rendering_system(World* w);
