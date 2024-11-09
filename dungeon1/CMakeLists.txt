@@ -125,7 +125,6 @@ target_include_directories(
 
 target_link_libraries(core PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH} ${RYML_LIB_PATH} toml)
 
-              
 file(GLOB ENGINE_SRC_FILES "src/engine/*.cpp")
 
 set(IMGUI_SRC_FILES 
@@ -141,7 +140,10 @@ set(IMGUI_SRC_FILES
 file(GLOB ENGINE_HEADER_FILES "src/engine/*.h")
 
 add_library(engine SHARED ${ENGINE_SRC_FILES}  ${IMGUI_SRC_FILES})
-
+target_compile_definitions(engine PRIVATE _ITERATOR_DEBUG_LEVEL=0)
+set_target_properties(engine PROPERTIES
+    MSVC_RUNTIME_LIBRARY "MultiThreadedDLL"  # Use /MD to match release settings
+)
 target_include_directories(
 		engine PRIVATE 
 		"${CMAKE_SOURCE_DIR}/src/engine"
@@ -168,29 +170,3 @@ target_link_libraries(
 		toml
 		glad
 	)
-
-#enable_testing()
-#
-#file(GLOB TEST_SRC_FILES "tests/*.cpp")
-#add_executable(${PROJECT_NAME}_tests ${TEST_SRC_FILES})
-#target_include_directories(${PROJECT_NAME}_tests PRIVATE
-#    "${CMAKE_SOURCE_DIR}/include"
-#    "${CMAKE_SOURCE_DIR}/src/engine"
-#    "${CMAKE_SOURCE_DIR}/src"
-#    "${CMAKE_SOURCE_DIR}/lib"
-#    "${TOML_INCLUDE_DIR}"
-#    "${GLFW_INCLUDE_DIR}"
-#    "${IMGUI_DIR}"
-#    "${IMGUI_DIR}/backends"
-#)
-#
-#target_link_libraries(${PROJECT_NAME}_tests PRIVATE
-#    core
-#    engine
-#    externals
-#    toml
-#    ${OPENGL_LIBRARIES}
-#    ${GLFW_LIB_PATH}
-#)
-#target_compile_definitions(${PROJECT_NAME}_tests PRIVATE UTEST_IMPLEMENTATION)
-#add_test(NAME ${PROJECT_NAME}_unit_tests COMMAND ${PROJECT_NAME}_tests)

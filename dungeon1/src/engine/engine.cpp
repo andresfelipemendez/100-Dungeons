@@ -35,11 +35,8 @@ EXPORT void init_engine(game *g)
 	init_engine_memory(g);
 }
 
-static std::vector<Mesh> meshes;
-
-
 EXPORT void load_meshes(game *g) {
-	meshes = LoadGLTFMeshes("");
+//	meshes = LoadGLTFMeshes("");
 
     float vertices[] = {
         0.0f,  0.5f, 0.0f,  
@@ -103,22 +100,22 @@ EXPORT void draw_opengl(game *g) {
     glBindVertexArray(0);
 
 
-	for( const auto& mesh : meshes) {
-	 	 glBindBuffer(GL_DRAW_INDIRECT_BUFFER, mesh.drawsBuffer);
-	 	 for(auto i = 0U; i < mesh.primitives.size(); ++i){
-	 	 	auto& prim = mesh.primitives[i];
-	 	 	auto& gltfPrimitive = mesh.primitives[i];
+	// for( const auto& mesh : meshes) {
+	//  	 glBindBuffer(GL_DRAW_INDIRECT_BUFFER, mesh.drawsBuffer);
+	//  	 for(auto i = 0U; i < mesh.primitives.size(); ++i){
+	//  	 	auto& prim = mesh.primitives[i];
+	//  	 	auto& gltfPrimitive = mesh.primitives[i];
 
-	 	 	// dont have materials yet
-	 	 	std::size_t materialIndex;
+	//  	 	// dont have materials yet
+	//  	 	std::size_t materialIndex;
 
-	 	 	glBindVertexArray(prim.vertexArray);
-	 	 	glDrawElementsIndirect(prim.primitiveType,prim.indexType,reinterpret_cast<const void*>(i*sizeof(Primitive)));
+	//  	 	glBindVertexArray(prim.vertexArray);
+	//  	 	glDrawElementsIndirect(prim.primitiveType,prim.indexType,reinterpret_cast<const void*>(i*sizeof(Primitive)));
 
 
-	 	 }
-	// 	 glUniformMatrix4fv(viewer->modelMatrixUniform, 1, GL_FALSE, &matrix[0][0]);
-	}
+	//  	 }
+	// // 	 glUniformMatrix4fv(viewer->modelMatrixUniform, 1, GL_FALSE, &matrix[0][0]);
+	// }
 }
 
 EXPORT void hotreloadable_imgui_draw(game *g)

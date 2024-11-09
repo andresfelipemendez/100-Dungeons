@@ -47,20 +47,21 @@ void getCurrentWorkingDirectory(char* buffer, size_t size)
     GetCurrentDirectoryA((DWORD)size, buffer);
 }
 
-void copy_dll(const char * dll_name)
-{
+
+bool copy_dll(const char *dll_name, char *dest, size_t dest_size) {
     char cwd[MAX_PATH];
     GetCurrentDirectoryA(MAX_PATH, cwd);
-    
+
     char src[MAX_PATH];
-    char dest[MAX_PATH];
-    snprintf(src, sizeof(src), "%s\\build\\debug\\%s.dll", cwd, dll_name);
-    snprintf(dest, sizeof(dest), "%s\\build\\debug\\%s_copy.dll", cwd, dll_name);
-    
+    snprintf(src, sizeof(src), "%s\\%s.dll", cwd, dll_name);
+    snprintf(dest, dest_size, "%s\\%s_copy.dll", cwd, dll_name);
+
     if (!CopyFileA(src, dest, FALSE)) {
-        printf("Could not copy dll %s: Error %lu\n", src, GetLastError());
+        printf("Could not copy DLL %s: Error %lu\n", src, GetLastError());
+        return false;
     } else {
         printf("DLL copied successfully from %s to %s\n", src, dest);
+        return true;
     }
 }
 
@@ -70,9 +71,7 @@ void compile_engine_dll()
     getCurrentWorkingDirectory(cwd, MAX_PATH);
     
     char command[1024];
-    snprintf(command, sizeof(command),
-        "\"%s\" /LD /I%s\\include /Fe:%s\\build\\Debug\\engine.dll %s\\src\\engine\\*.cpp /link /out:%s\\Debug\\engine.dll",
-        compiler, cwd,cwd,cwd,cwd);
+    snprintf(command, sizeof(command),"%s%s", cwd,"build_engine.bat");
         
     printf("Compiling Externals DLL with command: %s\n", command);
     system(command);
@@ -121,12 +120,14 @@ void load_function_pointers(game &g) {
     begin_game_loop(g);
 }
 
-
 void reload_externals(game &g)
 {
     print_log("Reloading externals.dll", COLOR_GREEN);
-    copy_dll("externals");
-    externals_lib = (HMODULE)loadlibrary("externals_copy");
+    char copiedExternalsDllPath[MAX_PATH];
+    if (!copy_dll("externals", copiedExternalsDllPath, sizeof(copiedExternalsDllPath))) {
+        return;
+    }
+    externals_lib = (HMODULE)loadlibrary(copiedExternalsDllPath);
     if (externals_lib) {
         load_function_pointers(g);
     } else {
@@ -206,7 +207,7 @@ void directory_watch_function(const std::string &directory, std::function<void()
 
 void watch_engine_directory()
 {
-    directory_watch_function("src/engine", []()
+    directory_watch_function("../../src/engine", []()
                              {
                                  compile_engine_dll();
                                  reloadEngineFlag.store(true);
@@ -215,7 +216,7 @@ void watch_engine_directory()
 
 void watch_externals_directory()
 {
-    directory_watch_function("src/externals", []()
+    directory_watch_function("../../src/externals", []()
                              {
                                  compile_externals_dll();
                                  reloadExternalsFlag.store(true);
@@ -233,9 +234,11 @@ void begin_game_loop(game &g)
             reloadEngineFlag.store(false);
             printf("Reloading Engine...\n");
             unloadlibrary(g.engine_lib);
-            copy_dll("engine");
-
-            g.engine_lib = loadlibrary("engine_copy");
+            char copiedEgnineDllPath[MAX_PATH];
+            if (!copy_dll("engine", copiedEgnineDllPath, sizeof(copiedEgnineDllPath))) {
+                return;
+            }
+            g.engine_lib = loadlibrary(copiedEgnineDllPath);
             init_engine_func init_engine = (init_engine_func)getfunction(g.engine_lib, "init_engine");
             g.g_imguiUpdate = (hotreloadable_imgui_draw_func)getfunction(g.engine_lib, "hotreloadable_imgui_draw");
             init_engine(&g);
@@ -264,8 +267,6 @@ void begin_game_loop(game &g)
 
 EXPORT void init()
 {
-    printf("Core initialized\n");
-
     char cwd[MAX_PATH];
     getCurrentWorkingDirectory(cwd,MAX_PATH);
     printf("Current working directory: %s\n", cwd);
@@ -285,20 +286,27 @@ EXPORT void init()
         memset(g.world, 0, 100 * 1024);
     }
     
-    copy_dll("engine");
+    char copiedEgnineDllPath[MAX_PATH];
+    if (!copy_dll("engine", copiedEgnineDllPath, sizeof(copiedEgnineDllPath))) {
+        return;
+    }
 
-    g.engine_lib = loadlibrary("engine_copy");
-
+    g.engine_lib = loadlibrary(copiedEgnineDllPath);
+    
     init_engine_func init_engine = (init_engine_func)getfunction(g.engine_lib, "init_engine");
     init_engine(&g);
     load_level_func load_level = (load_level_func)getfunction(g.engine_lib, "load_level");
-    load_level(&g, "scene.toml");
+    load_level(&g, "assets\\scene.toml");
 
     g.begin_frame = (begin_frame_func)getfunction(g.engine_lib, "begin_frame");
     g.g_imguiUpdate = (hotreloadable_imgui_draw_func)getfunction(g.engine_lib, "hotreloadable_imgui_draw");
 
-    copy_dll("externals");
-    externals_lib = (HMODULE)loadlibrary("externals_copy");
+    char copiedDllPath[MAX_PATH];
+    if (!copy_dll("externals", copiedDllPath, sizeof(copiedDllPath))) {
+        return;
+    }
+    externals_lib = (HMODULE)loadlibrary(copiedDllPath);
+
     init_externals_func init_externals = (init_externals_func)getfunction(externals_lib, "init_externals");
     init_externals(&g);
 
@@ -310,11 +318,13 @@ EXPORT void init()
     begin_watch_engine_directory(g);
     begin_watch_externals_directory(g);
 
-    //g.draw_opengl = (draw_opengl_func)getfunction(externals_lib, "draw_opengl");
     update_externals_ptr = (update_externals_func)getfunction(externals_lib, "update_externals");
     end_externals_ptr  = (end_externals_func)getfunction(externals_lib, "end_externals");
 
     g.draw_opengl = (draw_opengl_func)getfunction(g.engine_lib, "draw_opengl");
+
+    printf("Core initialized\n");
+
     begin_game_loop(g);
 }
 

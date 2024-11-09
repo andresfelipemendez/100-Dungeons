@@ -1,8 +1,16 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: Call vcvars64.bat to set up environment variables
-call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
+:: Check for --skip-vcvars parameter to avoid calling vcvars64.bat
+set "SKIP_VCVARS=false"
+if "%1"=="--skip-vcvars" (
+    set "SKIP_VCVARS=true"
+)
+
+:: Call vcvars64.bat to set up environment variables if not skipped
+if "%SKIP_VCVARS%"=="false" (
+    call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
+)
 
 :: Set paths
 set "COMPILER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.41.34120\bin\Hostx64\x64\cl.exe"
@@ -70,7 +78,7 @@ if %errorlevel% neq 0 (
     echo Compilation failed with error code %errorlevel%.
     exit /b %errorlevel%
 ) else (
-    echo Compilation succeeded.
+    powershell -Command "Write-Host 'Engine Compilation succeeded.' -ForegroundColor Green"
 )
 
 endlocal

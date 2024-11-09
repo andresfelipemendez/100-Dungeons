@@ -1,15 +1,34 @@
 #include "loadlibrary.h"
 #include <stdio.h>
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 void *loadlibrary(const char *libname) {
-  char libpath[256];
-  snprintf(libpath, sizeof(libpath), "%s.dll", libname);
-  HMODULE hLib = LoadLibrary(libpath);
+  HMODULE hLib = LoadLibrary(libname);
+  
   if (hLib == NULL) {
-    fprintf(stderr, "Failed to load library: %s\n", libpath);
+    // Get the last error code
+    DWORD errorCode = GetLastError();
+    
+    // Buffer to hold the error message
+    char errorMsg[256];
+    
+    // Format the error message
+    FormatMessage(
+        FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL,
+        errorCode,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        errorMsg,
+        sizeof(errorMsg),
+        NULL
+    );
+    
+    // Print the error message
+    fprintf(stderr, "Failed to load library: %s\nError: %s\n", libname, errorMsg);
     return NULL;
   }
+  
   return hLib;
 }
 
