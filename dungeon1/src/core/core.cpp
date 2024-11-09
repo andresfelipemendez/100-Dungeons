@@ -40,38 +40,56 @@ constexpr auto DEBOUNCE_INTERVAL_MS = 500;
 
 namespace fs = std::filesystem;
 
-std::string getCurrentWorkingDirectory()
+const char *compiler = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\14.41.34120\\bin\\Hostx64\\x64\\cl.exe";
+
+void getCurrentWorkingDirectory(char* buffer, size_t size)
 {
-    char buffer[MAX_PATH];
-    GetCurrentDirectoryA(MAX_PATH, buffer);
-    return std::string(buffer);
+    GetCurrentDirectoryA((DWORD)size, buffer);
 }
 
-void copy_dll(const std::string &src, const std::string &dest)
+void copy_dll(const char * dll_name)
 {
-    try {
-        std::filesystem::copy_file(src, dest, std::filesystem::copy_options::overwrite_existing);
-    }
-    catch (fs::filesystem_error& e) 
-    {
-        std::cout << "could noy copy dll " << src << ": " << e.what() << "\n";
+    char cwd[MAX_PATH];
+    GetCurrentDirectoryA(MAX_PATH, cwd);
+    
+    char src[MAX_PATH];
+    char dest[MAX_PATH];
+    snprintf(src, sizeof(src), "%s\\build\\debug\\%s.dll", cwd, dll_name);
+    snprintf(dest, sizeof(dest), "%s\\build\\debug\\%s_copy.dll", cwd, dll_name);
+    
+    if (!CopyFileA(src, dest, FALSE)) {
+        printf("Could not copy dll %s: Error %lu\n", src, GetLastError());
+    } else {
+        printf("DLL copied successfully from %s to %s\n", src, dest);
     }
 }
 
 void compile_engine_dll()
 {
-    std::string cwd = getCurrentWorkingDirectory();
-    std::string command = "cd /d " + cwd + " && build_engine.bat";
-    std::cout << "Compiling Engine DLL with command: " << command << std::endl;
-    system(command.c_str());
+    char cwd[MAX_PATH];
+    getCurrentWorkingDirectory(cwd, MAX_PATH);
+    
+    char command[1024];
+    snprintf(command, sizeof(command),
+        "\"%s\" /LD /I%s\\include /Fe:%s\\build\\Debug\\engine.dll %s\\src\\engine\\*.cpp /link /out:%s\\Debug\\engine.dll",
+        compiler, cwd,cwd,cwd,cwd);
+        
+    printf("Compiling Externals DLL with command: %s\n", command);
+    system(command);
 }
 
 void compile_externals_dll()
 {
-    std::string cwd = getCurrentWorkingDirectory();
-    std::string command = "cd /d " + cwd + " && build_externals.bat";
-    std::cout << "Compiling Externals DLL with command: " << command << std::endl;
-    system(command.c_str());
+    char cwd[MAX_PATH];
+    getCurrentWorkingDirectory(cwd, MAX_PATH);
+
+    char command[1024];
+    snprintf(command, sizeof(command),
+        "\"%s\" /LD /I%s\\include /Fe:%s\\build\\Debug\\externals.dll %s\\src\\externals\\*.cpp /link /out:%s\\Debug\\externals.dll",
+        compiler, cwd,cwd,cwd,cwd);
+        
+    printf("Compiling Externals DLL with command: %s\n", command);
+    system(command);
 }
 
 void shutdown_externals(game &g)
@@ -107,14 +125,7 @@ void load_function_pointers(game &g) {
 void reload_externals(game &g)
 {
     print_log("Reloading externals.dll", COLOR_GREEN);
-    
-    // Copy the newly compiled externals.dll to externals_copy.dll
-    std::string cwd = getCurrentWorkingDirectory();
-    std::string src = cwd + "\\build\\Debug\\externals.dll";
-    std::string dest = cwd + "\\build\\Debug\\externals_copy.dll";
-    copy_dll(src, dest);
-    
-    // Load externals_copy.dll
+    copy_dll("externals");
     externals_lib = (HMODULE)loadlibrary("externals_copy");
     if (externals_lib) {
         load_function_pointers(g);
@@ -211,6 +222,8 @@ void watch_externals_directory()
                              });
 }
 
+
+
 void begin_game_loop(game &g)
 {
     while (g.play)
@@ -220,11 +233,7 @@ void begin_game_loop(game &g)
             reloadEngineFlag.store(false);
             printf("Reloading Engine...\n");
             unloadlibrary(g.engine_lib);
-
-            std::string cwd = getCurrentWorkingDirectory();
-            std::string src = cwd + "\\build\\Debug\\engine.dll";
-            std::string dest = cwd + "\\build\\Debug\\engine_copy.dll";
-            copy_dll(src, dest);
+            copy_dll("engine");
 
             g.engine_lib = loadlibrary("engine_copy");
             init_engine_func init_engine = (init_engine_func)getfunction(g.engine_lib, "init_engine");
@@ -257,13 +266,14 @@ EXPORT void init()
 {
     printf("Core initialized\n");
 
-    std::string cwd = getCurrentWorkingDirectory();
-    std::cout << "Current working directory: " << cwd << std::endl;
+    char cwd[MAX_PATH];
+    getCurrentWorkingDirectory(cwd,MAX_PATH);
+    printf("Current working directory: %s\n", cwd);
 
     HANDLE hEvent = CreateEventA(NULL, TRUE, FALSE, HOTRELOAD_EVENT_NAME);
     if (hEvent == NULL)
     {
-        std::cerr << "CreateEvent failed (" << GetLastError() << ")" << std::endl;
+        printf("CreateEvent failed (%lu)\n", GetLastError());
     }
     std::thread signalThread(waitforreloadsignal, hEvent);
     signalThread.detach();
@@ -274,10 +284,8 @@ EXPORT void init()
     {
         memset(g.world, 0, 100 * 1024);
     }
-
-    std::string src = cwd + "\\build\\debug\\engine.dll";
-    std::string dest = cwd + "\\build\\debug\\engine_copy.dll";
-    copy_dll(src, dest);
+    
+    copy_dll("engine");
 
     g.engine_lib = loadlibrary("engine_copy");
 
@@ -289,10 +297,7 @@ EXPORT void init()
     g.begin_frame = (begin_frame_func)getfunction(g.engine_lib, "begin_frame");
     g.g_imguiUpdate = (hotreloadable_imgui_draw_func)getfunction(g.engine_lib, "hotreloadable_imgui_draw");
 
-    // Load externals similarly to engine
-    std::string externals_src = cwd + "\\build\\debug\\externals.dll";
-    std::string externals_dest = cwd + "\\build\\debug\\externals_copy.dll";
-    copy_dll(externals_src, externals_dest);
+    copy_dll("externals");
     externals_lib = (HMODULE)loadlibrary("externals_copy");
     init_externals_func init_externals = (init_externals_func)getfunction(externals_lib, "init_externals");
     init_externals(&g);
