@@ -8,6 +8,7 @@
 void init_engine_memory(game *g)
 {
     const size_t initialEntityCount = 100;
+    const size_t initialSubMeshCount = 10;
 
     MemoryHeader *header = (MemoryHeader *)g->world;
     size_t offset = sizeof(MemoryHeader);
@@ -28,6 +29,18 @@ void init_engine_memory(game *g)
     offset += sizeof(Vec3) * initialEntityCount;
 
     header->meshes = (Meshes *)((char *)header + offset);
+    offset += sizeof(Meshes);
+    header->meshes->entity_ids = (size_t*)((char *)header + offset);
+    offset += sizeof(size_t) * initialEntityCount;
+
+    header->meshes->mesh_data = (StaticMesh*)((char *)header + offset);
+    offset += sizeof(StaticMesh) * initialEntityCount;
+
+    for(size_t i = 0; i < initialEntityCount; ++i) {
+        header->meshes->mesh_data[i].submeshes = (SubMesh *)((char *)header + offset);
+        offset += sizeof(SubMesh) * initialSubMeshCount;
+        header->meshes->mesh_data[i].submesh_count = 0;
+    }
 
     // Store total size for memory management or debugging
     header->total_size = offset;
