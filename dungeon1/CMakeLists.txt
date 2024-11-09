@@ -18,6 +18,7 @@ elseif(UNIX)
 endif()
 
 add_executable(${PROJECT_NAME} ${SRC_FILES})
+set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different
 		"${CMAKE_SOURCE_DIR}/lib/glfw/lib/glfw3.dll"

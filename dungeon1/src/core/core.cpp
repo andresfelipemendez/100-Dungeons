@@ -38,6 +38,8 @@ std::atomic<bool> reloadExternalsFlag(false);
 
 constexpr auto DEBOUNCE_INTERVAL_MS = 500;
 
+namespace fs = std::filesystem;
+
 std::string getCurrentWorkingDirectory()
 {
     char buffer[MAX_PATH];
@@ -47,7 +49,13 @@ std::string getCurrentWorkingDirectory()
 
 void copy_dll(const std::string &src, const std::string &dest)
 {
-    std::filesystem::copy_file(src, dest, std::filesystem::copy_options::overwrite_existing);
+    try {
+        std::filesystem::copy_file(src, dest, std::filesystem::copy_options::overwrite_existing);
+    }
+    catch (fs::filesystem_error& e) 
+    {
+        std::cout << "could noy copy dll " << src << ": " << e.what() << "\n";
+    }
 }
 
 void compile_engine_dll()

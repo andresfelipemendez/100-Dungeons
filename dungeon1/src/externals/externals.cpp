@@ -38,7 +38,7 @@ EXPORT int init_externals(game *g) {
   	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); 
   	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);           
 
-  g->window = glfwCreateWindow(640, 480, "Hello World", NULL, NULL);
+  g->window = glfwCreateWindow(1920, 1080, "Hello World", NULL, NULL);
   if (!g->window) {
   	fprintf(stderr, "Failed to create GLFW window\n");
   	glfwTerminate();

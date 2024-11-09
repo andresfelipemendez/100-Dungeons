@@ -101,10 +101,24 @@ EXPORT void draw_opengl(game *g) {
     glBindVertexArray(VAO);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
-	// for( const auto& mesh : meshes) {
-	// 	 glBindBuffer(GL_DRAW_INDIRECT_BUFFER, mesh.drawsBuffer);
+
+
+	for( const auto& mesh : meshes) {
+	 	 glBindBuffer(GL_DRAW_INDIRECT_BUFFER, mesh.drawsBuffer);
+	 	 for(auto i = 0U; i < mesh.primitives.size(); ++i){
+	 	 	auto& prim = mesh.primitives[i];
+	 	 	auto& gltfPrimitive = mesh.primitives[i];
+
+	 	 	// dont have materials yet
+	 	 	std::size_t materialIndex;
+
+	 	 	glBindVertexArray(prim.vertexArray);
+	 	 	glDrawElementsIndirect(prim.primitiveType,prim.indexType,reinterpret_cast<const void*>(i*sizeof(Primitive)));
+
+
+	 	 }
 	// 	 glUniformMatrix4fv(viewer->modelMatrixUniform, 1, GL_FALSE, &matrix[0][0]);
-	// }
+	}
 }
 
 EXPORT void hotreloadable_imgui_draw(game *g)
