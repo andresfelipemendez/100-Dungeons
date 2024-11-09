@@ -177,6 +177,11 @@ void ecs_load_level(game* g, const char* sceneFilePath) {
 					}
 				case MODEL_TYPE:
 					{
+						toml_datum_t model = toml_string_in(attributes, type_key);
+						if (model.ok) {
+		                    printf("  model = \"%s\"\n", model.u.s);
+		                    free(model.u.s); // Free the string allocated by toml_string_in
+		                }
 						break;
 					}
 				case MATERIAL_TYPE:
