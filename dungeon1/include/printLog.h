@@ -10,10 +10,11 @@
 #define COLOR_YELLOW   "\033[33m"
 #define COLOR_BLUE     "\033[34m"
 
-// Macro for logging with file and line number, using printf formatting
-#define print_log(fmt, ...) print_log_impl(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
+// Macro for logging with file and line number, using printf formatting and color
+#define print_log(color, fmt, ...) print_log_impl(__FILE__, __LINE__, color, fmt, ##__VA_ARGS__)
 
-void print_log_impl(const char* file, int line, const char* fmt, ...) {
+// Function implementation with color parameter
+void print_log_impl(const char* file, int line, const char* color, const char* fmt, ...) {
     // Strip the file path to show only after "src/"
     const char* relative_file = strstr(file, "src/");
     if (!relative_file) {
@@ -32,16 +33,6 @@ void print_log_impl(const char* file, int line, const char* fmt, ...) {
     vsnprintf(message, sizeof(message), fmt, args);
     va_end(args);
 
-    // Select the color based on specific keywords (optional, customize as needed)
-    const char* color = RESET_COLOR;
-    if (strstr(message, "ERROR")) {
-        color = COLOR_RED;
-    } else if (strstr(message, "SUCCESS")) {
-        color = COLOR_GREEN;
-    } else if (strstr(message, "WARNING")) {
-        color = COLOR_YELLOW;
-    }
-
-    // Print the formatted message with file, line, and color
+    // Print the formatted message with file, line, and specified color
     printf("%s[%s:%d] %s%s\n", color, file, line, message, RESET_COLOR);
 }

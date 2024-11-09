@@ -41,12 +41,16 @@ if exist "%GLFW_DLL_PATH%" (
 )
 
 :: Create symbolic link to assets if it doesn't exist
+if not exist  "%OUTPUT_PATH%\assets" (
 mklink /D "%OUTPUT_PATH%\assets" "%ASSETS_PATH%"
 if %errorlevel% neq 0 (
     powershell -Command "Write-Host 'Failed to create symbolic link to assets. Please run as Administrator.' -ForegroundColor Red"
     exit /b %errorlevel%
 ) else (
     powershell -Command "Write-Host 'Symbolic link to assets created successfully.' -ForegroundColor Green"
+)
+)else (
+    powershell -Command "Write-Host 'Symbolic link to assets already exists.' -ForegroundColor Cyan"
 )
 
 

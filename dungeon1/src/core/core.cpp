@@ -323,7 +323,7 @@ EXPORT void init()
 
     g.draw_opengl = (draw_opengl_func)getfunction(g.engine_lib, "draw_opengl");
 
-    printf("Core initialized\n");
+    print_log(COLOR_BLUE, "Core initialized\n");
 
     begin_game_loop(g);
 }
