@@ -244,7 +244,7 @@ bool isCompilerAccessible() {
     return system("where clang++ >nul 2>&1") == 0;
 }
 
-extern "C" __declspec(dllexport) __stdcall void init()
+EXPORT void init()
 {
     char cwd[MAX_PATH];
     getCurrentWorkingDirectory(cwd,MAX_PATH);

@@ -3,8 +3,8 @@
 
 #include "export.h"
 
-EXPORT void init();
+DECLARE_FUNC_VOID(init)
 
-void begin_game_loop(struct game &g);
+void begin_game_loop(game &g);
 
 #endif // CORE_H

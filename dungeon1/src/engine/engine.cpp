@@ -71,7 +71,7 @@ EXPORT void load_meshes(game *g) {
                                        "out vec4 FragColor;\n"
                                        "void main()\n"
                                        "{\n"
-                                       "   FragColor = vec4(1.0, 1.0, 0.2, 1.0);\n"
+                                       "   FragColor = vec4(1.0, 0.1, 0.2, 1.0);\n"
                                        "}\0";
     
     shaderProgram = createShaderProgram(vertexShaderSource, fragmentShaderSource);
@@ -99,9 +99,9 @@ EXPORT void begin_frame(game *g)
 
 EXPORT void draw_opengl(game *g) {
 	glUseProgram(shaderProgram);
-    glBindVertexArray(VAO);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-    glBindVertexArray(0);
+    // glBindVertexArray(VAO);
+    // glDrawArrays(GL_TRIANGLES, 0, 3);
+    // glBindVertexArray(0);
 	
 
 	MemoryHeader *h = get_header(g);

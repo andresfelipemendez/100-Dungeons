@@ -64,12 +64,25 @@ if not exist "%OUTPUT_PATH%\build_engine.bat" (
 if not exist "%OUTPUT_PATH%\build_externals.bat" (
     mklink "%OUTPUT_PATH%\build_externals.bat" "%BUILD_EXTERNALS_BAT%"
     if %errorlevel% neq 0 (
-        powershell -Command "Write-Host 'Failed to create symbolic link to build_engine.bat. Please run as Administrator.' -ForegroundColor Red"
+        powershell -Command "Write-Host 'Failed to create symbolic link to build_externals.bat. Please run as Administrator.' -ForegroundColor Red"
         exit /b %errorlevel%
     ) else (
-        powershell -Command "Write-Host 'Symbolic link to build_engine.bat created successfully.' -ForegroundColor Green"
+        powershell -Command "Write-Host 'Symbolic link to build_externals.bat created successfully.' -ForegroundColor Green"
     )
 ) else (
-    powershell -Command "Write-Host 'Symbolic link to build_engine.bat already exists.' -ForegroundColor Cyan"
+    powershell -Command "Write-Host 'Symbolic link to build_externals.bat already exists.' -ForegroundColor Cyan"
+)
+
+:: Create symbolic link for build_engine.bat if it doesn't exist
+if not exist "%OUTPUT_PATH%\env_vars.bat" (
+    mklink "%OUTPUT_PATH%\env_vars.bat" "%PROJECT_ROOT%\env_vars.bat"
+    if %errorlevel% neq 0 (
+        powershell -Command "Write-Host 'Failed to create symbolic link to env_vars.bat. Please run as Administrator.' -ForegroundColor Red"
+        exit /b %errorlevel%
+    ) else (
+        powershell -Command "Write-Host 'Symbolic link to env_vars.bat created successfully.' -ForegroundColor Green"
+    )
+) else (
+    powershell -Command "Write-Host 'Symbolic link to env_vars.bat already exists.' -ForegroundColor Cyan"
 )
 endlocal
