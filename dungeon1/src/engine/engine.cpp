@@ -26,8 +26,8 @@ EXPORT void load_shader(game *g) {
 
 EXPORT void load_level(game *g, const char *sceneFilePath)
 {
-	printf("load level at path %s\n", sceneFilePath);
-	ecs_load_level(g, sceneFilePath);
+	printf("previously load level at path %s\n", sceneFilePath);
+	//ecs_load_level(g, sceneFilePath);
 }
 
 EXPORT void init_engine(game *g)
@@ -36,7 +36,10 @@ EXPORT void init_engine(game *g)
 }
 
 EXPORT void load_meshes(game *g) {
-//	meshes = LoadGLTFMeshes("");
+
+	const char* sceneFilePath ="assets\\scene.toml";
+	printf("load level at path %s\n", sceneFilePath);
+	ecs_load_level(g, sceneFilePath);
 
     float vertices[] = {
         0.0f,  0.5f, 0.0f,  

@@ -182,7 +182,9 @@ void ecs_load_level(game* g, const char* sceneFilePath) {
 						
 						if (model.ok) {
 		                    printf("  model = \"%s\"\n", model.u.s);
-		                    LoadGLTFMeshes(model.u.s);
+		                    if(LoadGLTFMeshes(model.u.s)) {
+		                     printf("loading model to ecs\n");
+		                    }
 		                    free(model.u.s);
 		                }
 						break;

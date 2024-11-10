@@ -9,6 +9,7 @@ set "COMPILER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\M
 set "PROJECT_ROOT=C:\Users\andres\development\100-Dungeons\dungeon1"
 set "OUTPUT_PATH=%PROJECT_ROOT%\build\Debug"
 set "ASSETS_PATH=%PROJECT_ROOT%\assets"
+set "BUILD_ENGINE_BAT=%PROJECT_ROOT%\build_engine.bat"
 
 :: Compile Core DLL
 call "%PROJECT_ROOT%\build_core.bat" --skip-vcvars
@@ -53,5 +54,17 @@ if %errorlevel% neq 0 (
     powershell -Command "Write-Host 'Symbolic link to assets already exists.' -ForegroundColor Cyan"
 )
 
+:: Create symbolic link for build_engine.bat if it doesn't exist
+if not exist "%OUTPUT_PATH%\build_engine.bat" (
+    mklink "%OUTPUT_PATH%\build_engine.bat" "%BUILD_ENGINE_BAT%"
+    if %errorlevel% neq 0 (
+        powershell -Command "Write-Host 'Failed to create symbolic link to build_engine.bat. Please run as Administrator.' -ForegroundColor Red"
+        exit /b %errorlevel%
+    ) else (
+        powershell -Command "Write-Host 'Symbolic link to build_engine.bat created successfully.' -ForegroundColor Green"
+    )
+) else (
+    powershell -Command "Write-Host 'Symbolic link to build_engine.bat already exists.' -ForegroundColor Cyan"
+)
 
 endlocal

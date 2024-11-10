@@ -25,7 +25,6 @@ bool LoadGLTFMeshes(const char* meshFilePath) {
 		return false;
 	}
 
-
 	// for (auto& mesh : asset.get().meshes) {
 	// 	Mesh outMesh = {};
 	// 	outMesh.primitives.resize(mesh.primitives.size());

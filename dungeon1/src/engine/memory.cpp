@@ -42,7 +42,6 @@ void init_engine_memory(game *g)
         header->meshes->mesh_data[i].submesh_count = 0;
     }
 
-    // Store total size for memory management or debugging
     header->total_size = offset;
 }
 

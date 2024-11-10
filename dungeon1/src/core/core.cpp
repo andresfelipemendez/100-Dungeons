@@ -36,7 +36,7 @@ end_externals_func end_externals_ptr  = nullptr;
 std::atomic<bool> reloadEngineFlag(false);
 std::atomic<bool> reloadExternalsFlag(false);
 
-constexpr auto DEBOUNCE_INTERVAL_MS = 500;
+constexpr auto DEBOUNCE_INTERVAL_MS = 5000;
 
 namespace fs = std::filesystem;
 
@@ -65,15 +65,15 @@ bool copy_dll(const char *dll_name, char *dest, size_t dest_size) {
     }
 }
 
-void compile_engine_dll()
-{
+void compile_engine_dll() {
     char cwd[MAX_PATH];
     getCurrentWorkingDirectory(cwd, MAX_PATH);
-    
+
     char command[1024];
-    snprintf(command, sizeof(command),"%s%s", cwd,"build_engine.bat");
-        
-    printf("Compiling Externals DLL with command: %s\n", command);
+    snprintf(command, sizeof(command), "\"%s\\build_engine.bat\" --skip-vcvars", cwd);
+
+    printf("Compiling Engine DLL with command: %s\n", command);
+
     system(command);
 }
 
@@ -162,41 +162,24 @@ void directory_watch_function(const std::string &directory, std::function<void()
         return;
     }
 
-    auto lastCompilationTime = std::chrono::steady_clock::now() - std::chrono::milliseconds(DEBOUNCE_INTERVAL_MS);
+    auto lastCompilationTime = std::chrono::steady_clock::now();
 
     while (true)
     {
         if (ReadDirectoryChangesW(
                 hDir, buffer, sizeof(buffer), TRUE,
-                FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME |
-                FILE_NOTIFY_CHANGE_ATTRIBUTES | FILE_NOTIFY_CHANGE_SIZE |
-                FILE_NOTIFY_CHANGE_LAST_WRITE,
+                FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE,
                 &bytesReturned, &overlapped, NULL))
         {
             WaitForSingleObject(overlapped.hEvent, INFINITE);
-            FILE_NOTIFY_INFORMATION *pNotify;
-            int offset = 0;
-            bool triggerCompilation = false;
 
-            do
+            auto currentTime = std::chrono::steady_clock::now();
+            if (std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - lastCompilationTime).count() >= DEBOUNCE_INTERVAL_MS)
             {
-                pNotify = (FILE_NOTIFY_INFORMATION *)((char *)buffer + offset);
-                std::wstring fileName(pNotify->FileName, pNotify->FileNameLength / sizeof(WCHAR));
-                std::wcout << L"Change detected in: " << fileName << std::endl;
-
-                auto currentTime = std::chrono::steady_clock::now();
-                if (std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - lastCompilationTime).count() > DEBOUNCE_INTERVAL_MS)
-                {
-                    triggerCompilation = true;
-                    lastCompilationTime = currentTime;
-                }
-
-                offset += pNotify->NextEntryOffset;
-            } while (pNotify->NextEntryOffset);
-
-            if (triggerCompilation)
-            {
-                std::this_thread::sleep_for(std::chrono::milliseconds(500)); // Debounce delay to avoid rapid consecutive builds
+                std::cout << L"Change detected in: " << directory << std::endl;
+                
+                // Update last compilation time and trigger the callback
+                lastCompilationTime = currentTime;
                 onChange();
             }
 
@@ -265,12 +248,21 @@ void begin_game_loop(game &g)
     }
 }
 
+bool isCompilerAccessible() {
+    return system("where cl >nul 2>&1") == 0;
+}
+
 EXPORT void init()
 {
     char cwd[MAX_PATH];
     getCurrentWorkingDirectory(cwd,MAX_PATH);
     printf("Current working directory: %s\n", cwd);
 
+    if (!isCompilerAccessible()) {
+        print_log(COLOR_RED, "CL it's not accesible\n");
+        return;
+    }
+    
     HANDLE hEvent = CreateEventA(NULL, TRUE, FALSE, HOTRELOAD_EVENT_NAME);
     if (hEvent == NULL)
     {
@@ -350,6 +342,7 @@ void waitforreloadsignal(void* hEvent)
         {
             print_log("Hot reload signal received", COLOR_GREEN);
             reloadEngineFlag.store(true);
+            std::this_thread::sleep_for(std::chrono::milliseconds(DEBOUNCE_INTERVAL_MS));
             break;
         }
     }
