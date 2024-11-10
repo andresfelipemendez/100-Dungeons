@@ -110,7 +110,6 @@ void ecs_load_level(game* g, const char* sceneFilePath) {
 	toml_table_t *level = toml_parse_file(fp, errbuf, sizeof(errbuf));
 	fclose(fp);
 
-	printf("toml level loaded\n");
 	World *w = get_world(g);
 	MemoryHeader *h = get_header(g);
 
@@ -182,7 +181,7 @@ void ecs_load_level(game* g, const char* sceneFilePath) {
 						
 						if (model.ok) {
 		                    printf("  model = \"%s\"\n", model.u.s);
-		                    if(LoadGLTFMeshes(model.u.s)) {
+		                    if(LoadGLTFMeshes(h, model.u.s)) {
 		                     printf("loading model to ecs\n");
 		                    }
 		                    free(model.u.s);

@@ -4,7 +4,8 @@
 #include <export.h>
 
 DECLARE_FUNC_VOID_pGAME_pCHAR(load_level)
-DECLARE_FUNC_VOID_pGAME(init_engine)
+
+extern "C" __declspec(dllexport) __stdcall void init_engine(game *g);
 
 DECLARE_FUNC_VOID_pGAME(hotreloadable_imgui_draw)
 

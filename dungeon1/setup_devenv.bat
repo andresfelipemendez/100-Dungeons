@@ -2,21 +2,14 @@
 setlocal enabledelayedexpansion
 
 :: Set up environment variables
-call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
-
-:: Define paths
-set "COMPILER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.41.34120\bin\Hostx64\x64\cl.exe"
-set "PROJECT_ROOT=C:\Users\andres\development\100-Dungeons\dungeon1"
-set "OUTPUT_PATH=%PROJECT_ROOT%\build\Debug"
-set "ASSETS_PATH=%PROJECT_ROOT%\assets"
-set "BUILD_ENGINE_BAT=%PROJECT_ROOT%\build_engine.bat"
+call "%~dp0env_vars.bat" 
 
 :: Compile Core DLL
+call "%PROJECT_ROOT%\build_main.bat" --skip-vcvars
 call "%PROJECT_ROOT%\build_core.bat" --skip-vcvars
 call "%PROJECT_ROOT%\build_externals.bat" --skip-vcvars
 call "%PROJECT_ROOT%\build_engine.bat" --skip-vcvars
-:: Compile main.cpp as an executable
-call "%COMPILER%" /Zi /std:c++17 /MD "%PROJECT_ROOT%\src\main.cpp" /Fe:"%OUTPUT_PATH%\AnitraEngine.exe"
+
 
 :: Check if the compilation was successful
 if %errorlevel% neq 0 (
@@ -67,4 +60,16 @@ if not exist "%OUTPUT_PATH%\build_engine.bat" (
     powershell -Command "Write-Host 'Symbolic link to build_engine.bat already exists.' -ForegroundColor Cyan"
 )
 
+:: Create symbolic link for build_engine.bat if it doesn't exist
+if not exist "%OUTPUT_PATH%\build_externals.bat" (
+    mklink "%OUTPUT_PATH%\build_externals.bat" "%BUILD_EXTERNALS_BAT%"
+    if %errorlevel% neq 0 (
+        powershell -Command "Write-Host 'Failed to create symbolic link to build_engine.bat. Please run as Administrator.' -ForegroundColor Red"
+        exit /b %errorlevel%
+    ) else (
+        powershell -Command "Write-Host 'Symbolic link to build_engine.bat created successfully.' -ForegroundColor Green"
+    )
+) else (
+    powershell -Command "Write-Host 'Symbolic link to build_engine.bat already exists.' -ForegroundColor Cyan"
+)
 endlocal

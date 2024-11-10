@@ -59,10 +59,8 @@ bool copy_dll(const char *dll_name, char *dest, size_t dest_size) {
     if (!CopyFileA(src, dest, FALSE)) {
         printf("Could not copy DLL %s: Error %lu\n", src, GetLastError());
         return false;
-    } else {
-        printf("DLL copied successfully from %s to %s\n", src, dest);
-        return true;
-    }
+    } 
+    return true;
 }
 
 void compile_engine_dll() {
@@ -71,8 +69,6 @@ void compile_engine_dll() {
 
     char command[1024];
     snprintf(command, sizeof(command), "\"%s\\build_engine.bat\" --skip-vcvars", cwd);
-
-    printf("Compiling Engine DLL with command: %s\n", command);
 
     system(command);
 }
@@ -83,11 +79,8 @@ void compile_externals_dll()
     getCurrentWorkingDirectory(cwd, MAX_PATH);
 
     char command[1024];
-    snprintf(command, sizeof(command),
-        "\"%s\" /LD /I%s\\include /Fe:%s\\build\\Debug\\externals.dll %s\\src\\externals\\*.cpp /link /out:%s\\Debug\\externals.dll",
-        compiler, cwd,cwd,cwd,cwd);
-        
-    printf("Compiling Externals DLL with command: %s\n", command);
+    snprintf(command, sizeof(command), "\"%s\\build_externals.bat\" --skip-vcvars", cwd);
+
     system(command);
 }
 
@@ -176,9 +169,6 @@ void directory_watch_function(const std::string &directory, std::function<void()
             auto currentTime = std::chrono::steady_clock::now();
             if (std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - lastCompilationTime).count() >= DEBOUNCE_INTERVAL_MS)
             {
-                std::cout << L"Change detected in: " << directory << std::endl;
-                
-                // Update last compilation time and trigger the callback
                 lastCompilationTime = currentTime;
                 onChange();
             }
@@ -215,12 +205,14 @@ void begin_game_loop(game &g)
         if (reloadEngineFlag.load())
         {
             reloadEngineFlag.store(false);
-            printf("Reloading Engine...\n");
+            print_log(COLOR_YELLOW, "CL Reloading Engine...\n");
+
             unloadlibrary(g.engine_lib);
             char copiedEgnineDllPath[MAX_PATH];
             if (!copy_dll("engine", copiedEgnineDllPath, sizeof(copiedEgnineDllPath))) {
                 return;
             }
+            printf("loading lib: %s\n",copiedEgnineDllPath);
             g.engine_lib = loadlibrary(copiedEgnineDllPath);
             init_engine_func init_engine = (init_engine_func)getfunction(g.engine_lib, "init_engine");
             g.g_imguiUpdate = (hotreloadable_imgui_draw_func)getfunction(g.engine_lib, "hotreloadable_imgui_draw");
@@ -249,17 +241,17 @@ void begin_game_loop(game &g)
 }
 
 bool isCompilerAccessible() {
-    return system("where cl >nul 2>&1") == 0;
+    return system("where clang++ >nul 2>&1") == 0;
 }
 
-EXPORT void init()
+extern "C" __declspec(dllexport) __stdcall void init()
 {
     char cwd[MAX_PATH];
     getCurrentWorkingDirectory(cwd,MAX_PATH);
     printf("Current working directory: %s\n", cwd);
 
     if (!isCompilerAccessible()) {
-        print_log(COLOR_RED, "CL it's not accesible\n");
+        print_log(COLOR_RED, "clang++ it's not accesible\n");
         return;
     }
     
@@ -314,8 +306,6 @@ EXPORT void init()
     end_externals_ptr  = (end_externals_func)getfunction(externals_lib, "end_externals");
 
     g.draw_opengl = (draw_opengl_func)getfunction(g.engine_lib, "draw_opengl");
-
-    print_log(COLOR_BLUE, "Core initialized\n");
 
     begin_game_loop(g);
 }

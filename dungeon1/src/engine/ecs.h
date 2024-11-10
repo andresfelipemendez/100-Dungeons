@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <glad.h>
 
 #define ENTITY_NAME_LENGTH 16
 
@@ -44,6 +45,17 @@ typedef union Vec3 {
     float data[3];                     
 } Vec3;
 
+typedef union Vec2 {
+    struct { float x, y; };
+    struct { float u, v; };
+    float data[2];                     
+} Vec2;
+
+typedef struct Vertex {
+    Vec3 position;
+    Vec2 uv;
+} Vertex;
+
 struct Transforms {
     size_t count;
     size_t* entity_ids;
@@ -60,16 +72,29 @@ typedef struct Models {
     size_t count;
     size_t* entity_ids;
     Vec3* positions;
-};
+} Models;
+
+typedef struct IndirectDrawCommand {
+    uint32_t count;
+    uint32_t instanceCount;
+    uint32_t firstIndex;
+    int32_t baseVertex;
+    uint32_t baseInstance;
+} IndirectDrawCommand;
 
 typedef struct SubMesh {
+    IndirectDrawCommand draw;
     unsigned int vertexArray;
+    unsigned int vertexBuffer;
     unsigned int indexBuffer;
+    GLenum indexType;
+
 } SubMesh;
 
 typedef struct StaticMesh {
     size_t entity_id;
     size_t submesh_count;
+    GLuint drawsBuffer;
     SubMesh* submeshes;
 } StaticMesh;
 

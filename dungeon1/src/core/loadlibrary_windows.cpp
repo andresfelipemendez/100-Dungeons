@@ -41,7 +41,8 @@ void unloadlibrary(void *hLib) {
 void *getfunction(void *lib, const char *funcname) {
   void *func = (void*)(uintptr_t) GetProcAddress((HMODULE)lib, funcname);
   if (func == NULL) {
-    fprintf(stderr, "Failed to get function address: %s\n", funcname);
+      fprintf(stderr, "Failed to get function address: %s, error code: %lu\n", funcname, GetLastError());
+      return nullptr;
   }
   return func;
 }

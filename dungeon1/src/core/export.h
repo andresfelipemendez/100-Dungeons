@@ -1,10 +1,9 @@
-#ifdef _WIN32
-#define EXPORT extern "C" __declspec(dllexport)
-#else
-#define EXPORT
-#endif
+
+#define EXPORT extern "C" __declspec(dllexport) __stdcall
 
 typedef void (*hotreloadable_imgui_draw_func)(struct game *g);
+
+typedef void (*init_engine_func)(struct game *g);
 
 #define HOTRELOAD_EVENT_NAME "Global\\ReloadEvent"
 

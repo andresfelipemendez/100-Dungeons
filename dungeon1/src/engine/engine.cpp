@@ -30,12 +30,15 @@ EXPORT void load_level(game *g, const char *sceneFilePath)
 	//ecs_load_level(g, sceneFilePath);
 }
 
-EXPORT void init_engine(game *g)
+extern "C" __declspec(dllexport) __stdcall void init_engine(game *g)
 {
 	init_engine_memory(g);
 }
 
 EXPORT void load_meshes(game *g) {
+
+	((MemoryHeader*)g->world)->meshes->count = 0;
+	((World*)g->world)->entity_count = 0;
 
 	const char* sceneFilePath ="assets\\scene.toml";
 	printf("load level at path %s\n", sceneFilePath);
@@ -68,12 +71,10 @@ EXPORT void load_meshes(game *g) {
                                        "out vec4 FragColor;\n"
                                        "void main()\n"
                                        "{\n"
-                                       "   FragColor = vec4(1.0, 0.5, 0.2, 1.0);\n"
+                                       "   FragColor = vec4(1.0, 1.0, 0.2, 1.0);\n"
                                        "}\0";
     
     shaderProgram = createShaderProgram(vertexShaderSource, fragmentShaderSource);
-
-    printf("this should be done only once when the engine begins\n");
 }
 
 static void glfw_error_callback(int error, const char *description) {
@@ -101,24 +102,19 @@ EXPORT void draw_opengl(game *g) {
     glBindVertexArray(VAO);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
+	
 
-
-	// for( const auto& mesh : meshes) {
-	//  	 glBindBuffer(GL_DRAW_INDIRECT_BUFFER, mesh.drawsBuffer);
-	//  	 for(auto i = 0U; i < mesh.primitives.size(); ++i){
-	//  	 	auto& prim = mesh.primitives[i];
-	//  	 	auto& gltfPrimitive = mesh.primitives[i];
-
-	//  	 	// dont have materials yet
-	//  	 	std::size_t materialIndex;
-
-	//  	 	glBindVertexArray(prim.vertexArray);
-	//  	 	glDrawElementsIndirect(prim.primitiveType,prim.indexType,reinterpret_cast<const void*>(i*sizeof(Primitive)));
-
-
-	//  	 }
-	// // 	 glUniformMatrix4fv(viewer->modelMatrixUniform, 1, GL_FALSE, &matrix[0][0]);
-	// }
+	MemoryHeader *h = get_header(g);
+	
+	for(size_t i = 0; i < h->meshes->count;++i) {
+		StaticMesh mesh = h->meshes->mesh_data[i];
+	  	glBindBuffer(GL_DRAW_INDIRECT_BUFFER, mesh.drawsBuffer);
+		for(auto i = 0U; i < mesh.submesh_count; ++i) {
+	  	 	auto& submesh = mesh.submeshes[i];
+	  	 	glBindVertexArray(submesh.vertexArray);
+	  	 	glDrawElementsIndirect(GL_TRIANGLES ,submesh.indexType,reinterpret_cast<const void*>(i*sizeof(SubMesh)));
+  		}
+	}
 }
 
 EXPORT void hotreloadable_imgui_draw(game *g)

@@ -48,12 +48,9 @@ EXPORT int init_externals(game *g) {
  int monitorCount;
  GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
  
- printf("number of monitors %i", monitorCount);
  GLFWmonitor* monitor = monitors[0];
  int monitorX, monitorY;
  glfwGetMonitorPos(monitor, &monitorX, &monitorY);
-
- printf("monitor pos x %i, y %i\n", monitorX, monitorY);
 
  const GLFWvidmode* vidMode = glfwGetVideoMode(monitor);
  if (vidMode == NULL) {
