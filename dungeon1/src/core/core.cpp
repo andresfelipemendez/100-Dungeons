@@ -191,8 +191,7 @@ void begin_game_loop(game &g) {
 				g.engine_lib, "hotreloadable_imgui_draw");
 			init_engine(&g);
 
-			g.begin_frame =
-				(begin_frame_func)getfunction(g.engine_lib, "begin_frame");
+			g.begin_frame = (begin_frame_func)getfunction(g.engine_lib, "begin_frame");
 			g.begin_frame(&g);
 
 			g.update = (draw_opengl_func)getfunction(g.engine_lib, "update");
@@ -232,9 +231,9 @@ EXPORT void init() {
 	signalThread.detach();
 
 	g.buffer_size = 100 * 1024;
-	g.world = malloc(g.buffer_size);
-	if (g.world != NULL) {
-		memset(g.world, 0, g.buffer_size);
+	g.buffer = malloc(g.buffer_size);
+	if (g.buffer != NULL) {
+		memset(g.buffer, 0, g.buffer_size);
 	}
 
 	char copiedEgnineDllPath[MAX_PATH];

@@ -1,3 +1,4 @@
+#include <cstring>
 #define WIN32_LEAN_AND_MEAN
 #include "asset_loader.h"
 
@@ -224,7 +225,14 @@ char *read_file(const char *filepath) {
 
 	char *content = (char *)malloc(length + 1);
 	if (!content) {
+		printf("Failed to allocate memory for the shader file content\n");
+		fclose(file);
+		return nullptr;
 	}
+
+	fread(content, 1, length, file);
+	content[length] = '\0';
+	fclose(file);
 	return content;
 }
 
@@ -247,6 +255,27 @@ void load_shaders(struct game *g) {
 	}
 
 	do {
+		const char *vertFileName = findFileData.cFileName;
+		printf("vertFileName %s\n", vertFileName);
+		char vertPath[MAX_PATH];
+		snprintf(vertPath, sizeof(vertPath), "%s\\%s", shaderDir, vertFileName);
+		char fragPath[MAX_PATH];
+		strncpy_s(fragPath, sizeof(fragPath), vertPath, strlen(vertPath) - 5);
+		strcat_s(fragPath, sizeof(fragPath), ".frag");
+
+		char *vertexSource = read_file(vertPath);
+		char *fragmentSource = read_file(fragPath);
+
+		if (vertexSource && fragmentSource) {
+			GLuint shaderProgram =
+				createShaderProgram(vertexSource, fragmentSource);
+			if (shaderProgram != 0) {
+				printf("Shader program created sucessfully for %s\n",
+					   vertFileName);
+			}
+			free(vertexSource);
+			free(fragmentSource);
+		}
 
 	} while (FindNextFile(hFind, &findFileData) != 0);
 

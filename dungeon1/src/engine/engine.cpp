@@ -30,10 +30,13 @@ EXPORT void load_level(game *g, const char *sceneFilePath) {
 	// ecs_load_level(g, sceneFilePath);
 }
 
-EXPORT void init_engine(game *g) {
-	init_engine_memory(g);
-	load_shaders(g);
+static void glfw_error_callback(int error, const char *description) {
+	fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
+
+EXPORT void init_engine(game *g) { init_engine_memory(g); }
+
+EXPORT void init_engine_renderer(game *g) {}
 
 EXPORT void load_meshes(game *g) {
 	MemoryHeader *h = get_header(g);
@@ -85,10 +88,6 @@ EXPORT void load_meshes(game *g) {
 		createShaderProgram(vertexShaderSource, fragmentShaderSource);
 }
 
-static void glfw_error_callback(int error, const char *description) {
-	fprintf(stderr, "GLFW Error %d: %s\n", error, description);
-}
-
 EXPORT void begin_frame(game *g) {
 	glfwSetErrorCallback(glfw_error_callback);
 	glfwMakeContextCurrent(g->window);
@@ -101,6 +100,8 @@ EXPORT void begin_frame(game *g) {
 		printf("Failed to initialize GLAD in DLL\n");
 		return;
 	}
+
+	load_shaders(g);
 }
 
 ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);

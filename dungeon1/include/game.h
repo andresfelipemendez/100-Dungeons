@@ -15,7 +15,7 @@ typedef struct game {
 	ImGuiMemFreeFunc free_func;
 	void *user_data;
 	void *engine_lib;
-	void *world;
+	void *buffer;
 	size_t buffer_size;
 
 	GLADloadproc loader;
