@@ -15,7 +15,10 @@ set "CORE_SRC_PATH=%PROJECT_ROOT%\src\core"
 set "ENGINE_INCLUDE_PATH=%PROJECT_ROOT%\src\engine"
 set "ENGINE_SRC_PATH=%PROJECT_ROOT%\src\engine"
 
-:: Set paths for libraries and includes
+set "PRINTLOG_INCLUDE_DIR=%PROJECT_ROOT%\lib\printLog"
+set "PRINTLOG_LIB_PATH=%PROJECT_ROOT%\lib\printLog"
+set "PRINTLOG_LIB_DIR=%PROJECT_ROOT%\lib\printLog"
+
 set "FASTGLTF_INCLUDE_DIR=%PROJECT_ROOT%\lib\fastgltf\include"
 set "FASTGLTF_LIB_PATH=%PROJECT_ROOT%\lib\fastgltf\lib\fastgltf.lib"
 set "FASTGLTF_LIB_DIR=%PROJECT_ROOT%\lib\fastgltf\lib"
