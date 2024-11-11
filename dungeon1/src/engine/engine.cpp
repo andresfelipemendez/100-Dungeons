@@ -2,7 +2,6 @@
 #include "fwd.hpp"
 #include "memory.h"
 #include <externals.h>
-#include <fstream>
 #include <game.h>
 #include <stdio.h>
 
@@ -31,12 +30,15 @@ EXPORT void load_level(game *g, const char *sceneFilePath) {
 	// ecs_load_level(g, sceneFilePath);
 }
 
-EXPORT void init_engine(game *g) { init_engine_memory(g); }
+EXPORT void init_engine(game *g) {
+	init_engine_memory(g);
+	load_shaders(g);
+}
 
 EXPORT void load_meshes(game *g) {
-
-	((MemoryHeader *)g->world)->meshes->count = 0;
-	((World *)g->world)->entity_count = 0;
+	MemoryHeader *h = get_header(g);
+	World *w = get_world(g);
+	w->entity_count = 0;
 
 	const char *sceneFilePath = "assets\\scene.toml";
 	printf("load level at path %s\n", sceneFilePath);

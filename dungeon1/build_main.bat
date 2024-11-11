@@ -2,4 +2,11 @@
 
 call "%~dp0env_vars.bat" 
 
-clang++ "%PROJECT_ROOT%\src\main.cpp" -o "%OUTPUT_PATH%\AnitraEngine.exe" -std=c++17 -g -I"%INCLUDE_PATH%"
+clang++ -std=c++17 -I"%INCLUDE_PATH%" "%PROJECT_ROOT%\src\main.cpp" -o "%OUTPUT_PATH%\AnitraEngine.exe"
+
+if %errorlevel% neq 0 (
+    powershell -Command "Write-Host 'Compilation of main failed' -ForegroundColor Red"
+    exit /b %errorlevel%
+) else (
+    powershell -Command "Write-Host 'main Compilation succeeded.' -ForegroundColor Green"
+)

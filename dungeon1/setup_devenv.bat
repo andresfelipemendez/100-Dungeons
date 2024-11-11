@@ -5,10 +5,11 @@ setlocal enabledelayedexpansion
 call "%~dp0env_vars.bat" 
 
 :: Compile Core DLL
-call "%PROJECT_ROOT%\build_main.bat" --skip-vcvars
-call "%PROJECT_ROOT%\build_core.bat" --skip-vcvars
-call "%PROJECT_ROOT%\build_externals.bat" --skip-vcvars
-call "%PROJECT_ROOT%\build_engine.bat" --skip-vcvars
+call "%PROJECT_ROOT%\build_main.bat"
+call "%PROJECT_ROOT%\build_core.bat"
+call "%PROJECT_ROOT%\build_externals.bat"
+call "%PROJECT_ROOT%\build_engine.bat"
+call "%PROJECT_ROOT%\generate_compile_commands.bat"
 
 
 :: Check if the compilation was successful
@@ -72,6 +73,20 @@ if not exist "%OUTPUT_PATH%\build_externals.bat" (
 ) else (
     powershell -Command "Write-Host 'Symbolic link to build_externals.bat already exists.' -ForegroundColor Cyan"
 )
+
+:: Create symbolic link for build_engine.bat if it doesn't exist
+if not exist "%OUTPUT_PATH%\build_core.bat" (
+    mklink "%OUTPUT_PATH%\build_core.bat" "%PROJECT_ROOT%\build_core.bat"
+    if %errorlevel% neq 0 (
+        powershell -Command "Write-Host 'Failed to create symbolic link to build_core.bat. Please run as Administrator.' -ForegroundColor Red"
+        exit /b %errorlevel%
+    ) else (
+        powershell -Command "Write-Host 'Symbolic link to build_core.bat created successfully.' -ForegroundColor Green"
+    )
+) else (
+    powershell -Command "Write-Host 'Symbolic link to build_core.bat already exists.' -ForegroundColor Cyan"
+)
+endlocal
 
 :: Create symbolic link for build_engine.bat if it doesn't exist
 if not exist "%OUTPUT_PATH%\env_vars.bat" (

@@ -16,6 +16,7 @@ typedef struct game {
 	void *user_data;
 	void *engine_lib;
 	void *world;
+	size_t buffer_size;
 
 	GLADloadproc loader;
 	hotreloadable_imgui_draw_func g_imguiUpdate = nullptr;

@@ -4,7 +4,14 @@
 #include "export.h"
 
 DECLARE_FUNC_VOID(init)
+DECLARE_FUNC_VOID(stop)
 
 void begin_game_loop(game &g);
 
-#endif // CORE_H
+void waitforreloadsignal(void *hEvent);
+void begin_watch_engine_directory(game &g);
+void begin_watch_externals_directory(game &g);
+void unload_externals(game &g);
+void reload_externals(game &g);
+
+#endif

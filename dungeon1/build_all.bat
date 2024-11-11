@@ -5,8 +5,9 @@ setlocal enabledelayedexpansion
 call "%~dp0env_vars.bat" 
 
 :: Compile Core DLL
-call "%PROJECT_ROOT%\build_main.bat" --skip-vcvars
-call "%PROJECT_ROOT%\build_core.bat" --skip-vcvars
-call "%PROJECT_ROOT%\build_externals.bat" --skip-vcvars
-call "%PROJECT_ROOT%\build_engine.bat" --skip-vcvars
+call "%PROJECT_ROOT%\build_main.bat" 
+call "%PROJECT_ROOT%\build_core.bat" 
+call "%PROJECT_ROOT%\build_externals.bat" 
+call "%PROJECT_ROOT%\build_engine.bat" 
+call "%PROJECT_ROOT%\generate_compile_commands.bat" 
 endlocal

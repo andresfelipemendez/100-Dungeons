@@ -202,3 +202,5 @@ unsigned int createShaderProgram(const char *vertexSource,
 
 	return program;
 }
+
+void load_shaders(struct game *g) {}

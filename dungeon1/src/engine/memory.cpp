@@ -12,50 +12,83 @@ void init_engine_memory(game *g) {
 	const size_t initialEntityCount = 100;
 	const size_t initialSubMeshCount = 10;
 
-	MemoryHeader *header = (MemoryHeader *)g->world;
-	size_t offset = sizeof(MemoryHeader);
+	MemoryHeader *header = (MemoryHeader *)((char *)g->world + g->buffer_size -
+											sizeof(MemoryHeader));
 
-	header->world.entity_ids = (size_t *)((char *)header + offset);
+	size_t down_offset = g->buffer_size - sizeof(MemoryHeader);
+
+	size_t offset = 0;
+	header->world.entity_ids = (size_t *)((char *)g->world + offset);
 	offset += sizeof(size_t) * initialEntityCount;
-	header->world.component_masks = (uint32_t *)((char *)header + offset);
+
+	header->world.component_masks = (uint32_t *)((char *)g->world + offset);
 	offset += sizeof(uint32_t) * initialEntityCount;
+
 	header->world.entity_names =
-		(char(*)[ENTITY_NAME_LENGTH])((char *)header + offset);
+		(char(*)[ENTITY_NAME_LENGTH])((char *)g->world + offset);
 	offset += ENTITY_NAME_LENGTH * initialEntityCount;
 
-	header->transforms = (Transforms *)((char *)header + offset);
+	// Set up transforms
+	header->transforms = (Transforms *)((char *)g->world + offset);
 	offset += sizeof(Transforms);
-	header->transforms->entity_ids = (size_t *)((char *)header + offset);
+
+	header->transforms->entity_ids = (size_t *)((char *)g->world + offset);
 	offset += sizeof(size_t) * initialEntityCount;
-	header->transforms->positions = (Vec3 *)((char *)header + offset);
+
+	header->transforms->positions = (Vec3 *)((char *)g->world + offset);
 	offset += sizeof(Vec3) * initialEntityCount;
 
-	header->cameras = (Cameras *)((char *)header + offset);
+	// Set up cameras
+	header->cameras = (Cameras *)((char *)g->world + offset);
 	offset += sizeof(Cameras);
-	header->cameras->entity_ids = (size_t *)((char *)header + offset);
+
+	header->cameras->entity_ids = (size_t *)((char *)g->world + offset);
 	offset += sizeof(size_t) * initialEntityCount;
-	header->cameras->cameras = (Camera *)((char *)header + offset);
+
+	header->cameras->cameras = (Camera *)((char *)g->world + offset);
 	offset += sizeof(Camera) * initialEntityCount;
 
-	header->meshes = (Meshes *)((char *)header + offset);
-	offset += sizeof(Meshes);
-	header->meshes->entity_ids = (size_t *)((char *)header + offset);
+	// Set up shaders
+	header->shaders = (Shaders *)((char *)g->world + offset);
+	offset += sizeof(Shaders);
+
+	header->shaders->entity_ids = (size_t *)((char *)g->world + offset);
 	offset += sizeof(size_t) * initialEntityCount;
 
-	header->meshes->mesh_data = (StaticMesh *)((char *)header + offset);
+	header->shaders->program_ids = (unsigned int *)((char *)g->world + offset);
+	offset += sizeof(unsigned int) * initialEntityCount;
+
+	// Set up meshes
+	header->meshes = (Meshes *)((char *)g->world + offset);
+	offset += sizeof(Meshes);
+
+	header->meshes->entity_ids = (size_t *)((char *)g->world + offset);
+	offset += sizeof(size_t) * initialEntityCount;
+
+	header->meshes->mesh_data = (StaticMesh *)((char *)g->world + offset);
 	offset += sizeof(StaticMesh) * initialEntityCount;
 
+	// Allocate submeshes for each mesh
 	for (size_t i = 0; i < initialEntityCount; ++i) {
 		header->meshes->mesh_data[i].submeshes =
-			(SubMesh *)((char *)header + offset);
+			(SubMesh *)((char *)g->world + offset);
 		offset += sizeof(SubMesh) * initialSubMeshCount;
 		header->meshes->mesh_data[i].submesh_count = 0;
 	}
 
-	header->total_size = offset;
+	header->shaders = (Shaders *)((char *)g->world + offset);
+	offset += sizeof(Shaders);
+
+	// Calculate remaining buffer size
+	down_offset = g->buffer_size - sizeof(MemoryHeader);
+	header->total_size = down_offset - offset;
 }
 
-MemoryHeader *get_header(game *g) { return (MemoryHeader *)g->world; }
+MemoryHeader *get_header(game *g) {
+	MemoryHeader *header = (MemoryHeader *)((char *)g->world + g->buffer_size -
+											sizeof(MemoryHeader));
+	return header;
+}
 
 World *get_world(game *g) {
 	MemoryHeader *header = get_header(g);

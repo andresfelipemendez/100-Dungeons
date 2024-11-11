@@ -1,5 +1,4 @@
 @echo off
-
 setlocal enabledelayedexpansion
 call "%~dp0env_vars.bat"
 

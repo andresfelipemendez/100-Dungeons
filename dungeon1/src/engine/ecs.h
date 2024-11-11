@@ -117,12 +117,6 @@ struct Meshes {
 	StaticMesh *mesh_data;
 };
 
-struct Shaders {
-	size_t count;
-	size_t *entity_ids;
-	unsigned int *program_IDs;
-};
-
 typedef struct Texture {
 	unsigned int textureID;
 	int texWidth;
@@ -134,6 +128,12 @@ typedef struct Textures {
 	size_t *entity_ids;
 	Texture *textures;
 } Textures;
+
+typedef struct Shaders {
+	size_t count;
+	size_t *entity_ids;
+	unsigned int *program_ids;
+} Shaders;
 
 struct Camera {
 	glm::mat4 projection;
@@ -153,10 +153,12 @@ typedef struct World {
 } World;
 
 struct MemoryHeader {
-	World world;
+	Shaders *shaders;
 	Cameras *cameras;
 	Transforms *transforms;
 	Meshes *meshes;
+
+	World world;
 	size_t total_size;
 };
 

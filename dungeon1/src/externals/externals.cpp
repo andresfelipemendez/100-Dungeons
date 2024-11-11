@@ -139,16 +139,19 @@ EXPORT void update_externals(game *g) {
 }
 
 EXPORT void end_externals(game *g) {
-	if (g->ctx) {
-		ImGui::SetCurrentContext(g->ctx);
 
-		ImGui_ImplOpenGL3_Shutdown();
-		ImGui_ImplGlfw_Shutdown();
+	// glfwMakeContextCurrent(g->window);
 
-		// Destroy ImGui context
-		ImGui::DestroyContext(g->ctx);
-		g->ctx = nullptr;
-	}
+	// if (g->ctx) {
+	// 	ImGui::SetCurrentContext(g->ctx);
+
+	// 	ImGui_ImplOpenGL3_Shutdown();
+	// 	ImGui_ImplGlfw_Shutdown();
+
+	// 	// Destroy ImGui context
+	// 	ImGui::DestroyContext(g->ctx);
+	// 	g->ctx = nullptr;
+	// }
 
 	if (g->window) {
 		glfwDestroyWindow(g->window);
@@ -158,7 +161,7 @@ EXPORT void end_externals(game *g) {
 	glfwTerminate();
 
 	// Log that externals have been successfully shut down
-	print_log("Externals have been successfully shut down", COLOR_YELLOW);
+	print_log(COLOR_YELLOW, "Externals have been successfully shut down");
 }
 
 EXPORT ImGuiContext *GetImguiContext() { return ImGui::GetCurrentContext(); }

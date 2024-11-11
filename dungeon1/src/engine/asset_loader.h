@@ -5,3 +5,5 @@ bool LoadGLTFMeshes(struct MemoryHeader *h, const char *meshFilePath,
 
 unsigned int createShaderProgram(const char *vertexShaderSource,
 								 const char *fragmentShaderSource);
+
+void load_shaders(struct game *g);

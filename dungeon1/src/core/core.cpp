@@ -1,33 +1,20 @@
+#define WIN32_LEAN_AND_MEAN
 #include "core.h"
 #include "loadlibrary.h"
+#include <Windows.h>
+#include <atomic>
+#include <chrono>
 #include <engine.h>
 #include <externals.h>
-
+#include <functional>
 #include <game.h>
-#include <stdio.h>
-
-#include <Windows.h>
-
-#include <filesystem>
-#include <fstream>
 #include <iostream>
-#include <sstream>
+#include <printLog.h>
+#include <stdio.h>
 #include <string>
 #include <thread>
 
-#include <atomic>
-#include <chrono>
-#include <errno.h>
-#include <functional>
-#include <printLog.h>
-
 HMODULE externals_lib = nullptr;
-
-void waitforreloadsignal(void *hEvent);
-void begin_watch_engine_directory(game &g);
-void begin_watch_externals_directory(game &g);
-void unload_externals(game &g);
-void reload_externals(game &g);
 
 init_externals_func init_externals_ptr = nullptr;
 update_externals_func update_externals_ptr = nullptr;
@@ -36,7 +23,9 @@ end_externals_func end_externals_ptr = nullptr;
 std::atomic<bool> reloadEngineFlag(false);
 std::atomic<bool> reloadExternalsFlag(false);
 
-constexpr auto DEBOUNCE_INTERVAL_MS = 3000;
+constexpr auto DEBOUNCE_INTERVAL_MS = 1000;
+
+static game g;
 
 void getCurrentWorkingDirectory(char *buffer, size_t size) {
 	GetCurrentDirectoryA((DWORD)size, buffer);
@@ -60,7 +49,6 @@ bool copy_dll(const char *dll_name, char *dest, size_t dest_size) {
 void compile_engine_dll() {
 	char cwd[MAX_PATH];
 	getCurrentWorkingDirectory(cwd, MAX_PATH);
-
 	char command[1024];
 	snprintf(command, sizeof(command), "\"%s\\build_engine.bat\"", cwd);
 
@@ -82,10 +70,9 @@ void compile_externals_dll() {
 void shutdown_externals(game &g) { end_externals_ptr(&g); }
 
 void unload_externals(game &g) {
-	print_log("Unloading externals.dll", COLOR_YELLOW);
+	print_log(COLOR_YELLOW, "Unloading externals.dll\n");
 	shutdown_externals(g);
 	unloadlibrary(externals_lib);
-	// Set to nullptr after unloading to prevent accidental use
 	externals_lib = nullptr;
 }
 
@@ -117,7 +104,7 @@ void reload_externals(game &g) {
 	if (externals_lib) {
 		load_function_pointers(g);
 	} else {
-		print_log("Failed to load externals_copy.dll", COLOR_RED);
+		print_log(COLOR_RED, "Failed to load externals_copy.dll\n");
 	}
 
 	g.update = (draw_opengl_func)getfunction(g.engine_lib, "update");
@@ -216,7 +203,6 @@ void begin_game_loop(game &g) {
 
 		if (reloadExternalsFlag.load()) {
 			reloadExternalsFlag.store(false);
-			printf("Reloading Externals...\n");
 			unload_externals(g);
 			reload_externals(g);
 		}
@@ -226,29 +212,29 @@ void begin_game_loop(game &g) {
 	}
 }
 
-bool isCompilerAccessible() { return system("where clang++ >nul 2>&1") == 0; }
+EXPORT void stop() {
+	g.play = false;
+	unload_externals(g);
+	printf("stop core\n");
+}
 
 EXPORT void init() {
 	char cwd[MAX_PATH];
 	getCurrentWorkingDirectory(cwd, MAX_PATH);
 	printf("Current working directory: %s\n", cwd);
 
-	if (!isCompilerAccessible()) {
-		print_log(COLOR_RED, "clang++ it's not accesible\n");
-		return;
-	}
-
 	HANDLE hEvent = CreateEventA(NULL, TRUE, FALSE, HOTRELOAD_EVENT_NAME);
 	if (hEvent == NULL) {
 		printf("CreateEvent failed (%lu)\n", GetLastError());
 	}
+
 	std::thread signalThread(waitforreloadsignal, hEvent);
 	signalThread.detach();
 
-	game g;
-	g.world = malloc(100 * 1024);
+	g.buffer_size = 100 * 1024;
+	g.world = malloc(g.buffer_size);
 	if (g.world != NULL) {
-		memset(g.world, 0, 100 * 1024);
+		memset(g.world, 0, g.buffer_size);
 	}
 
 	char copiedEgnineDllPath[MAX_PATH];
