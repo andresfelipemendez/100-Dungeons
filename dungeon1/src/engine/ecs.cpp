@@ -156,7 +156,7 @@ bool set_component_value(MemoryHeader *h, size_t entity_id,
 
 	switch (component_mask) {
 	case COMPONENT_CAMERA: {
-		for (size_t i = 0; i < h->transforms->count; i++) {
+		for (size_t i = 0; i < h->cameras->count; i++) {
 			if (h->cameras->entity_ids[i] == entity_id) {
 				h->cameras->cameras[i] = value;
 				return true;
@@ -223,7 +223,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 						add_component(h, entity, COMPONENT_POSITION);
 						if (set_component_value(h, entity, COMPONENT_POSITION,
 												{x, y, z})) {
-							printf("set position");
+							printf("set position\n");
 						}
 					}
 					break;
@@ -273,7 +273,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 							"  %s = { fov = %.2f, near = %.2f, far = %.2f }\n",
 							type_key, fov, near, far);
 
-						glm::vec3 cameraPosition = glm::vec3(0.0f, 0.0f, 0.0f);
+						glm::vec3 cameraPosition = glm::vec3(-1.0f, 0.0f, 0.0f);
 						glm::vec3 targetPosition = glm::vec3(1.0f, 0.0f, 0.0f);
 						glm::vec3 upDirection = glm::vec3(0.0f, 0.0f, 1.0f);
 
@@ -285,9 +285,11 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 						glm::mat4 projection = glm::perspective(
 							glm::radians(fov), aspectRatio, near, far);
 
+						glm::mat4 viewProj = projection * view;
+
 						add_component(h, entity, COMPONENT_CAMERA);
 						if (set_component_value(h, entity, COMPONENT_CAMERA,
-												{.projection = projection})) {
+												{.projection = viewProj})) {
 							printf("set camera projection");
 						}
 					}

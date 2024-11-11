@@ -2,6 +2,7 @@
 #include "fwd.hpp"
 #include "memory.h"
 #include <externals.h>
+#include <fstream>
 #include <game.h>
 #include <stdio.h>
 
@@ -16,6 +17,10 @@
 #define GLAD_GLAPI_EXPORT
 #include <GLFW/glfw3.h>
 #include <glad.h>
+
+#include <glm.hpp>
+#include <gtc/constants.hpp>
+#include <gtc/matrix_transform.hpp>
 
 unsigned int VAO, VBO, shaderProgram;
 
@@ -103,11 +108,12 @@ EXPORT void draw_opengl(game *g) {
 		printf("couldn't find camera entity\n");
 	}
 
+	glUseProgram(shaderProgram);
+
 	Camera camera;
 	if (!get_component_value(h, camera_entity, COMPONENT_CAMERA, camera)) {
 		printf("couldn't find camera entity\n");
 	} else {
-
 		GLuint loc = glGetUniformLocation(shaderProgram, "uViewProj");
 		if (loc != -1) {
 			glUniformMatrix4fv(loc, 1, GL_FALSE, &camera.projection[0][0]);
@@ -120,14 +126,40 @@ EXPORT void draw_opengl(game *g) {
 	if (!get_component_value(h, camera_entity, COMPONENT_POSITION,
 							 &camera_position)) {
 		printf("couldn't find camera position\n");
+	} else {
+		glm::mat4 worldTransform =
+			glm::scale(glm::mat4(1.0f), glm::vec3(1.0f)); // Scale of 1
+		worldTransform = glm::translate(
+			worldTransform, glm::vec3(camera_position.x, camera_position.y,
+									  camera_position.z)); // Apply translation
+
+		GLuint loc = glGetUniformLocation(shaderProgram, "uWorldTransform");
+		if (loc != -1) {
+			glUniformMatrix4fv(loc, 1, GL_FALSE, &worldTransform[0][0]);
+		} else {
+			printf("Uniform 'uWorldTransform' not found in shader program\n");
+		}
 	}
 
-	glUseProgram(shaderProgram);
-	// glBindVertexArray(VAO);
-	// glDrawArrays(GL_TRIANGLES, 0, 3);
-	// glBindVertexArray(0);
+	// Set up world transformation for the mesh
+	Vec3 mesh_pos = {0.0f, 0.0f, 0.0f};
+	glm::mat4 worldTransform = glm::translate(
+		glm::mat4(1.0f), glm::vec3(mesh_pos.x, mesh_pos.y, mesh_pos.z));
+
+	// Set the uWorldTransform matrix in the shader
+	GLuint loc = glGetUniformLocation(shaderProgram, "uWorldTransform");
+	if (loc != -1) {
+		glUniformMatrix4fv(loc, 1, GL_FALSE, &worldTransform[0][0]);
+	} else {
+		printf("Uniform 'uWorldTransform' not found in shader program\n");
+	}
+
+	glBindVertexArray(VAO);
+	glDrawArrays(GL_TRIANGLES, 0, 3);
+	glBindVertexArray(0);
 
 	for (size_t i = 0; i < h->meshes->count; ++i) {
+
 		StaticMesh mesh = h->meshes->mesh_data[i];
 		glBindBuffer(GL_DRAW_INDIRECT_BUFFER, mesh.drawsBuffer);
 		for (auto i = 0U; i < mesh.submesh_count; ++i) {

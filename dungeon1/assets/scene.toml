@@ -1,6 +1,6 @@
 [camera]
-camera = { fov = 70, near = 0.1, far = 1000 }
-position = { x = 0, y = 0, z = 1 }
+camera = { fov = 90, near = 0.1, far = 1000 }
+position = { x = -1, y = 0, z = 0 }
 rotation = { pitch = 0.00, yaw = 60, roll = 90 }
 
 [floor1]
