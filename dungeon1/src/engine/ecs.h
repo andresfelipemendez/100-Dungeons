@@ -153,6 +153,7 @@ typedef struct World {
 } World;
 
 struct MemoryHeader {
+	// add arrays above to add components at runtime
 	Shaders *shaders;
 	Cameras *cameras;
 	Transforms *transforms;

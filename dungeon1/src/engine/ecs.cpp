@@ -210,7 +210,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 
 		toml_table_t *attributes = toml_table_in(level, friendly_name);
 		if (attributes) {
-			printf("[%s]\n", friendly_name);
+			// printf("[%s]\n", friendly_name);
 
 			for (int j = 0;; j++) {
 				const char *type_key = toml_key_in(attributes, j);
@@ -233,13 +233,13 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 						float y = static_cast<float>(y_datum.u.d);
 						float z = static_cast<float>(z_datum.u.d);
 
-						printf("  %s = { x = %.2f, y = %.2f, z = %.2f }\n",
-							   type_key, x, y, z);
+						// printf("  %s = { x = %.2f, y = %.2f, z = %.2f }\n",
+						//	   type_key, x, y, z);
 
 						add_component(h, entity, COMPONENT_POSITION);
 						if (set_component_value(h, entity, COMPONENT_POSITION,
 												Vec3{x, y, z})) {
-							printf("set position\n");
+							// printf("set position\n");
 						}
 					}
 					break;
@@ -252,8 +252,8 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 						toml_datum_t y = toml_double_in(nested_table, "yaw");
 						toml_datum_t z = toml_double_in(nested_table, "roll");
 
-						printf("  %s = { x = %.2f, y = %.2f, z = %.2f }\n",
-							   type_key, x.u.d, y.u.d, z.u.d);
+						// printf("  %s = { x = %.2f, y = %.2f, z = %.2f }\n",
+						// 	   type_key, x.u.d, y.u.d, z.u.d);
 					}
 					break;
 				}
@@ -285,9 +285,9 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 						float near = static_cast<float>(near_datum.u.d);
 						float far = static_cast<float>(far_datum.u.d);
 
-						printf(
-							"  %s = { fov = %.2f, near = %.2f, far = %.2f }\n",
-							type_key, fov, near, far);
+						// printf(
+						// 	"  %s = { fov = %.2f, near = %.2f, far = %.2f }\n",
+						// 	type_key, fov, near, far);
 
 						glm::vec3 cameraPosition = glm::vec3(-1.5f, 1.0f, 2.0f);
 						glm::vec3 targetPosition = glm::vec3(1.0f, 0.0f, 0.0f);
@@ -306,7 +306,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 						add_component(h, entity, COMPONENT_CAMERA);
 						if (set_component_value(h, entity, COMPONENT_CAMERA,
 												{.projection = viewProj})) {
-							printf("set camera projection");
+							// printf("set camera projection");
 						}
 					}
 					break;
@@ -315,7 +315,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 					toml_datum_t model = toml_string_in(attributes, type_key);
 
 					if (model.ok) {
-						printf("  model = \"%s\"\n", model.u.s);
+						// printf("  model = \"%s\"\n", model.u.s);
 						StaticMesh staticMesh;
 						if (!LoadGLTFMeshes(h, model.u.s, &staticMesh)) {
 							printf("error loading model to ecs\n");

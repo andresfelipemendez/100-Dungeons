@@ -23,7 +23,7 @@ end_externals_func end_externals_ptr = nullptr;
 std::atomic<bool> reloadEngineFlag(false);
 std::atomic<bool> reloadExternalsFlag(false);
 
-constexpr auto DEBOUNCE_INTERVAL_MS = 1000;
+constexpr auto DEBOUNCE_INTERVAL_MS = 2000;
 
 static game g;
 

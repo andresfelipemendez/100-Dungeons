@@ -76,9 +76,6 @@ void init_engine_memory(game *g) {
 		header->meshes->mesh_data[i].submesh_count = 0;
 	}
 
-	header->shaders = (Shaders *)((char *)g->world + offset);
-	offset += sizeof(Shaders);
-
 	// Calculate remaining buffer size
 	down_offset = g->buffer_size - sizeof(MemoryHeader);
 	header->total_size = down_offset - offset;

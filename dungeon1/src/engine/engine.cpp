@@ -38,7 +38,9 @@ EXPORT void init_engine(game *g) {
 EXPORT void load_meshes(game *g) {
 	MemoryHeader *h = get_header(g);
 	World *w = get_world(g);
+
 	w->entity_count = 0;
+	h->meshes->count = 0;
 
 	const char *sceneFilePath = "assets\\scene.toml";
 	printf("load level at path %s\n", sceneFilePath);

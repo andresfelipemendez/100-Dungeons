@@ -1,11 +1,20 @@
+#define WIN32_LEAN_AND_MEAN
 #include "asset_loader.h"
+
 #include "ecs.h"
+#include <cstdio>
+#include <cstdlib>
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
 #include <fastgltf/types.hpp>
-#include <filesystem>
+
 #include <glad.h>
+
 #include <printLog.h>
+
+#include <Windows.h>
+#include <minwinbase.h>
+#include <winnt.h>
 
 bool LoadGLTFMeshes(MemoryHeader *h, const char *meshFilePath,
 					StaticMesh *outMesh) {
@@ -203,4 +212,43 @@ unsigned int createShaderProgram(const char *vertexSource,
 	return program;
 }
 
-void load_shaders(struct game *g) {}
+char *read_file(const char *filepath) {
+	FILE *file = NULL;
+	errno_t err = fopen_s(&file, filepath, "rb");
+	if (err != 0 || file == NULL) {
+		printf("Failed to open file: %s\n", filepath);
+	}
+	fseek(file, 0, SEEK_END);
+	long length = ftell(file);
+	fseek(file, 0, SEEK_SET);
+
+	char *content = (char *)malloc(length + 1);
+	if (!content) {
+	}
+	return content;
+}
+
+void load_shaders(struct game *g) {
+	char cwd[MAX_PATH];
+	GetCurrentDirectoryA(MAX_PATH, cwd);
+
+	char shaderDir[MAX_PATH];
+	snprintf(shaderDir, sizeof(shaderDir), "%s\\assets\\shaders", cwd);
+
+	char searchPath[MAX_PATH];
+	snprintf(searchPath, sizeof(searchPath), "%s\\*.vert", shaderDir);
+
+	WIN32_FIND_DATA findFileData;
+	HANDLE hFind = FindFirstFile(searchPath, &findFileData);
+
+	if (hFind == INVALID_HANDLE_VALUE) {
+		printf("Failed to open shader directory: %s\n", shaderDir);
+		return;
+	}
+
+	do {
+
+	} while (FindNextFile(hFind, &findFileData) != 0);
+
+	FindClose(hFind);
+}
