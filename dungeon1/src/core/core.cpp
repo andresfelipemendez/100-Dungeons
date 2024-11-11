@@ -38,8 +38,6 @@ std::atomic<bool> reloadExternalsFlag(false);
 
 constexpr auto DEBOUNCE_INTERVAL_MS = 5000;
 
-namespace fs = std::filesystem;
-
 const char *compiler = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\14.41.34120\\bin\\Hostx64\\x64\\cl.exe";
 
 void getCurrentWorkingDirectory(char* buffer, size_t size)
@@ -75,6 +73,8 @@ void compile_engine_dll() {
 
 void compile_externals_dll()
 {
+    print_log(COLOR_YELLOW, "compiling externals.dll");
+
     char cwd[MAX_PATH];
     getCurrentWorkingDirectory(cwd, MAX_PATH);
 
@@ -205,7 +205,7 @@ void begin_game_loop(game &g)
         if (reloadEngineFlag.load())
         {
             reloadEngineFlag.store(false);
-            print_log(COLOR_YELLOW, "CL Reloading Engine...\n");
+            print_log(COLOR_YELLOW, "Reloading Engine...\n");
 
             unloadlibrary(g.engine_lib);
             char copiedEgnineDllPath[MAX_PATH];

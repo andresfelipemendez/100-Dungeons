@@ -186,6 +186,16 @@ EXPORT void hotreloadable_imgui_draw(game *g)
 				set_component_value(h, selected_entity, COMPONENT_POSITION, position);
 			}
 		}
+		if (w->component_masks[selected_entity] & COMPONENT_CAMERA)
+		{
+			Vec3 camera;
+
+			get_component_value(h, selected_entity, COMPONENT_POSITION, &camera);
+			if (ImGui::InputFloat3("Camera", (float *)&camera))
+			{
+				set_component_value(h, selected_entity, COMPONENT_POSITION, camera);
+			}
+		}
 	}
 
 	ImGui::End();

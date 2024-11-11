@@ -1,5 +1,9 @@
 #include "ecs.h"
+#include <cmath>
 #include <game.h>
+#include "ext/matrix_clip_space.hpp"
+#include "ext/matrix_float4x4.hpp"
+#include "ext/matrix_transform.hpp"
 #include "ext/vector_float3.hpp"
 #include "memory.h"
 #include <stdio.h>
@@ -8,6 +12,7 @@
 #include <toml.h>
 
 #include "asset_loader.h"
+#include "trigonometric.hpp"
 
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
@@ -54,7 +59,7 @@ void add_component(MemoryHeader* h, size_t entity_id, uint32_t component_mask) {
 	case COMPONENT_POSITION: {
 		size_t i = h->transforms->count;
 		h->transforms->entity_ids[i] = entity_id;
-		h->transforms->positions[i] = {0,0,0};
+		h->transforms->positions[i] = { 0, 0, 0 };
 		h->transforms->count++;
 		break;
 	}
@@ -186,14 +191,27 @@ void ecs_load_level(game* g, const char* sceneFilePath) {
 						toml_table_t *nested_table = toml_table_in(attributes, type_key);
 						if (nested_table)
 						{
-							toml_datum_t fov = toml_double_in(nested_table, "fov");
-							toml_datum_t near = toml_double_in(nested_table, "near");
-							toml_datum_t far = toml_double_in(nested_table, "far");
-							printf("  %s = { fov = %.2f, near = %.2f, far = %.2f }\n", type_key, fov.u.d, near.u.d, far.u.d);
+							toml_datum_t fov_datum = toml_double_in(nested_table, "fov");
+					        toml_datum_t near_datum = toml_double_in(nested_table, "near");
+					        toml_datum_t far_datum = toml_double_in(nested_table, "far");
+
+					        float fov = static_cast<float>(fov_datum.u.d);
+					        float near = static_cast<float>(near_datum.u.d);
+					        float far = static_cast<float>(far_datum.u.d);
+
+							printf("  %s = { fov = %.2f, near = %.2f, far = %.2f }\n", type_key, fov, near, far);
 
 							glm::vec3 cameraPosition = glm::vec3(0.0f,0.0f,0.0f);
 							glm::vec3 targetPosition = glm::vec3(1.0f,0.0f,0.0f);
 							glm::vec3 upDirection = glm::vec3(0.0f,0.0f,1.0f);
+
+							glm::mat4 view = glm::lookAt(cameraPosition, targetPosition, upDirection);
+
+							float aspectRatio = 16.0f/9.0f;
+
+							glm::mat4 projection = glm::perspective(glm::radians(fov), aspectRatio, near, far);
+
+							add_component(h, entity, COMPONENT_CAMERA);
 						}
 						break;
 					}

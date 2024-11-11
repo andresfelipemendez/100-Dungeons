@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstdarg>
 #include <cstring>
+#include <time.h>
 
 // ANSI color codes
 #define RESET_COLOR    "\033[0m"
@@ -15,7 +16,22 @@
 
 // Function implementation with color parameter
 void print_log_impl(const char* file, int line, const char* color, const char* fmt, ...) {
-    // Strip the file path to show only after "src/"
+
+    time_t now = time(NULL);
+     struct tm local_time;
+
+    // Buffer to hold the time string
+    char time_str[10];
+
+    // Use localtime_s for safer local time conversion
+    if (localtime_s(&local_time, &now) == 0) {
+        // Format the time as [HH:MM:SS]
+        strftime(time_str, sizeof(time_str), "%H:%M:%S", &local_time);
+    } else {
+        // If localtime_s fails, set time_str to a default error string
+        strncpy_s(time_str, sizeof(time_str), "??:??:??", _TRUNCATE);
+    }
+
     const char* relative_file = strstr(file, "src/");
     if (!relative_file) {
         relative_file = strstr(file, "src\\"); // Try Windows-style separator if not found
@@ -34,5 +50,5 @@ void print_log_impl(const char* file, int line, const char* color, const char* f
     va_end(args);
 
     // Print the formatted message with file, line, and specified color
-    printf("%s[%s:%d] %s%s\n", color, file, line, message, RESET_COLOR);
+    printf("%s[%s] [%s:%d] %s%s\n", color, time_str, file, line, message, RESET_COLOR);
 }
