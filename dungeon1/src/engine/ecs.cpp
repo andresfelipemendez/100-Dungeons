@@ -202,17 +202,29 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 					break;
 
 				switch (mapStringToSubkeyType(type_key)) {
-				case POSITION_TYPE:
-				case SCALE_TYPE: {
+				case POSITION_TYPE: {
 					toml_table_t *nested_table =
 						toml_table_in(attributes, type_key);
 					if (nested_table) {
-						toml_datum_t x = toml_double_in(nested_table, "x");
-						toml_datum_t y = toml_double_in(nested_table, "y");
-						toml_datum_t z = toml_double_in(nested_table, "z");
+						toml_datum_t x_datum =
+							toml_double_in(nested_table, "x");
+						toml_datum_t y_datum =
+							toml_double_in(nested_table, "y");
+						toml_datum_t z_datum =
+							toml_double_in(nested_table, "z");
+
+						float x = static_cast<float>(x_datum.u.d);
+						float y = static_cast<float>(y_datum.u.d);
+						float z = static_cast<float>(z_datum.u.d);
 
 						printf("  %s = { x = %.2f, y = %.2f, z = %.2f }\n",
-							   type_key, x.u.d, y.u.d, z.u.d);
+							   type_key, x, y, z);
+
+						add_component(h, entity, COMPONENT_POSITION);
+						if (set_component_value(h, entity, COMPONENT_POSITION,
+												{x, y, z})) {
+							printf("set position");
+						}
 					}
 					break;
 				}

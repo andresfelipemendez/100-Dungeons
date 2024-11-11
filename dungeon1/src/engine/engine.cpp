@@ -53,10 +53,16 @@ EXPORT void load_meshes(game *g) {
 	glVertexArrayAttribBinding(VAO, 0, 0);
 
 	const char *vertexShaderSource = "#version 450 core\n"
+									 "uniform mat4 uWorldTransform;\n"
+									 "uniform mat4 uViewProj;\n"
 									 "layout (location = 0) in vec3 aPos;\n"
+									 "out vec3 fragWorldPos;\n"
 									 "void main()\n"
 									 "{\n"
-									 "   gl_Position = vec4(aPos, 1.0);\n"
+									 "vec4 pos = vec4(aPos, 1.0);\n"
+									 "pos = pos * uWorldTransform;\n"
+									 "fragWorldPos = pos.xyz;"
+									 "gl_Position = pos * uViewProj;\n"
 									 "}\0";
 
 	const char *fragmentShaderSource =
@@ -92,14 +98,28 @@ EXPORT void begin_frame(game *g) {
 
 EXPORT void draw_opengl(game *g) {
 	MemoryHeader *h = get_header(g);
-	size_t entity;
-	if (!get_entity(h, COMPONENT_CAMERA, entity)) {
+	size_t camera_entity;
+	if (!get_entity(h, COMPONENT_CAMERA, camera_entity)) {
 		printf("couldn't find camera entity\n");
 	}
 
 	Camera camera;
-	if (!get_component_value(h, entity, COMPONENT_CAMERA, camera)) {
+	if (!get_component_value(h, camera_entity, COMPONENT_CAMERA, camera)) {
 		printf("couldn't find camera entity\n");
+	} else {
+
+		GLuint loc = glGetUniformLocation(shaderProgram, "uViewProj");
+		if (loc != -1) {
+			glUniformMatrix4fv(loc, 1, GL_FALSE, &camera.projection[0][0]);
+		} else {
+			printf("Uniform 'uViewProj' not found in shader program\n");
+		}
+	}
+
+	Vec3 camera_position;
+	if (!get_component_value(h, camera_entity, COMPONENT_POSITION,
+							 &camera_position)) {
+		printf("couldn't find camera position\n");
 	}
 
 	glUseProgram(shaderProgram);
