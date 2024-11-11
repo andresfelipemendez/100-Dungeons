@@ -52,12 +52,12 @@ void init_engine_memory(game *g) {
 	header->shaders = (Shaders *)((char *)g->buffer + offset);
 	offset += sizeof(Shaders);
 
-	header->shaders->entity_ids = (size_t *)((char *)g->buffer + offset);
-	offset += sizeof(size_t) * initialEntityCount;
-
 	header->shaders->program_ids = (unsigned int *)((char *)g->buffer + offset);
 	offset += sizeof(unsigned int) * initialEntityCount;
 
+	header->shaders->shader_names =
+		(char(*)[ENTITY_NAME_LENGTH])((char *)g->buffer + offset);
+	offset += ENTITY_NAME_LENGTH * initialEntityCount;
 	// Set up meshes
 	header->meshes = (Meshes *)((char *)g->buffer + offset);
 	offset += sizeof(Meshes);

@@ -131,8 +131,8 @@ typedef struct Textures {
 
 typedef struct Shaders {
 	size_t count;
-	size_t *entity_ids;
 	unsigned int *program_ids;
+	char (*shader_names)[ENTITY_NAME_LENGTH];
 } Shaders;
 
 struct Camera {
@@ -181,6 +181,8 @@ bool get_component_value(MemoryHeader *h, size_t entity_id,
 						 uint32_t component_mask, Camera &value);
 bool set_component_value(MemoryHeader *h, size_t entity_id,
 						 uint32_t component_mask, Camera value);
+
+bool add_shader(MemoryHeader *h,char *name, GLuint programID);
 
 void ecs_load_level(struct game *g, const char *saveFilePath);
 void save_level(MemoryHeader *h, const char *saveFilePath);

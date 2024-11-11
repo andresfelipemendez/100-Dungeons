@@ -1,3 +1,4 @@
+#include "memory.h"
 #include <cstring>
 #define WIN32_LEAN_AND_MEAN
 #include "asset_loader.h"
@@ -254,9 +255,14 @@ void load_shaders(struct game *g) {
 		return;
 	}
 
+	MemoryHeader *h = get_header(g);
 	do {
 		const char *vertFileName = findFileData.cFileName;
-		printf("vertFileName %s\n", vertFileName);
+
+		char shaderName[MAX_PATH];
+		strncpy_s(shaderName, sizeof(shaderName), vertFileName,
+				  strlen(vertFileName) - 5);
+
 		char vertPath[MAX_PATH];
 		snprintf(vertPath, sizeof(vertPath), "%s\\%s", shaderDir, vertFileName);
 		char fragPath[MAX_PATH];
@@ -270,11 +276,11 @@ void load_shaders(struct game *g) {
 			GLuint shaderProgram =
 				createShaderProgram(vertexSource, fragmentSource);
 			if (shaderProgram != 0) {
-				printf("Shader program created sucessfully for %s\n",
-					   vertFileName);
 			}
 			free(vertexSource);
 			free(fragmentSource);
+
+			add_shader(h, shaderName, shaderProgram);
 		}
 
 	} while (FindNextFile(hFind, &findFileData) != 0);

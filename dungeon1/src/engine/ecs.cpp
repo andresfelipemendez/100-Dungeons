@@ -88,6 +88,23 @@ void add_component(MemoryHeader *h, size_t entity_id, uint32_t component_mask) {
 	h->world.component_masks[entity_id] |= component_mask;
 }
 
+bool add_shader(MemoryHeader *h, char *name, GLuint programID) {
+
+	size_t name_length = strlen(name);
+	if (name_length > ENTITY_NAME_LENGTH) {
+		printf("shader name should be less than %i, name: %s \n",
+			   ENTITY_NAME_LENGTH, name);
+	}
+
+	errno_t err = strncpy_s(h->shaders->shader_names[h->shaders->count],
+							ENTITY_NAME_LENGTH, name, name_length);
+	if (err != 0) {
+		return false;
+	}
+
+	return true;
+}
+
 bool get_component_value(MemoryHeader *h, size_t entity_id,
 						 uint32_t component_mask, Vec3 *value) {
 	if (!(h->world.component_masks[entity_id] & component_mask)) {

@@ -46,7 +46,7 @@ EXPORT void load_meshes(game *g) {
 	h->meshes->count = 0;
 
 	const char *sceneFilePath = "assets\\scene.toml";
-	printf("load level at path %s\n", sceneFilePath);
+
 	ecs_load_level(g, sceneFilePath);
 
 	float vertices[] = {0.0f, 0.5f, 0.0f,  -0.5f, -0.5f,

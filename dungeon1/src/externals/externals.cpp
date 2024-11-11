@@ -57,8 +57,6 @@ EXPORT int init_externals(game *g) {
 
 	printf("monitor widht %i, height %i\n", vidMode->width, vidMode->height);
 	if (vidMode->width == 2560 && vidMode->height == 1600) {
-		printf(
-			"this is my normal setup so I'll position the window manually\n");
 		int windowWidth = 1920;
 		int windowHeight = 1080;
 		int xpos = monitorX /*+ (vidMode->width - windowWidth)*/;
