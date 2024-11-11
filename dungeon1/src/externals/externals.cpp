@@ -116,11 +116,8 @@ EXPORT int init_externals(game *g) {
 }
 
 EXPORT void update_externals(game *g) {
-
 	glfwMakeContextCurrent(g->window);
-
 	glfwPollEvents();
-
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
@@ -142,11 +139,9 @@ EXPORT void update_externals(game *g) {
 }
 
 EXPORT void end_externals(game *g) {
-
 	if (g->ctx) {
 		ImGui::SetCurrentContext(g->ctx);
 
-		// Shut down ImGui for GLFW and OpenGL
 		ImGui_ImplOpenGL3_Shutdown();
 		ImGui_ImplGlfw_Shutdown();
 

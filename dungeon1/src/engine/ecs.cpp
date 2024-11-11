@@ -6,7 +6,7 @@
 #include "fwd.hpp"
 #include "memory.h"
 #include <assert.h>
-#include <cmath>
+
 #include <cstddef>
 #include <game.h>
 #include <stdio.h>

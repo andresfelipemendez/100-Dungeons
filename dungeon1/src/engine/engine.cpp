@@ -13,6 +13,7 @@
 #include <imgui_impl_opengl3.h>
 
 #include "ecs.h"
+#include "systems.h"
 
 #include <GLFW/glfw3.h>
 #include <glad.h>
@@ -100,9 +101,9 @@ EXPORT void begin_frame(game *g) {
 
 ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 EXPORT void update(game *g) {
-	glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w,
-				 clear_color.z * clear_color.w, clear_color.w);
-	glClear(GL_COLOR_BUFFER_BIT);
+	MemoryHeader *h = get_header(g);
+	systems(h);
+
 	draw_opengl(g);
 }
 

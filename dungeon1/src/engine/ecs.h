@@ -181,5 +181,3 @@ bool set_component_value(MemoryHeader *h, size_t entity_id,
 
 void ecs_load_level(struct game *g, const char *saveFilePath);
 void save_level(MemoryHeader *h, const char *saveFilePath);
-
-void rendering_system(World *w);
