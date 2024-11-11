@@ -24,6 +24,8 @@ set "TOML_INCLUDE_DIR=%PROJECT_ROOT%\lib\toml"
 set "TOML_LIB_PATH=%PROJECT_ROOT%\lib\toml\toml.lib"
 set "TOML_LIB_DIR=%PROJECT_ROOT%\lib\toml"
 
+set "GLM_INCLUDE_DIR=%PROJECT_ROOT%\lib\glm"
+	
 set "GLAD_INCLUDE_DIR=%PROJECT_ROOT%\lib\glad"
 set "GLAD_LIB_PATH=%PROJECT_ROOT%\lib\glad\glad.lib"
 set "GLAD_LIB_DIR=%PROJECT_ROOT%\lib\glad"

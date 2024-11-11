@@ -5,6 +5,8 @@
 
 #include <glad.h>
 
+
+
 #define ENTITY_NAME_LENGTH 16
 
 #define SUBKEY_TYPES     \
@@ -12,6 +14,7 @@
     X(COLOR)             \
     X(SCALE)             \
     X(ROTATION)          \
+    X(CAMERA)            \
     X(FOV)               \
     X(INTENSITY)         \
     X(MODEL)             \

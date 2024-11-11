@@ -32,6 +32,8 @@ set(GLFW_LIB_PATH    "${CMAKE_SOURCE_DIR}/lib/glfw/lib/glfw3dll.lib")
 set(TOML_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lib/toml")
 set(TOML_SRC_FILES "${CMAKE_SOURCE_DIR}/lib/toml/toml.c")
 
+set(GLM_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lib/glm")
+
 set(GLEW_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lib/toml")
 set(GLEW_SRC_FILES "${CMAKE_SOURCE_DIR}/lib/toml/toml.c")
 
@@ -40,6 +42,7 @@ add_library(toml STATIC ${TOML_SRC_FILES})
 set(FASTGLTF_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lib/fastgltf/include")
 set(FASTGLTF_LIB_PATH    "${CMAKE_SOURCE_DIR}/lib/fastgltf/lib/fastgltf.lib")
 
+set(FASTGLTF_LIB_PATH    "${CMAKE_SOURCE_DIR}/lib/fastgltf/lib/fastgltf.lib")
 
 set(STB_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/lib/stb")
 
@@ -153,6 +156,7 @@ target_include_directories(
 		"${CMAKE_SOURCE_DIR}/include"
 		"${IMGUI_DIR}"
 		"${IMGUI_DIR}/backends"
+		"${GLM_INCLUDE_DIR}"
 		"${OPENGL_INCLUDE_DIR}"
 		"${GLFW_INCLUDE_DIR}"
 		"${FLECS_INCLUDE_DIR}"

@@ -1,5 +1,6 @@
 #include "ecs.h"
 #include <game.h>
+#include "ext/vector_float3.hpp"
 #include "memory.h"
 #include <stdio.h>
 #include <assert.h>
@@ -7,6 +8,10 @@
 #include <toml.h>
 
 #include "asset_loader.h"
+
+#include <glm.hpp>
+#include <gtc/matrix_transform.hpp>
+#include <gtc/constants.hpp>
 
 #ifdef _WIN32
     #define strcasecmp _stricmp
@@ -18,7 +23,8 @@ const char* component_names[] = {
     #undef X
 };
 
-extern size_t component_count =  sizeof(component_names) / sizeof(component_names[0]);
+extern size_t component_count;
+size_t component_count =  sizeof(component_names) / sizeof(component_names[0]);
 
 SubkeyType mapStringToSubkeyType(const char* type_key) {
     #define X(name) if (strcasecmp(type_key, #name) == 0) return name##_TYPE;
@@ -172,6 +178,22 @@ void ecs_load_level(game* g, const char* sceneFilePath) {
 							toml_datum_t b = toml_double_in(nested_table, "b");
 
 							printf("  %s = { r = %.2f, g = %.2f, b = %.2f }\n", type_key, r.u.d, g.u.d, b.u.d);
+						}
+						break;
+					}
+				case CAMERA_TYPE:
+					{
+						toml_table_t *nested_table = toml_table_in(attributes, type_key);
+						if (nested_table)
+						{
+							toml_datum_t fov = toml_double_in(nested_table, "fov");
+							toml_datum_t near = toml_double_in(nested_table, "near");
+							toml_datum_t far = toml_double_in(nested_table, "far");
+							printf("  %s = { fov = %.2f, near = %.2f, far = %.2f }\n", type_key, fov.u.d, near.u.d, far.u.d);
+
+							glm::vec3 cameraPosition = glm::vec3(0.0f,0.0f,0.0f);
+							glm::vec3 targetPosition = glm::vec3(1.0f,0.0f,0.0f);
+							glm::vec3 upDirection = glm::vec3(0.0f,0.0f,1.0f);
 						}
 						break;
 					}

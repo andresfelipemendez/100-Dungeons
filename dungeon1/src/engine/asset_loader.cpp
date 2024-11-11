@@ -132,8 +132,6 @@ bool LoadGLTFMeshes(MemoryHeader* h, const char* meshFilePath) {
 			glCreateBuffers(1, &outMesh->drawsBuffer);
 
 			glNamedBufferData(outMesh->drawsBuffer, static_cast<GLsizeiptr>(outMesh->submesh_count * sizeof(SubMesh)), outMesh->submeshes, GL_STATIC_DRAW);
-
-			
 		}
 	}
 
