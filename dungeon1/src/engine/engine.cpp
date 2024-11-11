@@ -14,7 +14,6 @@
 
 #include "ecs.h"
 
-#define GLAD_GLAPI_EXPORT
 #include <GLFW/glfw3.h>
 #include <glad.h>
 
@@ -31,9 +30,7 @@ EXPORT void load_level(game *g, const char *sceneFilePath) {
 	// ecs_load_level(g, sceneFilePath);
 }
 
-extern "C" __declspec(dllexport) __stdcall void init_engine(game *g) {
-	init_engine_memory(g);
-}
+EXPORT void init_engine(game *g) { init_engine_memory(g); }
 
 EXPORT void load_meshes(game *g) {
 
@@ -99,6 +96,14 @@ EXPORT void begin_frame(game *g) {
 		printf("Failed to initialize GLAD in DLL\n");
 		return;
 	}
+}
+
+ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+EXPORT void update(game *g) {
+	glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w,
+				 clear_color.z * clear_color.w, clear_color.w);
+	glClear(GL_COLOR_BUFFER_BIT);
+	draw_opengl(g);
 }
 
 EXPORT void draw_opengl(game *g) {

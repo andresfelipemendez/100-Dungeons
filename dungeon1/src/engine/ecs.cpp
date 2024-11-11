@@ -168,6 +168,22 @@ bool set_component_value(MemoryHeader *h, size_t entity_id,
 	return false;
 }
 
+bool set_component_value(MemoryHeader *h, size_t entity_id,
+						 uint32_t component_mask, StaticMesh value) {
+	if (!(h->world.component_masks[entity_id] & component_mask)) {
+		return false;
+	}
+
+	for (size_t i = 0; i < h->meshes->count; i++) {
+		if (h->meshes->entity_ids[i] == entity_id) {
+			h->meshes->mesh_data[i] = value;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void ecs_load_level(game *g, const char *sceneFilePath) {
 	FILE *fp;
 	char errbuf[200];
@@ -222,7 +238,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 
 						add_component(h, entity, COMPONENT_POSITION);
 						if (set_component_value(h, entity, COMPONENT_POSITION,
-												{x, y, z})) {
+												Vec3{x, y, z})) {
 							printf("set position\n");
 						}
 					}
@@ -273,7 +289,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 							"  %s = { fov = %.2f, near = %.2f, far = %.2f }\n",
 							type_key, fov, near, far);
 
-						glm::vec3 cameraPosition = glm::vec3(-1.0f, 0.0f, 0.0f);
+						glm::vec3 cameraPosition = glm::vec3(-1.5f, 1.0f, 2.0f);
 						glm::vec3 targetPosition = glm::vec3(1.0f, 0.0f, 0.0f);
 						glm::vec3 upDirection = glm::vec3(0.0f, 0.0f, 1.0f);
 
@@ -300,8 +316,14 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 
 					if (model.ok) {
 						printf("  model = \"%s\"\n", model.u.s);
-						if (LoadGLTFMeshes(h, model.u.s)) {
-							printf("loading model to ecs\n");
+						StaticMesh staticMesh;
+						if (!LoadGLTFMeshes(h, model.u.s, &staticMesh)) {
+							printf("error loading model to ecs\n");
+						}
+
+						add_component(h, entity, COMPONENT_MODEL);
+						if (set_component_value(h, entity, COMPONENT_MODEL,
+												staticMesh)) {
 						}
 						free(model.u.s);
 					}
