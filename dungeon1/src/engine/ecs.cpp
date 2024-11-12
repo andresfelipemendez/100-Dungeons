@@ -10,6 +10,7 @@
 #include <cctype>
 
 #include <cstddef>
+#include <cstring>
 #include <game.h>
 #include <stdio.h>
 #include <string.h>
@@ -47,18 +48,35 @@ SubkeyType mapStringToSubkeyType(const char *type_key) {
 bool get_entity_name(World *w, size_t entity, char *name) {
 	for (size_t i = 0; i < w->entity_count; ++i) {
 		if (w->entity_ids[i] == entity) {
-			strcpy_s(w->entity_names[i], name);
+			size_t name_length = strlen(w->entity_names[i]);
+			const char *entity_name = w->entity_names[i];
+			strcpy_s(name, ENTITY_NAME_LENGTH, entity_name);
+			name[name_length] = '\0';
 			return true;
 		}
 	}
 	return false;
 }
+
 bool check_entity_component(MemoryHeader *h, size_t entity,
 							uint32_t component_mask) {
+
 	if (!(h->world.component_masks[entity] & component_mask)) {
-		char entity_name[ENTITY_NAME_LENGTH];
+		char entity_name[ENTITY_NAME_LENGTH]{0};
 		get_entity_name(&h->world, entity, entity_name);
-		printf("entity %s does not have component Material", entity_name);
+
+		int component_index = -1;
+		for (size_t i = 0; i < component_count; ++i) {
+			if ((component_mask >> i) & 1) {
+				component_index = i;
+				break;
+			}
+		}
+		const char *component_name = (component_index != -1)
+										 ? component_names[component_index]
+										 : "UNKNOWN";
+		printf("entity %s does not have component %s", entity_name,
+			   component_name);
 		return false;
 	}
 	return true;
@@ -88,17 +106,23 @@ bool get_entity(MemoryHeader *h, uint32_t component_mask,
 bool get_entities(MemoryHeader *h, uint32_t component_mask) {
 	h->query.count = 0;
 	for (size_t i = 0; i < h->world.entity_count; ++i) {
-		if (h->world.component_masks[i] & component_mask) {
-			h->query.entities[h->query.count++] = h->world.entity_ids[i];
+		if ((h->world.component_masks[i] & component_mask) == component_mask) {
+			h->query.entities[h->query.count] = h->world.entity_ids[i];
+			h->query.count++;
 		}
 	}
 	return true;
 }
 
 void set_entity_name(World *w, size_t entity, const char *friendly_name) {
-	assert(entity < w->entity_count && "Entity ID is out of bounds");
-	strncpy(w->entity_names[entity], friendly_name, ENTITY_NAME_LENGTH - 1);
-	w->entity_names[entity][ENTITY_NAME_LENGTH - 1] = '\0';
+	size_t name_length = strlen(friendly_name);
+	if (name_length > ENTITY_NAME_LENGTH) {
+		printf("name : %s, it's too long", friendly_name);
+		return;
+	}
+	memset(w->entity_names[entity], '\0', ENTITY_NAME_LENGTH);
+	strncpy_s(w->entity_names[entity], friendly_name, name_length);
+	w->entity_names[entity][name_length] = '\0';
 }
 
 void add_component(MemoryHeader *h, size_t entity_id, uint32_t component_mask) {
@@ -123,6 +147,17 @@ void add_component(MemoryHeader *h, size_t entity_id, uint32_t component_mask) {
 	}
 	}
 	h->world.component_masks[entity_id] |= component_mask;
+}
+
+void add_component(MemoryHeader *h, size_t entity, Camera camera) {
+	char entity_name[ENTITY_NAME_LENGTH];
+	get_entity_name(&h->world, entity, entity_name);
+	printf("add camera component to entity %s", entity_name);
+	size_t i = h->cameras->count;
+	h->cameras->entity_ids[i] = entity;
+	h->cameras->cameras[i] = camera;
+	h->cameras->count++;
+	h->world.component_masks[entity] |= COMPONENT_CAMERA;
 }
 
 bool add_shader(MemoryHeader *h, char *name, GLuint programID) {
@@ -202,13 +237,13 @@ bool set_component_value(MemoryHeader *h, size_t entity, Vec3 value) {
 	return false;
 }
 
-bool get_component_value(MemoryHeader *h, size_t entity, Camera &value) {
+bool get_component_value(MemoryHeader *h, size_t entity, Camera *value) {
 	if (!check_entity_component(h, entity, COMPONENT_CAMERA))
 		return false;
 
 	for (size_t i = 0; i < h->cameras->count; i++) {
 		if (h->cameras->entity_ids[i] == entity) {
-			value = h->cameras->cameras[i];
+			*value = h->cameras->cameras[i];
 			return true;
 		}
 	}
@@ -414,12 +449,10 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 							glm::radians(fov), aspectRatio, near, far);
 
 						glm::mat4 viewProj = projection * view;
+						Camera camera{.projection = viewProj};
+						add_component(h, entity, camera);
 
-						add_component(h, entity, COMPONENT_CAMERA);
-						if (set_component_value(h, entity,
-												{.projection = viewProj})) {
-							// printf("set camera projection");
-						}
+						// printf("set camera projection");
 					}
 					break;
 				}

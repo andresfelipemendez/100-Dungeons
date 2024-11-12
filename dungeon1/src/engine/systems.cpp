@@ -20,7 +20,10 @@ void rendering_system(MemoryHeader *h) {
 		printf("couldn't find camera entity\n");
 	}
 
-	get_entities(h, COMPONENT_MATERIAL | COMPONENT_MODEL | COMPONENT_TEXTURE);
+	if (!get_entities(h, COMPONENT_MATERIAL | COMPONENT_MODEL |
+							 COMPONENT_TEXTURE | COMPONENT_POSITION)) {
+		return;
+	}
 
 	for (size_t i = 0; i < h->query.count; ++i) {
 
@@ -31,7 +34,7 @@ void rendering_system(MemoryHeader *h) {
 
 		StaticMesh staticMesh;
 		if (get_component_value(h, h->query.entities[i], &staticMesh)) {
-			//glUseProgram(material.shader_id);
+			// glUseProgram(material.shader_id);
 		}
 
 		// Models

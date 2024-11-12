@@ -198,7 +198,7 @@ bool add_shader(MemoryHeader *h, char *name, GLuint programID);
 bool get_component_value(MemoryHeader *h, size_t entity_id, Vec3 *value);
 bool set_component_value(MemoryHeader *h, size_t entity_id, Vec3 value);
 
-bool get_component_value(MemoryHeader *h, size_t entity_id, Camera &value);
+bool get_component_value(MemoryHeader *h, size_t entity_id, Camera *value);
 bool set_component_value(MemoryHeader *h, size_t entity_id, Camera value);
 
 bool get_component_value(MemoryHeader *h, size_t entity, StaticMesh *value);

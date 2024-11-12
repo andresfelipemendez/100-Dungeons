@@ -40,7 +40,7 @@ EXPORT void load_meshes(game *g) {
 	MemoryHeader *h = get_header(g);
 	World *w = get_world(g);
 
-	reset_memory(h);
+	// reset_memory(h);
 
 	load_shaders(g);
 	const char *sceneFilePath = "assets\\scene.toml";
@@ -118,7 +118,7 @@ EXPORT void draw_opengl(game *g) {
 	glUseProgram(shaderProgram);
 
 	Camera camera;
-	if (!get_component_value(h, camera_entity, camera)) {
+	if (!get_component_value(h, camera_entity, &camera)) {
 		printf("couldn't find camera entity\n");
 	} else {
 		GLuint loc = glGetUniformLocation(shaderProgram, "uViewProj");
