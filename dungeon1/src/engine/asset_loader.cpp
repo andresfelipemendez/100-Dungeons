@@ -18,13 +18,11 @@
 #include <minwinbase.h>
 #include <winnt.h>
 
-#include <iostream>
 bool LoadGLTFMeshes(MemoryHeader *h, const char *meshFilePath,
 					StaticMesh *outMesh) {
 	constexpr auto gltfOptions = fastgltf::Options::LoadExternalBuffers |
 								 fastgltf::Options::LoadExternalImages |
 								 fastgltf::Options::GenerateMeshIndices;
-
 	fastgltf::Parser parser;
 
 	std::filesystem::path fullMeshPath =
@@ -38,10 +36,8 @@ bool LoadGLTFMeshes(MemoryHeader *h, const char *meshFilePath,
 		return false;
 	}
 
-	std::filesystem::path baseDir = fullMeshPath.parent_path();
-	std::cout << baseDir << "\n";
-
-	auto asset = parser.loadGltf(data.get(), baseDir, gltfOptions);
+	auto asset =
+		parser.loadGltf(data.get(), fullMeshPath.parent_path(), gltfOptions);
 	if (auto error = asset.error(); error != fastgltf::Error::None) {
 		char buffer[256];
 		snprintf(buffer, sizeof(buffer),

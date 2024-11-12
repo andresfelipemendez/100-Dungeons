@@ -12,7 +12,7 @@
 
 void systems(MemoryHeader *h) { rendering_system(h); }
 
-glm::vec4 cc(0.45f, 0.5f, 0.60f, 1.00f);
+glm::vec4 cc(0.45f, 0.55f, 0.60f, 1.00f);
 void rendering_system(MemoryHeader *h) {
 	glClearColor(cc.x * cc.a, cc.y * cc.a, cc.z * cc.a, cc.a);
 	glClear(GL_COLOR_BUFFER_BIT);

@@ -47,7 +47,7 @@ EXPORT void load_meshes(game *g) {
 
 	ecs_load_level(g, sceneFilePath);
 
-	float vertices[] = {1.0f, 0.5f, 0.0f, -0.5f, -0.5f,
+	float vertices[] = {1.0f, 0.5f, 0.0f,  -0.5f, -0.5f,
 						0.0f, 0.5f, -0.5f, 0.0f};
 
 	glCreateVertexArrays(1, &VAO);
@@ -163,19 +163,6 @@ EXPORT void draw_opengl(game *g) {
 	glBindVertexArray(VAO);
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 	glBindVertexArray(0);
-
-	// for (size_t i = 0; i < h->meshes->count; ++i) {
-
-	// 	StaticMesh mesh = h->meshes->mesh_data[i];
-	// 	glBindBuffer(GL_DRAW_INDIRECT_BUFFER, mesh.drawsBuffer);
-	// 	for (auto i = 0U; i < mesh.submesh_count; ++i) {
-	// 		auto &submesh = mesh.submeshes[i];
-	// 		glBindVertexArray(submesh.vertexArray);
-	// 		glDrawElementsIndirect(
-	// 			GL_TRIANGLES, submesh.indexType,
-	// 			reinterpret_cast<const void *>(i * sizeof(SubMesh)));
-	// 	}
-	// }
 }
 
 EXPORT void hotreloadable_imgui_draw(game *g) {
