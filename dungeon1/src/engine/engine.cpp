@@ -40,7 +40,7 @@ EXPORT void load_meshes(game *g) {
 	MemoryHeader *h = get_header(g);
 	World *w = get_world(g);
 
-	// reset_memory(h);
+	reset_memory(h);
 
 	load_shaders(g);
 	const char *sceneFilePath = "assets\\scene.toml";
@@ -111,7 +111,7 @@ EXPORT void update(game *g) {
 EXPORT void draw_opengl(game *g) {
 	MemoryHeader *h = get_header(g);
 	size_t camera_entity;
-	if (!get_entity(h, COMPONENT_CAMERA, camera_entity)) {
+	if (!get_entity(h, CAMERA_COMPONENT, camera_entity)) {
 		printf("couldn't find camera entity\n");
 	}
 
@@ -228,7 +228,7 @@ EXPORT void hotreloadable_imgui_draw(game *g) {
 		if (w->component_masks[selected_entity]) {
 			ImGui::Text("Components:");
 		}
-		if (w->component_masks[selected_entity] & COMPONENT_POSITION) {
+		if (w->component_masks[selected_entity] & POSITION_COMPONENT) {
 			Vec3 position;
 
 			get_component_value(h, selected_entity, &position);

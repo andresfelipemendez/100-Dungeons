@@ -16,12 +16,12 @@ void rendering_system(MemoryHeader *h) {
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	size_t camera_entity;
-	if (!get_entity(h, COMPONENT_CAMERA, camera_entity)) {
+	if (!get_entity(h, CAMERA_COMPONENT, camera_entity)) {
 		printf("couldn't find camera entity\n");
 	}
 
-	if (!get_entities(h, COMPONENT_MATERIAL | COMPONENT_MODEL |
-							 COMPONENT_TEXTURE | COMPONENT_POSITION)) {
+	if (!get_entities(h, MATERIAL_COMPONENT | MODEL_COMPONENT |
+							 TEXTURE_COMPONENT | POSITION_COMPONENT)) {
 		return;
 	}
 
@@ -43,7 +43,7 @@ void rendering_system(MemoryHeader *h) {
 
 	//----------------------------------------------------
 	// Camera camera;
-	// if (!get_component_value(h, camera_entity, COMPONENT_CAMERA, camera)) {
+	// if (!get_component_value(h, camera_entity, CAMERA_COMPONENT, camera)) {
 	// 	printf("couldn't find camera entity\n");
 	// } else {
 	// 	GLuint loc = glGetUniformLocation(shaderProgram, "uViewProj");
@@ -55,7 +55,7 @@ void rendering_system(MemoryHeader *h) {
 	// }
 
 	// Vec3 camera_position;
-	// if (!get_component_value(h, camera_entity, COMPONENT_POSITION,
+	// if (!get_component_value(h, camera_entity, POSITION_COMPONENT,
 	// 						 &camera_position)) {
 	// 	printf("couldn't find camera position\n");
 	// } else {

@@ -127,19 +127,19 @@ void set_entity_name(World *w, size_t entity, const char *friendly_name) {
 
 void add_component(MemoryHeader *h, size_t entity_id, uint32_t component_mask) {
 	switch (component_mask) {
-	case COMPONENT_CAMERA: {
+	case CAMERA_COMPONENT: {
 		size_t i = h->cameras->count;
 		h->cameras->entity_ids[i] = entity_id;
 		h->cameras->count++;
 		break;
 	}
-	case COMPONENT_POSITION: {
+	case POSITION_COMPONENT: {
 		size_t i = h->transforms->count;
 		h->transforms->entity_ids[i] = entity_id;
 		h->transforms->count++;
 		break;
 	}
-	case COMPONENT_MATERIAL: {
+	case MATERIAL_COMPONENT: {
 		size_t i = h->materials->count;
 		h->materials->entity_ids[i] = entity_id;
 		h->materials->count++;
@@ -157,7 +157,7 @@ void add_component(MemoryHeader *h, size_t entity, Camera camera) {
 	h->cameras->entity_ids[i] = entity;
 	h->cameras->cameras[i] = camera;
 	h->cameras->count++;
-	h->world.component_masks[entity] |= COMPONENT_CAMERA;
+	h->world.component_masks[entity] |= CAMERA_COMPONENT;
 }
 
 bool add_shader(MemoryHeader *h, char *name, GLuint programID) {
@@ -211,7 +211,7 @@ bool get_shader_by_name_caseinsenstive(MemoryHeader *h, const char *name,
 }
 
 bool get_component_value(MemoryHeader *h, size_t entity, Vec3 *value) {
-	if (!check_entity_component(h, entity, COMPONENT_POSITION))
+	if (!check_entity_component(h, entity, POSITION_COMPONENT))
 		return false;
 
 	for (size_t i = 0; i < h->transforms->count; i++) {
@@ -225,7 +225,7 @@ bool get_component_value(MemoryHeader *h, size_t entity, Vec3 *value) {
 }
 
 bool set_component_value(MemoryHeader *h, size_t entity, Vec3 value) {
-	if (!check_entity_component(h, entity, COMPONENT_POSITION))
+	if (!check_entity_component(h, entity, POSITION_COMPONENT))
 		return false;
 
 	for (size_t i = 0; i < h->transforms->count; i++) {
@@ -238,7 +238,7 @@ bool set_component_value(MemoryHeader *h, size_t entity, Vec3 value) {
 }
 
 bool get_component_value(MemoryHeader *h, size_t entity, Camera *value) {
-	if (!check_entity_component(h, entity, COMPONENT_CAMERA))
+	if (!check_entity_component(h, entity, CAMERA_COMPONENT))
 		return false;
 
 	for (size_t i = 0; i < h->cameras->count; i++) {
@@ -252,7 +252,7 @@ bool get_component_value(MemoryHeader *h, size_t entity, Camera *value) {
 }
 
 bool set_component_value(MemoryHeader *h, size_t entity, Camera value) {
-	if (!check_entity_component(h, entity, COMPONENT_CAMERA))
+	if (!check_entity_component(h, entity, CAMERA_COMPONENT))
 		return false;
 
 	for (size_t i = 0; i < h->cameras->count; i++) {
@@ -266,7 +266,7 @@ bool set_component_value(MemoryHeader *h, size_t entity, Camera value) {
 }
 
 bool get_component_value(MemoryHeader *h, size_t entity, StaticMesh *value) {
-	if (!check_entity_component(h, entity, COMPONENT_MODEL))
+	if (!check_entity_component(h, entity, MODEL_COMPONENT))
 		return false;
 
 	for (size_t i = 0; i < h->meshes->count; i++) {
@@ -280,7 +280,7 @@ bool get_component_value(MemoryHeader *h, size_t entity, StaticMesh *value) {
 }
 
 bool set_component_value(MemoryHeader *h, size_t entity, StaticMesh value) {
-	if (!check_entity_component(h, entity, COMPONENT_MODEL))
+	if (!check_entity_component(h, entity, MODEL_COMPONENT))
 		return false;
 
 	for (size_t i = 0; i < h->meshes->count; i++) {
@@ -294,7 +294,7 @@ bool set_component_value(MemoryHeader *h, size_t entity, StaticMesh value) {
 }
 
 bool get_component_value(MemoryHeader *h, size_t entity, Material *value) {
-	if (!check_entity_component(h, entity, COMPONENT_MATERIAL))
+	if (!check_entity_component(h, entity, MATERIAL_COMPONENT))
 		return false;
 
 	for (size_t i = 0; i < h->materials->count; i++) {
@@ -306,7 +306,7 @@ bool get_component_value(MemoryHeader *h, size_t entity, Material *value) {
 	return false;
 }
 bool set_component_value(MemoryHeader *h, size_t entity, Material value) {
-	if (!check_entity_component(h, entity, COMPONENT_MATERIAL))
+	if (!check_entity_component(h, entity, MATERIAL_COMPONENT))
 		return false;
 
 	for (size_t i = 0; i < h->materials->count; i++) {
@@ -326,7 +326,7 @@ void load_material(MemoryHeader *h, size_t entity, const char *material_name) {
 		printf("can't find shader by case insensitive name %s\n",
 			   material_name);
 	}
-	add_component(h, entity, COMPONENT_MATERIAL);
+	add_component(h, entity, MATERIAL_COMPONENT);
 	if (!set_component_value(h, entity, Material{.shader_id = 0})) {
 		printf("error setting component material value\n");
 	}
@@ -384,7 +384,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 						// printf("  %s = { x = %.2f, y = %.2f, z = %.2f }\n",
 						//	   type_key, x, y, z);
 
-						add_component(h, entity, COMPONENT_POSITION);
+						add_component(h, entity, POSITION_COMPONENT);
 						if (set_component_value(h, entity, Vec3{x, y, z})) {
 							// printf("set position\n");
 						}
@@ -466,7 +466,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 							printf("error loading model to ecs\n");
 						}
 
-						add_component(h, entity, COMPONENT_MODEL);
+						add_component(h, entity, MODEL_COMPONENT);
 						if (set_component_value(h, entity, staticMesh)) {
 						}
 						free(model.u.s);
@@ -527,7 +527,7 @@ void save_level(MemoryHeader *h, const char *saveFilePath) {
 		fprintf(fp, "[%s]\n", w->entity_names[entity_id]);
 
 		// Serialize each component type based on the component mask
-		if (mask & COMPONENT_POSITION) {
+		if (mask & POSITION_COMPONENT) {
 			Vec3 position;
 			if (get_component_value(h, entity_id, &position)) {
 				fprintf(fp, "position = { x = %.2f, y = %.2f, z = %.2f }\n",
@@ -535,33 +535,33 @@ void save_level(MemoryHeader *h, const char *saveFilePath) {
 			}
 		}
 
-		// if (mask & COMPONENT_ROTATION) {
+		// if (mask & ROTATION_COMPONENT) {
 		// 	Vec3 rotation;
-		// 	if (get_component_value(h, entity_id, COMPONENT_ROTATION,
+		// 	if (get_component_value(h, entity_id, ROTATION_COMPONENT,
 		// &rotation)) { 		fprintf(fp, "rotation = { pitch = %.2f, yaw =
 		// %.2f, roll = %.2f
 		// }\n", rotation.x, rotation.y, rotation.z);
 		// 	}
 		// }
 
-		// if (mask & COMPONENT_COLOR) {
+		// if (mask & COLOR_COMPONENT) {
 		// 	Vec3 color;
-		// 	if (get_component_value(h, entity_id, COMPONENT_COLOR, &color)) {
+		// 	if (get_component_value(h, entity_id, COLOR_COMPONENT, &color)) {
 		// 		fprintf(fp, "color = { r = %.2f, g = %.2f, b = %.2f }\n",
 		// color.x, color.y, color.z);
 		// 	}
 		// }
 
-		// if (mask & COMPONENT_FOV) {
+		// if (mask & FOV_COMPONENT) {
 		// 	double fov;
-		// 	if (get_component_value(h, entity_id, COMPONENT_FOV, &fov)) {
+		// 	if (get_component_value(h, entity_id, FOV_COMPONENT, &fov)) {
 		// 		fprintf(fp, "fov = %.2f\n", fov);
 		// 	}
 		// }
 
-		// if (mask & COMPONENT_INTENSITY) {
+		// if (mask & INTENSITY_COMPONENT) {
 		// 	double intensity;
-		// 	if (get_component_value(h, entity_id, COMPONENT_INTENSITY,
+		// 	if (get_component_value(h, entity_id, INTENSITY_COMPONENT,
 		// &intensity)) { 		fprintf(fp, "intensity = %.2f\n", intensity);
 		// 	}
 		// }

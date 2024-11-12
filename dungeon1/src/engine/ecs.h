@@ -30,7 +30,7 @@ enum SubkeyType {
 
 SubkeyType mapStringToSubkeyType(const char *type_key);
 
-#define EXPAND_AS_ENUM(name, index) COMPONENT_##name = (1 << index),
+#define EXPAND_AS_ENUM(name, index) name##_COMPONENT = (1 << index),
 
 extern const char *component_names[];
 extern size_t component_count;
