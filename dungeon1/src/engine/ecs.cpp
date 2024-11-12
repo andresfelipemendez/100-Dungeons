@@ -44,6 +44,26 @@ SubkeyType mapStringToSubkeyType(const char *type_key) {
 	return UNKNOWN_TYPE;
 }
 
+bool get_entity_name(World *w, size_t entity, char *name) {
+	for (size_t i = 0; i < w->entity_count; ++i) {
+		if (w->entity_ids[i] == entity) {
+			strcpy_s(w->entity_names[i], name);
+			return true;
+		}
+	}
+	return false;
+}
+bool check_entity_component(MemoryHeader *h, size_t entity,
+							uint32_t component_mask) {
+	if (!(h->world.component_masks[entity] & component_mask)) {
+		char entity_name[ENTITY_NAME_LENGTH];
+		get_entity_name(&h->world, entity, entity_name);
+		printf("entity %s does not have component Material", entity_name);
+		return false;
+	}
+	return true;
+}
+
 size_t create_entity(World *w) {
 	size_t entity_id = w->entity_count;
 	w->entity_ids[entity_id] = entity_id;
@@ -79,16 +99,6 @@ void set_entity_name(World *w, size_t entity, const char *friendly_name) {
 	assert(entity < w->entity_count && "Entity ID is out of bounds");
 	strncpy(w->entity_names[entity], friendly_name, ENTITY_NAME_LENGTH - 1);
 	w->entity_names[entity][ENTITY_NAME_LENGTH - 1] = '\0';
-}
-
-bool get_entity_name(World *w, size_t entity, char *name) {
-	for (size_t i = 0; i < w->entity_count; ++i) {
-		if (w->entity_ids[i] == entity) {
-			strcpy_s(w->entity_names[i], name);
-			return true;
-		}
-	}
-	return false;
 }
 
 void add_component(MemoryHeader *h, size_t entity_id, uint32_t component_mask) {
@@ -165,94 +175,81 @@ bool get_shader_by_name_caseinsenstive(MemoryHeader *h, const char *name,
 	return false;
 }
 
-bool get_component_value(MemoryHeader *h, size_t entity_id,
-						 uint32_t component_mask, Vec3 *value) {
-	if (!(h->world.component_masks[entity_id] & component_mask)) {
+bool get_component_value(MemoryHeader *h, size_t entity, Vec3 *value) {
+	if (!check_entity_component(h, entity, COMPONENT_POSITION))
 		return false;
+
+	for (size_t i = 0; i < h->transforms->count; i++) {
+		if (h->transforms->entity_ids[i] == entity) {
+			*value = h->transforms->positions[i];
+			return true;
+		}
 	}
 
-	switch (component_mask) {
-	case COMPONENT_POSITION: {
-		for (size_t i = 0; i < h->transforms->count; i++) {
-			if (h->transforms->entity_ids[i] == entity_id) {
-				*value = h->transforms->positions[i];
-				return true;
-			}
+	return false;
+}
+
+bool set_component_value(MemoryHeader *h, size_t entity, Vec3 value) {
+	if (!check_entity_component(h, entity, COMPONENT_POSITION))
+		return false;
+
+	for (size_t i = 0; i < h->transforms->count; i++) {
+		if (h->transforms->entity_ids[i] == entity) {
+			h->transforms->positions[i] = value;
+			return true;
 		}
-		break;
-	}
 	}
 	return false;
 }
 
-bool set_component_value(MemoryHeader *h, size_t entity_id,
-						 uint32_t component_mask, Vec3 value) {
-	if (!(h->world.component_masks[entity_id] & component_mask)) {
+bool get_component_value(MemoryHeader *h, size_t entity, Camera &value) {
+	if (!check_entity_component(h, entity, COMPONENT_CAMERA))
 		return false;
+
+	for (size_t i = 0; i < h->cameras->count; i++) {
+		if (h->cameras->entity_ids[i] == entity) {
+			value = h->cameras->cameras[i];
+			return true;
+		}
 	}
 
-	switch (component_mask) {
-	case COMPONENT_POSITION: {
-		for (size_t i = 0; i < h->transforms->count; i++) {
-			if (h->transforms->entity_ids[i] == entity_id) {
-				h->transforms->positions[i] = value;
-				return true;
-			}
-		}
-		break;
-	}
-	}
 	return false;
 }
 
-bool get_component_value(MemoryHeader *h, size_t entity_id,
-						 uint32_t component_mask, Camera &value) {
-	if (!(h->world.component_masks[entity_id] & component_mask)) {
+bool set_component_value(MemoryHeader *h, size_t entity, Camera value) {
+	if (!check_entity_component(h, entity, COMPONENT_CAMERA))
 		return false;
+
+	for (size_t i = 0; i < h->cameras->count; i++) {
+		if (h->cameras->entity_ids[i] == entity) {
+			h->cameras->cameras[i] = value;
+			return true;
+		}
 	}
 
-	switch (component_mask) {
-	case COMPONENT_CAMERA: {
-		for (size_t i = 0; i < h->cameras->count; i++) {
-			if (h->cameras->entity_ids[i] == entity_id) {
-				value = h->cameras->cameras[i];
-				return true;
-			}
-		}
-		break;
-	}
-	}
 	return false;
 }
 
-bool set_component_value(MemoryHeader *h, size_t entity_id,
-						 uint32_t component_mask, Camera value) {
-	if (!(h->world.component_masks[entity_id] & component_mask)) {
+bool get_component_value(MemoryHeader *h, size_t entity, StaticMesh *value) {
+	if (!check_entity_component(h, entity, COMPONENT_MODEL))
 		return false;
-	}
-
-	switch (component_mask) {
-	case COMPONENT_CAMERA: {
-		for (size_t i = 0; i < h->cameras->count; i++) {
-			if (h->cameras->entity_ids[i] == entity_id) {
-				h->cameras->cameras[i] = value;
-				return true;
-			}
-		}
-		break;
-	}
-	}
-	return false;
-}
-
-bool set_component_value(MemoryHeader *h, size_t entity_id,
-						 uint32_t component_mask, StaticMesh value) {
-	if (!(h->world.component_masks[entity_id] & component_mask)) {
-		return false;
-	}
 
 	for (size_t i = 0; i < h->meshes->count; i++) {
-		if (h->meshes->entity_ids[i] == entity_id) {
+		if (h->meshes->entity_ids[i] == entity) {
+			*value = h->meshes->mesh_data[i];
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool set_component_value(MemoryHeader *h, size_t entity, StaticMesh value) {
+	if (!check_entity_component(h, entity, COMPONENT_MODEL))
+		return false;
+
+	for (size_t i = 0; i < h->meshes->count; i++) {
+		if (h->meshes->entity_ids[i] == entity) {
 			h->meshes->mesh_data[i] = value;
 			return true;
 		}
@@ -261,16 +258,6 @@ bool set_component_value(MemoryHeader *h, size_t entity_id,
 	return false;
 }
 
-bool check_entity_component(MemoryHeader *h, size_t entity,
-							uint32_t component_mask) {
-	if (!(h->world.component_masks[entity] & component_mask)) {
-		char entity_name[ENTITY_NAME_LENGTH];
-		get_entity_name(&h->world, entity, entity_name);
-		printf("entity %s does not have component Material", entity_name);
-		return false;
-	}
-	return true;
-}
 bool get_component_value(MemoryHeader *h, size_t entity, Material *value) {
 	if (!check_entity_component(h, entity, COMPONENT_MATERIAL))
 		return false;
@@ -284,9 +271,8 @@ bool get_component_value(MemoryHeader *h, size_t entity, Material *value) {
 	return false;
 }
 bool set_component_value(MemoryHeader *h, size_t entity, Material value) {
-	if (!check_entity_component(h, entity, COMPONENT_MATERIAL)) {
+	if (!check_entity_component(h, entity, COMPONENT_MATERIAL))
 		return false;
-	}
 
 	for (size_t i = 0; i < h->materials->count; i++) {
 		if (h->materials->entity_ids[i] == entity) {
@@ -364,8 +350,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 						//	   type_key, x, y, z);
 
 						add_component(h, entity, COMPONENT_POSITION);
-						if (set_component_value(h, entity, COMPONENT_POSITION,
-												Vec3{x, y, z})) {
+						if (set_component_value(h, entity, Vec3{x, y, z})) {
 							// printf("set position\n");
 						}
 					}
@@ -431,7 +416,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 						glm::mat4 viewProj = projection * view;
 
 						add_component(h, entity, COMPONENT_CAMERA);
-						if (set_component_value(h, entity, COMPONENT_CAMERA,
+						if (set_component_value(h, entity,
 												{.projection = viewProj})) {
 							// printf("set camera projection");
 						}
@@ -449,8 +434,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 						}
 
 						add_component(h, entity, COMPONENT_MODEL);
-						if (set_component_value(h, entity, COMPONENT_MODEL,
-												staticMesh)) {
+						if (set_component_value(h, entity, staticMesh)) {
 						}
 						free(model.u.s);
 					}
@@ -512,8 +496,7 @@ void save_level(MemoryHeader *h, const char *saveFilePath) {
 		// Serialize each component type based on the component mask
 		if (mask & COMPONENT_POSITION) {
 			Vec3 position;
-			if (get_component_value(h, entity_id, COMPONENT_POSITION,
-									&position)) {
+			if (get_component_value(h, entity_id, &position)) {
 				fprintf(fp, "position = { x = %.2f, y = %.2f, z = %.2f }\n",
 						position.x, position.y, position.z);
 			}

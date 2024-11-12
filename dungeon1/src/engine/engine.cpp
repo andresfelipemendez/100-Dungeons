@@ -118,7 +118,7 @@ EXPORT void draw_opengl(game *g) {
 	glUseProgram(shaderProgram);
 
 	Camera camera;
-	if (!get_component_value(h, camera_entity, COMPONENT_CAMERA, camera)) {
+	if (!get_component_value(h, camera_entity, camera)) {
 		printf("couldn't find camera entity\n");
 	} else {
 		GLuint loc = glGetUniformLocation(shaderProgram, "uViewProj");
@@ -130,8 +130,7 @@ EXPORT void draw_opengl(game *g) {
 	}
 
 	Vec3 camera_position;
-	if (!get_component_value(h, camera_entity, COMPONENT_POSITION,
-							 &camera_position)) {
+	if (!get_component_value(h, camera_entity, &camera_position)) {
 		printf("couldn't find camera position\n");
 	} else {
 		glm::mat4 worldTransform =
@@ -232,21 +231,9 @@ EXPORT void hotreloadable_imgui_draw(game *g) {
 		if (w->component_masks[selected_entity] & COMPONENT_POSITION) {
 			Vec3 position;
 
-			get_component_value(h, selected_entity, COMPONENT_POSITION,
-								&position);
+			get_component_value(h, selected_entity, &position);
 			if (ImGui::InputFloat3("Position", (float *)&position)) {
-				set_component_value(h, selected_entity, COMPONENT_POSITION,
-									position);
-			}
-		}
-		if (w->component_masks[selected_entity] & COMPONENT_CAMERA) {
-			Vec3 camera;
-
-			get_component_value(h, selected_entity, COMPONENT_POSITION,
-								&camera);
-			if (ImGui::InputFloat3("Camera", (float *)&camera)) {
-				set_component_value(h, selected_entity, COMPONENT_POSITION,
-									camera);
+				set_component_value(h, selected_entity, position);
 			}
 		}
 	}

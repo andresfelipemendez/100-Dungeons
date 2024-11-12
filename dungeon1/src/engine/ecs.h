@@ -195,15 +195,17 @@ void add_component(MemoryHeader *h, size_t entity_id, uint32_t component_mask);
 
 bool add_shader(MemoryHeader *h, char *name, GLuint programID);
 
-bool get_component_value(MemoryHeader *h, size_t entity_id,
-						 uint32_t component_mask, Vec3 *value);
-bool set_component_value(MemoryHeader *h, size_t entity_id,
-						 uint32_t component_mask, Vec3 value);
+bool get_component_value(MemoryHeader *h, size_t entity_id, Vec3 *value);
+bool set_component_value(MemoryHeader *h, size_t entity_id, Vec3 value);
 
-bool get_component_value(MemoryHeader *h, size_t entity_id,
-						 uint32_t component_mask, Camera &value);
-bool set_component_value(MemoryHeader *h, size_t entity_id,
-						 uint32_t component_mask, Camera value);
+bool get_component_value(MemoryHeader *h, size_t entity_id, Camera &value);
+bool set_component_value(MemoryHeader *h, size_t entity_id, Camera value);
+
+bool get_component_value(MemoryHeader *h, size_t entity, StaticMesh *value);
+bool set_component_value(MemoryHeader *h, size_t entity, StaticMesh value);
 
 bool get_component_value(MemoryHeader *h, size_t entity, Material *value);
 bool set_component_value(MemoryHeader *h, size_t entity, Material value);
+bool check_entity_component(MemoryHeader *h, size_t entity,
+							uint32_t component_mask);
+bool get_entity_name(World *w, size_t entity, char *name);
