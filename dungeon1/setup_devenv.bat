@@ -1,24 +1,23 @@
 @echo off
 setlocal enabledelayedexpansion
 
+
 :: Set up environment variables
 call "%~dp0env_vars.bat" 
 
-:: Compile Core DLL
-call "%PROJECT_ROOT%\build_main.bat"
-call "%PROJECT_ROOT%\build_core.bat"
-call "%PROJECT_ROOT%\build_externals.bat"
-call "%PROJECT_ROOT%\build_engine.bat"
-call "%PROJECT_ROOT%\generate_compile_commands.bat"
-
-
-:: Check if the compilation was successful
+:: Check if Ninja is installed
+where ninja >nul 2>&1
 if %errorlevel% neq 0 (
-    powershell -Command "Write-Host 'Compilation of AnitraEngine.exe failed' -ForegroundColor Red"
-    exit /b %errorlevel%
+    echo Ninja not found. Running install_ninja.bat...
+    call "%~dp0install_ninja.bat"
+   
+        echo close the terminal to see updated path and try again 
+        exit /b.
+    )
 ) else (
-    powershell -Command "Write-Host 'AnitraEngine.exe Compilation succeeded.' -ForegroundColor Green"
+    echo Ninja is already installed.
 )
+
 
 set "GLFW_DLL_PATH=%PROJECT_ROOT%\lib\glfw\lib-vc2022\glfw3.dll"
 :: Copy glfw.dll to the output directory
@@ -86,8 +85,9 @@ if not exist "%OUTPUT_PATH%\build_core.bat" (
 ) else (
     powershell -Command "Write-Host 'Symbolic link to build_core.bat already exists.' -ForegroundColor Cyan"
 )
-endlocal
 
+
+echo %OUTPUT_PATH%
 :: Create symbolic link for build_engine.bat if it doesn't exist
 if not exist "%OUTPUT_PATH%\env_vars.bat" (
     mklink "%OUTPUT_PATH%\env_vars.bat" "%PROJECT_ROOT%\env_vars.bat"
@@ -99,5 +99,21 @@ if not exist "%OUTPUT_PATH%\env_vars.bat" (
     )
 ) else (
     powershell -Command "Write-Host 'Symbolic link to env_vars.bat already exists.' -ForegroundColor Cyan"
+)
+
+:: Compile Core DLL
+call "%PROJECT_ROOT%\build_main.bat"
+call "%PROJECT_ROOT%\build_core.bat"
+call "%PROJECT_ROOT%\build_externals.bat"
+call "%PROJECT_ROOT%\build_engine.bat"
+call "%PROJECT_ROOT%\generate_compile_commands.bat"
+
+
+:: Check if the compilation was successful
+if %errorlevel% neq 0 (
+    powershell -Command "Write-Host 'Compilation of AnitraEngine.exe failed' -ForegroundColor Red"
+    exit /b %errorlevel%
+) else (
+    powershell -Command "Write-Host 'AnitraEngine.exe Compilation succeeded.' -ForegroundColor Green"
 )
 endlocal

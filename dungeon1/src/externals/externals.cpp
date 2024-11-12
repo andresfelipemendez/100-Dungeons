@@ -42,8 +42,12 @@ EXPORT int init_externals(game *g) {
 
 	int monitorCount;
 	GLFWmonitor **monitors = glfwGetMonitors(&monitorCount);
-
-	GLFWmonitor *monitor = monitors[3];
+	GLFWmonitor *monitor;
+	if(monitorCount >= 3){
+	monitor = monitors[3];
+	} else {
+	monitor = monitors[0];
+	}
 	int monitorX, monitorY;
 	glfwGetMonitorPos(monitor, &monitorX, &monitorY);
 
