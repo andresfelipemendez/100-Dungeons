@@ -129,6 +129,16 @@ typedef struct Textures {
 	Texture *textures;
 } Textures;
 
+struct Material {
+	GLuint shader_id;
+};
+
+typedef struct Materials {
+	size_t count;
+	size_t *entity_ids;
+	Material *materials;
+} Materials;
+
 typedef struct Shaders {
 	size_t count;
 	unsigned int *program_ids;
@@ -152,25 +162,38 @@ typedef struct World {
 	char (*entity_names)[ENTITY_NAME_LENGTH];
 } World;
 
+struct ECSQuery {
+	size_t count;
+	size_t *entities;
+};
+
 struct MemoryHeader {
 	// add arrays above to add components at runtime
+	Materials *materials;
 	Shaders *shaders;
 	Cameras *cameras;
 	Transforms *transforms;
 	Meshes *meshes;
-
+	ECSQuery query;
 	World world;
 	size_t total_size;
 };
+
+void ecs_load_level(struct game *g, const char *saveFilePath);
+void save_level(MemoryHeader *h, const char *saveFilePath);
 
 size_t create_entity(World *w);
 
 bool get_entity(MemoryHeader *h, uint32_t component_mask,
 				size_t &out_entity_id);
 
+bool get_entities(MemoryHeader *h, uint32_t component_mask);
+
 void set_entity_name(World *w, size_t entity, const char *friendly_name);
 
 void add_component(MemoryHeader *h, size_t entity_id, uint32_t component_mask);
+
+bool add_shader(MemoryHeader *h, char *name, GLuint programID);
 
 bool get_component_value(MemoryHeader *h, size_t entity_id,
 						 uint32_t component_mask, Vec3 *value);
@@ -182,7 +205,5 @@ bool get_component_value(MemoryHeader *h, size_t entity_id,
 bool set_component_value(MemoryHeader *h, size_t entity_id,
 						 uint32_t component_mask, Camera value);
 
-bool add_shader(MemoryHeader *h,char *name, GLuint programID);
-
-void ecs_load_level(struct game *g, const char *saveFilePath);
-void save_level(MemoryHeader *h, const char *saveFilePath);
+bool get_component_value(MemoryHeader *h, size_t entity, Material *value);
+bool set_component_value(MemoryHeader *h, size_t entity, Material value);

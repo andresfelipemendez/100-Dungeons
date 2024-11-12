@@ -23,10 +23,8 @@
 
 unsigned int VAO, VBO, shaderProgram;
 
-EXPORT void load_shader(game *g) {}
-
 EXPORT void load_level(game *g, const char *sceneFilePath) {
-	printf("previously load level at path %s\n", sceneFilePath);
+
 	// ecs_load_level(g, sceneFilePath);
 }
 
@@ -42,9 +40,9 @@ EXPORT void load_meshes(game *g) {
 	MemoryHeader *h = get_header(g);
 	World *w = get_world(g);
 
-	w->entity_count = 0;
-	h->meshes->count = 0;
+	reset_memory(h);
 
+	load_shaders(g);
 	const char *sceneFilePath = "assets\\scene.toml";
 
 	ecs_load_level(g, sceneFilePath);
@@ -100,8 +98,6 @@ EXPORT void begin_frame(game *g) {
 		printf("Failed to initialize GLAD in DLL\n");
 		return;
 	}
-
-	load_shaders(g);
 }
 
 ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);

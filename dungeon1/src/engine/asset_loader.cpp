@@ -275,8 +275,7 @@ void load_shaders(struct game *g) {
 		if (vertexSource && fragmentSource) {
 			GLuint shaderProgram =
 				createShaderProgram(vertexSource, fragmentSource);
-			if (shaderProgram != 0) {
-			}
+
 			free(vertexSource);
 			free(fragmentSource);
 

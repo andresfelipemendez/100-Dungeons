@@ -7,6 +7,8 @@
 #include "memory.h"
 #include <assert.h>
 
+#include <cctype>
+
 #include <cstddef>
 #include <game.h>
 #include <stdio.h>
@@ -63,10 +65,30 @@ bool get_entity(MemoryHeader *h, uint32_t component_mask,
 	return false;
 }
 
+bool get_entities(MemoryHeader *h, uint32_t component_mask) {
+	h->query.count = 0;
+	for (size_t i = 0; i < h->world.entity_count; ++i) {
+		if (h->world.component_masks[i] & component_mask) {
+			h->query.entities[h->query.count++] = h->world.entity_ids[i];
+		}
+	}
+	return true;
+}
+
 void set_entity_name(World *w, size_t entity, const char *friendly_name) {
 	assert(entity < w->entity_count && "Entity ID is out of bounds");
 	strncpy(w->entity_names[entity], friendly_name, ENTITY_NAME_LENGTH - 1);
 	w->entity_names[entity][ENTITY_NAME_LENGTH - 1] = '\0';
+}
+
+bool get_entity_name(World *w, size_t entity, char *name) {
+	for (size_t i = 0; i < w->entity_count; ++i) {
+		if (w->entity_ids[i] == entity) {
+			strcpy_s(w->entity_names[i], name);
+			return true;
+		}
+	}
+	return false;
 }
 
 void add_component(MemoryHeader *h, size_t entity_id, uint32_t component_mask) {
@@ -80,8 +102,13 @@ void add_component(MemoryHeader *h, size_t entity_id, uint32_t component_mask) {
 	case COMPONENT_POSITION: {
 		size_t i = h->transforms->count;
 		h->transforms->entity_ids[i] = entity_id;
-		h->transforms->positions[i] = {0, 0, 0};
 		h->transforms->count++;
+		break;
+	}
+	case COMPONENT_MATERIAL: {
+		size_t i = h->materials->count;
+		h->materials->entity_ids[i] = entity_id;
+		h->materials->count++;
 		break;
 	}
 	}
@@ -96,13 +123,46 @@ bool add_shader(MemoryHeader *h, char *name, GLuint programID) {
 			   ENTITY_NAME_LENGTH, name);
 	}
 
+	for (size_t i = 0; i < name_length; ++i) {
+		name[i] = tolower((unsigned char)name[i]);
+	}
+
 	errno_t err = strncpy_s(h->shaders->shader_names[h->shaders->count],
 							ENTITY_NAME_LENGTH, name, name_length);
 	if (err != 0) {
+		printf("error copying shader name %s\n", name);
 		return false;
 	}
 
+	h->shaders->shader_names[h->shaders->count][name_length] = '\0';
+	h->shaders->program_ids[h->shaders->count] = programID;
+	h->shaders->count++;
+
 	return true;
+}
+
+bool get_shader_by_name_caseinsenstive(MemoryHeader *h, const char *name,
+									   GLuint *programID) {
+	size_t shader_name_length = strlen(name);
+	if (shader_name_length >= ENTITY_NAME_LENGTH) {
+		printf("material name it's too long %s", name);
+		return false;
+	}
+
+	char material_name[ENTITY_NAME_LENGTH];
+	strcpy_s(material_name, name);
+	for (size_t i = 0; i < ENTITY_NAME_LENGTH; ++i) {
+		material_name[i] = tolower((unsigned char)material_name[i]);
+	}
+
+	for (size_t i = 0; i < h->shaders->count; ++i) {
+		if (strcmp(material_name, h->shaders->shader_names[i])) {
+			*programID = h->shaders->program_ids[i];
+			return true;
+		}
+	}
+
+	return false;
 }
 
 bool get_component_value(MemoryHeader *h, size_t entity_id,
@@ -199,6 +259,56 @@ bool set_component_value(MemoryHeader *h, size_t entity_id,
 	}
 
 	return false;
+}
+
+bool check_entity_component(MemoryHeader *h, size_t entity,
+							uint32_t component_mask) {
+	if (!(h->world.component_masks[entity] & component_mask)) {
+		char entity_name[ENTITY_NAME_LENGTH];
+		get_entity_name(&h->world, entity, entity_name);
+		printf("entity %s does not have component Material", entity_name);
+		return false;
+	}
+	return true;
+}
+bool get_component_value(MemoryHeader *h, size_t entity, Material *value) {
+	if (!check_entity_component(h, entity, COMPONENT_MATERIAL))
+		return false;
+
+	for (size_t i = 0; i < h->materials->count; i++) {
+		if (h->materials->entity_ids[i] == entity) {
+			*value = h->materials->materials[i];
+			return true;
+		}
+	}
+	return false;
+}
+bool set_component_value(MemoryHeader *h, size_t entity, Material value) {
+	if (!check_entity_component(h, entity, COMPONENT_MATERIAL)) {
+		return false;
+	}
+
+	for (size_t i = 0; i < h->materials->count; i++) {
+		if (h->materials->entity_ids[i] == entity) {
+			h->materials->materials[i] = value;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void load_material(MemoryHeader *h, size_t entity, const char *material_name) {
+
+	GLuint shader_id;
+	if (!get_shader_by_name_caseinsenstive(h, material_name, &shader_id)) {
+		printf("can't find shader by case insensitive name %s\n",
+			   material_name);
+	}
+	add_component(h, entity, COMPONENT_MATERIAL);
+	if (!set_component_value(h, entity, Material{.shader_id = 0})) {
+		printf("error setting component material value\n");
+	}
 }
 
 void ecs_load_level(game *g, const char *sceneFilePath) {
@@ -347,6 +457,12 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 					break;
 				}
 				case MATERIAL_TYPE: {
+					toml_datum_t material =
+						toml_string_in(attributes, type_key);
+
+					if (material.ok) {
+						load_material(h, entity, material.u.s);
+					}
 					break;
 				}
 				case TEXTURE_TYPE: {

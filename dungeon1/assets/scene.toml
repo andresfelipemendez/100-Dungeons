@@ -9,3 +9,11 @@ material = "phong"
 texture  = "dungeon_texture.png"
 position = { x = 0.00, y = 0.00, z = 0.00 }
 rotation = { pitch = 0.00, yaw = 0.00, roll = 0.00 }
+
+[wall]
+model    = "assets/models/wall.gltf"
+material = "phong"
+texture  = "dungeon_texture.png"
+position = { x = 0.00, y = 0.00, z = 0.00 }
+rotation = { pitch = 0.00, yaw = 0.00, roll = 0.00 }
+

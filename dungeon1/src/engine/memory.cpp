@@ -8,6 +8,42 @@
 #include <stdio.h>
 #include <string.h>
 
+#define ALIGN_OFFSET(type)                                                     \
+	offset = (offset + alignof(type) - 1) & ~(alignof(type) - 1)
+
+void reset_memory(MemoryHeader *h) {
+	if (h == NULL)
+		return;
+
+	if (h->cameras != NULL) {
+		h->cameras->count = 0;
+	}
+
+	if (h->transforms != NULL) {
+		h->transforms->count = 0;
+	}
+
+	if (h->meshes != NULL) {
+		h->meshes->count = 0;
+		for (size_t i = 0; i < h->meshes->count; ++i) {
+			h->meshes->mesh_data[i].submesh_count = 0;
+		}
+	}
+
+	if (h->materials != NULL) {
+		h->materials->count = 0;
+	}
+
+	if (h->shaders != NULL) {
+		h->shaders->count = 0;
+	}
+
+	h->query.count = 0;
+	h->world.entity_count = 0;
+
+	printf("reset_memory\n");
+}
+
 void init_engine_memory(game *g) {
 	const size_t initialEntityCount = 100;
 	const size_t initialSubMeshCount = 10;
@@ -18,6 +54,11 @@ void init_engine_memory(game *g) {
 	size_t down_offset = g->buffer_size - sizeof(MemoryHeader);
 
 	size_t offset = 0;
+
+	header->query.entities = (size_t *)((char *)g->buffer + offset);
+	offset += sizeof(size_t) * initialEntityCount;
+	header->query.count = 0;
+
 	header->world.entity_ids = (size_t *)((char *)g->buffer + offset);
 	offset += sizeof(size_t) * initialEntityCount;
 
@@ -58,6 +99,7 @@ void init_engine_memory(game *g) {
 	header->shaders->shader_names =
 		(char(*)[ENTITY_NAME_LENGTH])((char *)g->buffer + offset);
 	offset += ENTITY_NAME_LENGTH * initialEntityCount;
+
 	// Set up meshes
 	header->meshes = (Meshes *)((char *)g->buffer + offset);
 	offset += sizeof(Meshes);
@@ -75,6 +117,15 @@ void init_engine_memory(game *g) {
 		offset += sizeof(SubMesh) * initialSubMeshCount;
 		header->meshes->mesh_data[i].submesh_count = 0;
 	}
+
+	header->materials = (Materials *)((char *)g->buffer + offset);
+	offset += sizeof(Materials);
+
+	header->materials->entity_ids = (size_t *)((char *)g->buffer + offset);
+	offset += sizeof(size_t) * initialEntityCount;
+
+	header->materials->materials = (Material *)((char *)g->buffer + offset);
+	offset += sizeof(Material) * initialEntityCount;
 
 	// Calculate remaining buffer size
 	down_offset = g->buffer_size - sizeof(MemoryHeader);

@@ -1,6 +1,7 @@
 #include "systems.h"
 #include "ecs.h"
 
+#include <cstdio>
 #include <glm.hpp>
 #include <gtc/constants.hpp>
 #include <gtc/matrix_transform.hpp>
@@ -9,7 +10,7 @@
 
 void systems(MemoryHeader *h) { rendering_system(h); }
 
-glm::vec4 cc(0.45f, 0.55f, 0.60f, 1.00f);
+glm::vec4 cc(0.45f, 0.5f, 0.60f, 1.00f);
 void rendering_system(MemoryHeader *h) {
 	glClearColor(cc.x * cc.a, cc.y * cc.a, cc.z * cc.a, cc.a);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -19,6 +20,17 @@ void rendering_system(MemoryHeader *h) {
 		printf("couldn't find camera entity\n");
 	}
 
+	get_entities(h, COMPONENT_MATERIAL | COMPONENT_MODEL);
+
+	for (size_t i = 0; i < h->query.count; ++i) {
+
+		Material material;
+		if (get_component_value(h, h->query.entities[i], &material)) {
+			glUseProgram(material.shader_id);
+		}
+
+		// Models
+	}
 	// glUseProgram(shaderProgram);
 
 	//----------------------------------------------------
