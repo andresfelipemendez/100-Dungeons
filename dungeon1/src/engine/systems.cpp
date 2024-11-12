@@ -1,5 +1,7 @@
 #include "systems.h"
 #include "ecs.h"
+#include "ext/matrix_transform.hpp"
+#include "fwd.hpp"
 
 #include <cstdio>
 #include <glm.hpp>
@@ -21,25 +23,38 @@ void rendering_system(MemoryHeader *h) {
 	}
 
 	if (!get_entities(h, MATERIAL_COMPONENT | MODEL_COMPONENT |
-							 TEXTURE_COMPONENT | POSITION_COMPONENT)) {
+							 POSITION_COMPONENT)) {
 		return;
 	}
 
 	for (size_t i = 0; i < h->query.count; ++i) {
-
 		Material material;
 		if (get_component_value(h, h->query.entities[i], &material)) {
 			glUseProgram(material.shader_id);
 		}
+		glm::mat4 worldTransform = glm::mat4(1.0f);
+
+		Vec3 position;
+		if (get_component_value(h, h->query.entities[i], &position)) {
+			worldTransform = glm::translate(
+				worldTransform, glm::vec3{position.x, position.y, position.z});
+			GLuint loc =
+				glGetUniformLocation(material.shader_id, "uWorldTransform");
+			glUniformMatrix4fv(loc, 1, GL_FALSE, &worldTransform[0][0]);
+		}
 
 		StaticMesh staticMesh;
 		if (get_component_value(h, h->query.entities[i], &staticMesh)) {
-			// glUseProgram(material.shader_id);
+			glBindBuffer(GL_DRAW_INDIRECT_BUFFER, staticMesh.drawsBuffer);
+			for (auto i = 0U; i < staticMesh.submesh_count; ++i) {
+				auto &submesh = staticMesh.submeshes[i];
+				glBindVertexArray(submesh.vertexArray);
+				glDrawElementsIndirect(
+					GL_TRIANGLES, submesh.indexType,
+					reinterpret_cast<const void *>(i * sizeof(SubMesh)));
+			}
 		}
-
-		// Models
 	}
-	// glUseProgram(shaderProgram);
 
 	//----------------------------------------------------
 	// Camera camera;

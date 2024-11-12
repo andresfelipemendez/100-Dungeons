@@ -145,6 +145,12 @@ void add_component(MemoryHeader *h, size_t entity_id, uint32_t component_mask) {
 		h->materials->count++;
 		break;
 	}
+	case MODEL_COMPONENT: {
+		size_t i = h->meshes->count;
+		h->meshes->entity_ids[i] = entity_id;
+		h->meshes->count++;
+		break;
+	}
 	}
 	h->world.component_masks[entity_id] |= component_mask;
 }
@@ -286,6 +292,11 @@ bool set_component_value(MemoryHeader *h, size_t entity, StaticMesh value) {
 	for (size_t i = 0; i < h->meshes->count; i++) {
 		if (h->meshes->entity_ids[i] == entity) {
 			h->meshes->mesh_data[i] = value;
+			for (int j = 0; j < value.submesh_count; ++j) {
+
+				h->meshes->mesh_data[i].submeshes[j] = value.submeshes[j];
+				/* code */
+			}
 			return true;
 		}
 	}
@@ -461,7 +472,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 
 					if (model.ok) {
 						// printf("  model = \"%s\"\n", model.u.s);
-						StaticMesh staticMesh;
+						StaticMesh staticMesh{0};
 						if (!LoadGLTFMeshes(h, model.u.s, &staticMesh)) {
 							printf("error loading model to ecs\n");
 						}

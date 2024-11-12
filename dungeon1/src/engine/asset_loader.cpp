@@ -18,6 +18,7 @@
 #include <minwinbase.h>
 #include <winnt.h>
 
+#include <iostream>
 bool LoadGLTFMeshes(MemoryHeader *h, const char *meshFilePath,
 					StaticMesh *outMesh) {
 	constexpr auto gltfOptions = fastgltf::Options::LoadExternalBuffers |
@@ -26,21 +27,34 @@ bool LoadGLTFMeshes(MemoryHeader *h, const char *meshFilePath,
 
 	fastgltf::Parser parser;
 
-	const char *path = "assets/models/static/Knight.glb";
-	auto data = fastgltf::GltfDataBuffer::FromPath(path);
+	std::filesystem::path fullMeshPath =
+		std::filesystem::current_path() / meshFilePath;
+
+	fullMeshPath.make_preferred();
+
+	auto data = fastgltf::GltfDataBuffer::FromPath(fullMeshPath);
 	if (data.error() != fastgltf::Error::None) {
 		print_log(COLOR_RED, "error loading model");
 		return false;
 	}
 
-	auto asset =
-		parser.loadGltf(data.get(), "assets/models/static", gltfOptions);
+	std::filesystem::path baseDir = fullMeshPath.parent_path();
+	std::cout << baseDir << "\n";
+
+	auto asset = parser.loadGltf(data.get(), baseDir, gltfOptions);
 	if (auto error = asset.error(); error != fastgltf::Error::None) {
-		print_log(COLOR_RED, "error loading model");
+		char buffer[256];
+		snprintf(buffer, sizeof(buffer),
+				 "Error loading GLTF data from file: %s (Error Code: %s)",
+				 fullMeshPath.string().c_str(),
+				 fastgltf::getErrorMessage(error).data());
+
+		print_log(COLOR_RED, buffer);
 		return false;
 	}
 
-	outMesh = &h->meshes->mesh_data[h->meshes->count++];
+	*outMesh = h->meshes->mesh_data[h->meshes->count++];
+
 	printf("h->meshes->mesh_data count %zu\n", h->meshes->count);
 
 	for (auto &mesh : asset.get().meshes) {
