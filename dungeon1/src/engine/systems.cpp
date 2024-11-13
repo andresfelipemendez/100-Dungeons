@@ -15,7 +15,10 @@ void systems(MemoryHeader *h) { rendering_system(h); }
 glm::vec4 cc(0.45f, 0.55f, 0.60f, 1.00f);
 void rendering_system(MemoryHeader *h) {
 	glClearColor(cc.x * cc.a, cc.y * cc.a, cc.z * cc.a, cc.a);
-	glClear(GL_COLOR_BUFFER_BIT);
+	
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
 
 	size_t camera_entity;
 	if (!get_entity(h, CAMERA_COMPONENT, camera_entity)) {

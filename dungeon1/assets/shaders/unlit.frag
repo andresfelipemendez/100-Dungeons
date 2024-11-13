@@ -9,7 +9,7 @@ void main()
     vec3 normal = normalize(fragNormal);
 
     // Simple shading based on the normal vector
-    vec3 lightDir = normalize(vec3(0.0, 0.0, 1.0)); // Light direction pointing along Z axis
+    vec3 lightDir = normalize(vec3(-0.5, 0.5, 0.707)); // Light direction pointing along Z axis
     float intensity = max(dot(normal, lightDir), 0.0); // Lambertian reflectance
 
     // Base color
