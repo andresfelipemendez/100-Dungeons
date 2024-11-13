@@ -17,7 +17,6 @@
 #include <Windows.h>
 #include <minwinbase.h>
 #include <winnt.h>
-
 bool LoadGLTFMeshes(MemoryHeader *h, const char *meshFilePath,
 					StaticMesh *outMesh) {
 	constexpr auto gltfOptions = fastgltf::Options::LoadExternalBuffers |
@@ -87,20 +86,29 @@ bool LoadGLTFMeshes(MemoryHeader *h, const char *meshFilePath,
 			auto *vertices = static_cast<Vertex *>(
 				glMapNamedBuffer(subMesh->vertexBuffer, GL_WRITE_ONLY));
 
+			// Load Position
 			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(
 				asset.get(), positionAccessor,
 				[&](fastgltf::math::fvec3 pos, std::size_t idx) {
 					vertices[idx].position = Vec3{pos.x(), pos.y(), pos.z()};
 				});
 
-			glUnmapNamedBuffer(subMesh->vertexBuffer);
+			// Load Normals
+			auto *normalIt = it->findAttribute("NORMAL");
+			if (normalIt != it->attributes.end()) {
+				auto &normalAccessor =
+					asset.get().accessors[normalIt->accessorIndex];
+				if (normalAccessor.bufferViewIndex.has_value()) {
+					fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(
+						asset.get(), normalAccessor,
+						[&](fastgltf::math::fvec3 norm, std::size_t idx) {
+							vertices[idx].normal =
+								Vec3{norm.x(), norm.y(), norm.z()};
+						});
+				}
+			}
 
-			glEnableVertexArrayAttrib(vao, 0);
-			glVertexArrayAttribFormat(vao, 0, 3, GL_FLOAT, GL_FALSE, 0);
-			glVertexArrayAttribBinding(vao, 0, 0);
-			glVertexArrayVertexBuffer(vao, 0, subMesh->vertexBuffer, 0,
-									  sizeof(Vertex));
-
+			// Load Texture Coordinates
 			auto texcoordAttribute = std::string("TEXCOORD_") +
 									 std::to_string(baseColorTexcoordIndex);
 
@@ -108,22 +116,37 @@ bool LoadGLTFMeshes(MemoryHeader *h, const char *meshFilePath,
 				texcoord != it->attributes.end()) {
 				auto &texCoordAccessor =
 					asset.get().accessors[texcoord->accessorIndex];
-				if (!texCoordAccessor.bufferViewIndex.has_value())
-					continue;
-				auto *vertices = static_cast<Vertex *>(
-					glMapNamedBuffer(subMesh->vertexBuffer, GL_WRITE_ONLY));
-				fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(
-					asset.get(), texCoordAccessor,
-					[&](fastgltf::math::fvec2 uv, std::size_t idx) {
-						vertices[idx].uv = Vec2{uv.x(), uv.y()};
-					});
-				glUnmapNamedBuffer(subMesh->vertexBuffer);
-				glEnableVertexArrayAttrib(vao, 1);
-				glVertexArrayAttribFormat(vao, 1, 2, GL_FLOAT, GL_FALSE, 0);
-				glVertexArrayAttribBinding(vao, 1, 1);
-				glVertexArrayVertexBuffer(vao, 1, subMesh->vertexBuffer,
-										  offsetof(Vertex, uv), sizeof(Vertex));
+				if (texCoordAccessor.bufferViewIndex.has_value()) {
+					fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(
+						asset.get(), texCoordAccessor,
+						[&](fastgltf::math::fvec2 uv, std::size_t idx) {
+							vertices[idx].uv = Vec2{uv.x(), uv.y()};
+						});
+				}
 			}
+
+			glUnmapNamedBuffer(subMesh->vertexBuffer);
+
+			// Bind Position Attribute to VAO
+			glBindVertexArray(subMesh->vertexArray);
+			glBindBuffer(GL_ARRAY_BUFFER, subMesh->vertexBuffer);
+
+			glEnableVertexAttribArray(0);
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+								  (void *)offsetof(Vertex, position));
+
+			// Bind Normal Attribute to VAO
+			glEnableVertexAttribArray(1);
+			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+								  (void *)offsetof(Vertex, normal));
+
+			// Bind Texture Coordinate Attribute to VAO
+			glEnableVertexAttribArray(2);
+			glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+								  (void *)offsetof(Vertex, uv));
+
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, subMesh->indexBuffer);
+			glBindVertexArray(0);
 
 			auto &draw = subMesh->draw;
 			draw.instanceCount = 1;

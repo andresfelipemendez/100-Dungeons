@@ -63,7 +63,10 @@ void rendering_system(MemoryHeader *h) {
 			}
 		}
 	}
-
+	GLenum err;
+	while ((err = glGetError()) != GL_NO_ERROR) {
+		printf("OpenGL error: %d\n", err);
+	}
 	//----------------------------------------------------
 	// Camera camera;
 	// if (!get_component_value(h, camera_entity, CAMERA_COMPONENT, camera)) {

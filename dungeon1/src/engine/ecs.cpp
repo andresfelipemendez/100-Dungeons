@@ -207,12 +207,11 @@ bool get_shader_by_name_caseinsenstive(MemoryHeader *h, const char *name,
 	}
 
 	for (size_t i = 0; i < h->shaders->count; ++i) {
-		if (strcmp(material_name, h->shaders->shader_names[i])) {
+		if (strcmp(material_name, h->shaders->shader_names[i]) == 0) {
 			*programID = h->shaders->program_ids[i];
 			return true;
 		}
 	}
-
 	return false;
 }
 

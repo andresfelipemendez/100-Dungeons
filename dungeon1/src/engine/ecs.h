@@ -66,6 +66,7 @@ typedef union Vec2 {
 
 typedef struct Vertex {
 	Vec3 position;
+	Vec3 normal;
 	Vec2 uv;
 } Vertex;
 
