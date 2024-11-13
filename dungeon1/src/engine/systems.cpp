@@ -21,6 +21,10 @@ void rendering_system(MemoryHeader *h) {
 	if (!get_entity(h, CAMERA_COMPONENT, camera_entity)) {
 		printf("couldn't find camera entity\n");
 	}
+	Camera camera;
+	if (!get_component_value(h, camera_entity, &camera)) {
+		printf("couldn't find camera entity\n");
+	}
 
 	if (!get_entities(h, MATERIAL_COMPONENT | MODEL_COMPONENT |
 							 POSITION_COMPONENT)) {
@@ -36,6 +40,10 @@ void rendering_system(MemoryHeader *h) {
 
 		Vec3 position;
 		if (get_component_value(h, h->query.entities[i], &position)) {
+			GLuint view_loc =
+				glGetUniformLocation(material.shader_id, "uViewProj");
+			glUniformMatrix4fv(view_loc, 1, GL_FALSE, &camera.projection[0][0]);
+
 			worldTransform = glm::translate(
 				worldTransform, glm::vec3{position.x, position.y, position.z});
 			GLuint loc =
