@@ -32,7 +32,7 @@ void rendering_system(MemoryHeader *h) {
 		if (get_component_value(h, h->query.entities[i], &material)) {
 			glUseProgram(material.shader_id);
 		}
-		glm::mat4 worldTransform = glm::mat4(1.0f);
+		glm::mat4 worldTransform = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f));
 
 		Vec3 position;
 		if (get_component_value(h, h->query.entities[i], &position)) {

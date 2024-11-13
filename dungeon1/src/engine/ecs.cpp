@@ -295,7 +295,6 @@ bool set_component_value(MemoryHeader *h, size_t entity, StaticMesh value) {
 			for (int j = 0; j < value.submesh_count; ++j) {
 
 				h->meshes->mesh_data[i].submeshes[j] = value.submeshes[j];
-				/* code */
 			}
 			return true;
 		}
@@ -338,7 +337,7 @@ void load_material(MemoryHeader *h, size_t entity, const char *material_name) {
 			   material_name);
 	}
 	add_component(h, entity, MATERIAL_COMPONENT);
-	if (!set_component_value(h, entity, Material{.shader_id = 0})) {
+	if (!set_component_value(h, entity, Material{.shader_id = shader_id})) {
 		printf("error setting component material value\n");
 	}
 }
@@ -370,7 +369,6 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 		toml_table_t *attributes = toml_table_in(level, friendly_name);
 		if (attributes) {
 			// printf("[%s]\n", friendly_name);
-
 			for (int j = 0;; j++) {
 				const char *type_key = toml_key_in(attributes, j);
 				if (!type_key)

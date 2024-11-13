@@ -288,7 +288,7 @@ void load_shaders(struct game *g) {
 
 			free(vertexSource);
 			free(fragmentSource);
-
+			printf("shader %s program id is: %i\n", shaderName, shaderProgram);
 			add_shader(h, shaderName, shaderProgram);
 		}
 

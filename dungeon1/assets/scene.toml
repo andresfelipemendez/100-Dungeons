@@ -5,7 +5,7 @@ rotation = { pitch = 0.00, yaw = 60, roll = 90 }
 
 [floor1]
 model    = "assets\\models\\static\\wall.glb"
-material = "phong"
+material = "unlit"
 texture  = "dungeon_texture.png"
-position = { x = 5, y = 1, z = 1 }
+position = { x = 1, y = 0, z = 0 }
 rotation = { pitch = 0.00, yaw = 0.00, roll = 0.00 }
