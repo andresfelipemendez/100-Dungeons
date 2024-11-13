@@ -147,6 +147,9 @@ typedef struct Shaders {
 
 struct Camera {
 	glm::mat4 projection;
+	// float fov;
+	// glm::vec3 position;
+	// glm::vec3 rotation;
 };
 
 typedef struct Cameras {

@@ -6,7 +6,7 @@ out vec3 fragWorldPos;
 void main()
 {
 	vec4 pos = vec4(aPos, 1.0);
-	pos = pos * uWorldTransform;
+	pos = uWorldTransform * pos;
 	fragWorldPos = pos.xyz;
-	gl_Position = pos * uViewProj;
+	gl_Position = uViewProj * pos;
 };

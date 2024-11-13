@@ -42,13 +42,13 @@ void rendering_system(MemoryHeader *h) {
 		if (get_component_value(h, h->query.entities[i], &position)) {
 			GLuint view_loc =
 				glGetUniformLocation(material.shader_id, "uViewProj");
-			glUniformMatrix4fv(view_loc, 1, GL_FALSE, &camera.projection[0][0]);
+			glUniformMatrix4fv(view_loc, 1, GL_TRUE, &camera.projection[0][0]);
 
 			worldTransform = glm::translate(
 				worldTransform, glm::vec3{position.x, position.y, position.z});
 			GLuint loc =
 				glGetUniformLocation(material.shader_id, "uWorldTransform");
-			glUniformMatrix4fv(loc, 1, GL_FALSE, &worldTransform[0][0]);
+			glUniformMatrix4fv(loc, 1, GL_TRUE, &worldTransform[0][0]);
 		}
 
 		StaticMesh staticMesh;

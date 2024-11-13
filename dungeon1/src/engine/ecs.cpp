@@ -447,7 +447,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 
 						glm::vec3 cameraPosition = glm::vec3(-1.5f, 1.0f, 2.0f);
 						glm::vec3 targetPosition = glm::vec3(1.0f, 0.0f, 0.0f);
-						glm::vec3 upDirection = glm::vec3(0.0f, 0.0f, 1.0f);
+						glm::vec3 upDirection = glm::vec3(0.0f, 1.0f, 0.0f);
 
 						glm::mat4 view = glm::lookAt(
 							cameraPosition, targetPosition, upDirection);
