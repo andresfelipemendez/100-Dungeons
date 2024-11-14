@@ -10,7 +10,8 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
-#include <ImGuizmo.h>
+
+#include "ImGuizmo.h"
 
 #include "ecs.h"
 #include "systems.h"
@@ -25,9 +26,7 @@
 
 unsigned int VAO, VBO, shaderProgram;
 
-EXPORT void load_level(game *g, const char *sceneFilePath) {
-
-}
+EXPORT void load_level(game *g, const char *sceneFilePath) {}
 
 static void glfw_error_callback(int error, const char *description) {
 	fprintf(stderr, "GLFW Error %d: %s\n", error, description);
@@ -47,7 +46,6 @@ EXPORT void load_meshes(game *g) {
 	const char *sceneFilePath = "assets\\scene.toml";
 
 	ecs_load_level(g, sceneFilePath);
-
 }
 
 EXPORT void begin_frame(game *g) {
@@ -71,72 +69,42 @@ EXPORT void update(game *g) {
 	draw_opengl(g);
 }
 
-EXPORT void draw_opengl(game *g) {
-	MemoryHeader *h = get_header(g);
-
-}
+EXPORT void draw_opengl(game *g) { MemoryHeader *h = get_header(g); }
 
 // Helper function to handle transformations with ImGuizmo
-void EditTransform(float* cameraView, float* cameraProjection, float* matrix, bool editTransformDecomposition) {
-	static ImGuizmo::OPERATION mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-	static ImGuizmo::MODE mCurrentGizmoMode = ImGuizmo::LOCAL;
-	static bool useSnap = false;
-	static float snap[3] = { 1.f, 1.f, 1.f };
-	static float bounds[] = { -0.5f, -0.5f, -0.5f, 0.5f, 0.5f, 0.5f };
-	static float boundsSnap[] = { 0.1f, 0.1f, 0.1f };
-	static bool boundSizing = false;
-	static bool boundSizingSnap = false;
+void EditTransform(float *cameraView, float *cameraProjection, float *matrix,
+				   bool editTransformDecomposition) {
 
-	if (editTransformDecomposition) {
-		if (ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
-			mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-		ImGui::SameLine();
-		if (ImGui::RadioButton("Rotate", mCurrentGizmoOperation == ImGuizmo::ROTATE))
-			mCurrentGizmoOperation = ImGuizmo::ROTATE;
-		ImGui::SameLine();
-		if (ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
-			mCurrentGizmoOperation = ImGuizmo::SCALE;
+	ImGuiIO &io = ImGui::GetIO();
 
-		float matrixTranslation[3], matrixRotation[3], matrixScale[3];
-		ImGuizmo::DecomposeMatrixToComponents(matrix, matrixTranslation, matrixRotation, matrixScale);
-		ImGui::InputFloat3("Tr", matrixTranslation);
-		ImGui::InputFloat3("Rt", matrixRotation);
-		ImGui::InputFloat3("Sc", matrixScale);
-		ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, matrix);
+	static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
+	static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::WORLD);
+	ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
 
-		if (mCurrentGizmoOperation != ImGuizmo::SCALE) {
-			if (ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL))
-				mCurrentGizmoMode = ImGuizmo::LOCAL;
-			ImGui::SameLine();
-			if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
-				mCurrentGizmoMode = ImGuizmo::WORLD;
-		}
-
-		ImGui::Checkbox("Use Snap", &useSnap);
-		if (useSnap) {
-			switch (mCurrentGizmoOperation) {
-				case ImGuizmo::TRANSLATE: ImGui::InputFloat3("Snap", &snap[0]); break;
-				case ImGuizmo::ROTATE: ImGui::InputFloat("Angle Snap", &snap[0]); break;
-				case ImGuizmo::SCALE: ImGui::InputFloat("Scale Snap", &snap[0]); break;
-			}
-		}
-
-		ImGui::Checkbox("Bound Sizing", &boundSizing);
-		if (boundSizing) {
-			ImGui::Checkbox("Snap Bounds", &boundSizingSnap);
-			ImGui::InputFloat3("Bounds Snap", boundsSnap);
-		}
-	}
-
-	ImGuizmo::SetDrawlist();
-	ImGuizmo::SetRect(0, 0, ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y);
-	ImGuizmo::Manipulate(cameraView, cameraProjection, mCurrentGizmoOperation, mCurrentGizmoMode, matrix, NULL, useSnap ? &snap[0] : NULL, boundSizing ? bounds : NULL, boundSizingSnap ? boundsSnap : NULL);
+	ImGuizmo::Manipulate(cameraView, cameraProjection, mCurrentGizmoOperation,
+						 mCurrentGizmoMode, matrix, NULL, NULL);
 }
 
 EXPORT void hotreloadable_imgui_draw(game *g) {
+	// Set the ImGui context and allocator functions
 	ImGui::SetCurrentContext(g->ctx);
 	ImGui::SetAllocatorFunctions(g->alloc_func, g->free_func, g->user_data);
+
+	// Start a new ImGui frame if not already done in your main loop
+	// ImGui::NewFrame(); // Uncomment if necessary
+
+	// Set the ImGui context for ImGuizmo and begin the frame
+	ImGuizmo::SetImGuiContext(ImGui::GetCurrentContext());
+	ImGuizmo::BeginFrame();
+
+	// Begin your ImGui window
 	ImGui::Begin("Editor");
+
+	// Set the viewport rectangle for ImGuizmo
+	ImVec2 viewportPos = ImVec2(0, 0);
+	ImVec2 viewportSize = ImGui::GetIO().DisplaySize;
+	ImGuizmo::SetRect(viewportPos.x, viewportPos.y, viewportSize.x,
+					  viewportSize.y);
 
 	World *w = get_world(g);
 	MemoryHeader *h = get_header(g);
@@ -174,13 +142,22 @@ EXPORT void hotreloadable_imgui_draw(game *g) {
 			glm::vec3 targetPosition = glm::vec3(1.0f, 0.0f, 0.0f);
 			glm::vec3 upDirection = glm::vec3(0.0f, 1.0f, 0.0f);
 
-			glm::mat4 viewMatrix = glm::lookAt(cameraPosition, targetPosition, upDirection);
-			glm::mat4 projectionMatrix = glm::perspective(glm::radians(45.0f), 1280.0f / 720.0f, 0.1f, 100.0f);
+			glm::mat4 view =
+				glm::lookAt(cameraPosition, targetPosition, upDirection);
 
-			glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(position.x, position.y, position.z));
+			float aspectRatio = 16.0f / 9.0f;
 
-			EditTransform(glm::value_ptr(viewMatrix), glm::value_ptr(projectionMatrix), glm::value_ptr(modelMatrix), true);
+			glm::mat4 projection = glm::perspective(
+				glm::radians(70.0f), aspectRatio, 0.01f, 1000.0f);
 
+			glm::mat4 modelMatrix = glm::translate(
+				glm::mat4(1.0f), glm::vec3(position.x, position.y, position.z));
+
+			// Call your EditTransform function
+			EditTransform(glm::value_ptr(view), glm::value_ptr(projection),
+						  glm::value_ptr(modelMatrix), true);
+
+			// Update position based on the manipulated model matrix
 			position.x = modelMatrix[3][0];
 			position.y = modelMatrix[3][1];
 			position.z = modelMatrix[3][2];
@@ -188,10 +165,16 @@ EXPORT void hotreloadable_imgui_draw(game *g) {
 
 			if (ImGui::InputFloat3("Position", (float *)&position)) {
 				set_component_value(h, selected_entity, position);
-				modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(position.x, position.y, position.z));
+				modelMatrix = glm::translate(
+					glm::mat4(1.0f),
+					glm::vec3(position.x, position.y, position.z));
 			}
 		}
 	}
 
+	// End your ImGui window
 	ImGui::End();
+
+	// Render ImGui if not already done in your main loop
+	// ImGui::Render(); // Uncomment if necessary
 }
