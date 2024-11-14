@@ -43,10 +43,10 @@ EXPORT int init_externals(game *g) {
 	int monitorCount;
 	GLFWmonitor **monitors = glfwGetMonitors(&monitorCount);
 	GLFWmonitor *monitor;
-	if(monitorCount >= 3){
-	monitor = monitors[3];
+	if (monitorCount >= 3) {
+		monitor = monitors[1];
 	} else {
-	monitor = monitors[0];
+		monitor = monitors[0];
 	}
 	int monitorX, monitorY;
 	glfwGetMonitorPos(monitor, &monitorX, &monitorY);
@@ -142,18 +142,17 @@ EXPORT void update_externals(game *g) {
 
 EXPORT void end_externals(game *g) {
 
-	// glfwMakeContextCurrent(g->window);
+	glfwMakeContextCurrent(g->window);
 
-	// if (g->ctx) {
-	// 	ImGui::SetCurrentContext(g->ctx);
+	if (g->ctx) {
+		ImGui::SetCurrentContext(g->ctx);
 
-	// 	ImGui_ImplOpenGL3_Shutdown();
-	// 	ImGui_ImplGlfw_Shutdown();
+		ImGui_ImplOpenGL3_Shutdown();
+		ImGui_ImplGlfw_Shutdown();
 
-	// 	// Destroy ImGui context
-	// 	ImGui::DestroyContext(g->ctx);
-	// 	g->ctx = nullptr;
-	// }
+		ImGui::DestroyContext(g->ctx);
+		g->ctx = nullptr;
+	}
 
 	if (g->window) {
 		glfwDestroyWindow(g->window);
@@ -162,7 +161,6 @@ EXPORT void end_externals(game *g) {
 
 	glfwTerminate();
 
-	// Log that externals have been successfully shut down
 	print_log(COLOR_YELLOW, "Externals have been successfully shut down");
 }
 

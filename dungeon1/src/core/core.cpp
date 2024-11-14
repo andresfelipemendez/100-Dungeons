@@ -74,6 +74,7 @@ void unload_externals(game &g) {
 	shutdown_externals(g);
 	unloadlibrary(externals_lib);
 	externals_lib = nullptr;
+	printf("unload_externals \n");
 }
 
 void load_function_pointers(game &g) {
@@ -90,7 +91,6 @@ void load_function_pointers(game &g) {
 	end_externals_ptr =
 		(end_externals_func)getfunction(externals_lib, "end_externals");
 
-	begin_game_loop(g);
 }
 
 void reload_externals(game &g) {
@@ -134,10 +134,9 @@ void directory_watch_function(const std::string &directory,
 		CloseHandle(hDir);
 		return;
 	}
-
 	auto lastCompilationTime = std::chrono::steady_clock::now();
 
-	while (true) {
+	while (g.play.load()) {
 		if (ReadDirectoryChangesW(hDir, buffer, sizeof(buffer), TRUE,
 								  FILE_NOTIFY_CHANGE_FILE_NAME |
 									  FILE_NOTIFY_CHANGE_LAST_WRITE,
@@ -151,8 +150,8 @@ void directory_watch_function(const std::string &directory,
 				lastCompilationTime = currentTime;
 				onChange();
 			}
-
 			ResetEvent(overlapped.hEvent);
+			
 		}
 	}
 }
@@ -172,7 +171,10 @@ void watch_externals_directory() {
 }
 
 void begin_game_loop(game &g) {
-	while (g.play) {
+
+	std::cout << "Starting game loop." << std::endl;
+	while (g.play.load()) {
+
 		if (reloadEngineFlag.load()) {
 			reloadEngineFlag.store(false);
 			print_log(COLOR_YELLOW, "Reloading Engine...\n");
@@ -191,7 +193,8 @@ void begin_game_loop(game &g) {
 				g.engine_lib, "hotreloadable_imgui_draw");
 			init_engine(&g);
 
-			g.begin_frame = (begin_frame_func)getfunction(g.engine_lib, "begin_frame");
+			g.begin_frame =
+				(begin_frame_func)getfunction(g.engine_lib, "begin_frame");
 			g.begin_frame(&g);
 
 			g.update = (draw_opengl_func)getfunction(g.engine_lib, "update");
@@ -206,15 +209,28 @@ void begin_game_loop(game &g) {
 			reload_externals(g);
 		}
 
-		g.update(&g);
-		update_externals_ptr(&g);
+		if (g.play.load()) {
+			g.update(&g);
+		} else {
+			break;
+		}
+
+		if (g.play.load()) {
+			update_externals_ptr(&g);
+		} else {
+			break;
+		}
 	}
+
+	std::cout << "Ending game loop..." << std::endl;
+	unloadlibrary(g.engine_lib);
+	unload_externals(g);
+	printf("core loop ended\n");
 }
 
 EXPORT void stop() {
-	g.play = false;
-	unload_externals(g);
-	printf("stop core\n");
+	g.play.store(false);
+	printf("stop core loop\n");
 }
 
 EXPORT void init() {
@@ -240,6 +256,7 @@ EXPORT void init() {
 	if (!copy_dll("engine", copiedEgnineDllPath, sizeof(copiedEgnineDllPath))) {
 		return;
 	}
+
 
 	g.engine_lib = loadlibrary(copiedEgnineDllPath);
 
@@ -278,6 +295,8 @@ EXPORT void init() {
 	end_externals_ptr =
 		(end_externals_func)getfunction(externals_lib, "end_externals");
 
+	
+	//load_function_pointers(g);
 	begin_game_loop(g);
 }
 
@@ -293,7 +312,7 @@ void begin_watch_externals_directory(game &g) {
 
 void waitforreloadsignal(void *hEvent) {
 	HANDLE eventHandle = static_cast<HANDLE>(hEvent);
-	while (true) {
+	while (g.play.load()) {
 		DWORD dwWaitResult = WaitForSingleObject(eventHandle, INFINITE);
 		if (dwWaitResult == WAIT_OBJECT_0) {
 			print_log(COLOR_GREEN, "Hot reload signal received");
