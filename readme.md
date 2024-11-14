@@ -1,10 +1,8 @@
 # 100 Dungeons
 
-![dungeon1](dungeon1.gif)
+![editor](gizmo.gif)
 
-## Screen Capture of the First Dungeon's Current Engine Status
-
-The engine currently renders static meshes only, with skinned animation support planned for future implementation.
+## Screen Capture of the editor gizmo
 
 ![hotreload](hotreload.gif)
 
