@@ -47,6 +47,8 @@ For the scene description format, I’ve replaced JSON with TOML, which provides
 - **[GLM](https://github.com/g-truc/glm)**: A mathematics library used for OpenGL transformations.
 - **[tomlc99](https://github.com/cktan/tomlc99)**: Parses TOML files for managing scene descriptions and configurations.
 - **[fastgltf](https://github.com/spnda/fastgltf)**: Supports efficient loading of 3D models and animations in the glTF format.
+- **[Dear ImGui](https://github.com/ocornut/imgui)**: A bloat-free graphical user interface library for C++ with minimal dependencies.
+- **[ImGuizmo](https://github.com/CedricGuillemet/ImGuizmo)**: Editor gizmos for Dear ImGui, providing transformation tools for 3D objects within the GUI.
 
 ## Prerequisites
 
