@@ -64,7 +64,7 @@ EXPORT void begin_frame(game *g) {
 
 EXPORT void update(game *g) {
 	MemoryHeader *h = get_header(g);
-	systems(h);
+	systems(g, h);
 
 	draw_opengl(g);
 }
@@ -134,9 +134,9 @@ EXPORT void hotreloadable_imgui_draw(game *g) {
 	if (selected_entity != SIZE_MAX) {
 		ImGui::Text("Inspecting Entity: %s", w->entity_names[selected_entity]);
 
-		if (w->component_masks[selected_entity] & POSITION_COMPONENT) {
-			Vec3 position;
-			get_component_value(h, selected_entity, &position);
+		if (w->component_masks[selected_entity] & PositionComponent) {
+			Position position;
+			get_component(h, selected_entity, &position);
 
 			glm::vec3 cameraPosition = glm::vec3(-1.5f, 1.0f, 2.0f);
 			glm::vec3 targetPosition = glm::vec3(1.0f, 0.0f, 0.0f);
@@ -161,10 +161,10 @@ EXPORT void hotreloadable_imgui_draw(game *g) {
 			position.x = modelMatrix[3][0];
 			position.y = modelMatrix[3][1];
 			position.z = modelMatrix[3][2];
-			set_component_value(h, selected_entity, position);
+			set_component(h, selected_entity, position);
 
 			if (ImGui::InputFloat3("Position", (float *)&position)) {
-				set_component_value(h, selected_entity, position);
+				// set_component_value(h, selected_entity, position);
 				modelMatrix = glm::translate(
 					glm::mat4(1.0f),
 					glm::vec3(position.x, position.y, position.z));

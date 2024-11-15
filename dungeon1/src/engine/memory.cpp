@@ -15,28 +15,28 @@ void reset_memory(MemoryHeader *h) {
 	if (h == NULL)
 		return;
 
-	if (h->cameras != NULL) {
-		h->cameras->count = 0;
-	}
+	// if (h->cameras != NULL) {
+	// 	h->cameras->count = 0;
+	// }
 
-	if (h->transforms != NULL) {
-		h->transforms->count = 0;
-	}
+	// if (h->transforms != NULL) {
+	// 	h->transforms->count = 0;
+	// }
 
-	if (h->meshes != NULL) {
-		h->meshes->count = 0;
-		for (size_t i = 0; i < h->meshes->count; ++i) {
-			h->meshes->mesh_data[i].submesh_count = 0;
-		}
-	}
+	// if (h->meshes != NULL) {
+	// 	h->meshes->count = 0;
+	// 	for (size_t i = 0; i < h->meshes->count; ++i) {
+	// 		h->meshes->mesh_data[i].submesh_count = 0;
+	// 	}
+	// }
 
-	if (h->materials != NULL) {
-		h->materials->count = 0;
-	}
+	// if (h->materials != NULL) {
+	// 	h->materials->count = 0;
+	// }
 
-	if (h->shaders != NULL) {
-		h->shaders->count = 0;
-	}
+	// if (h->shaders != NULL) {
+	// 	h->shaders->count = 0;
+	// }
 
 	h->query.count = 0;
 	h->world.entity_count = 0;
@@ -69,27 +69,6 @@ void init_engine_memory(game *g) {
 		(char(*)[ENTITY_NAME_LENGTH])((char *)g->buffer + offset);
 	offset += ENTITY_NAME_LENGTH * initialEntityCount;
 
-	// Set up transforms
-	header->transforms = (Transforms *)((char *)g->buffer + offset);
-	offset += sizeof(Transforms);
-
-	header->transforms->entity_ids = (size_t *)((char *)g->buffer + offset);
-	offset += sizeof(size_t) * initialEntityCount;
-
-	header->transforms->positions = (Vec3 *)((char *)g->buffer + offset);
-	offset += sizeof(Vec3) * initialEntityCount;
-
-	// Set up cameras
-	header->cameras = (Cameras *)((char *)g->buffer + offset);
-	offset += sizeof(Cameras);
-
-	header->cameras->entity_ids = (size_t *)((char *)g->buffer + offset);
-	offset += sizeof(size_t) * initialEntityCount;
-
-	header->cameras->cameras = (Camera *)((char *)g->buffer + offset);
-	offset += sizeof(Camera) * initialEntityCount;
-
-	// Set up shaders
 	header->shaders = (Shaders *)((char *)g->buffer + offset);
 	offset += sizeof(Shaders);
 
@@ -100,32 +79,27 @@ void init_engine_memory(game *g) {
 		(char(*)[ENTITY_NAME_LENGTH])((char *)g->buffer + offset);
 	offset += ENTITY_NAME_LENGTH * initialEntityCount;
 
-	// Set up meshes
-	header->meshes = (Meshes *)((char *)g->buffer + offset);
-	offset += sizeof(Meshes);
+#define DEFINE_ASSIGN_MEMORY(name)                                             \
+	header->p##name##s = (name##s *)((char *)g->buffer + offset);              \
+	offset += sizeof(name##s);                                                 \
+	header->p##name##s->entity_ids = (size_t *)((char *)g->buffer + offset);   \
+	offset += sizeof(size_t) * initialEntityCount;                             \
+	header->p##name##s->components = (name *)((char *)g->buffer + offset);     \
+	offset += sizeof(name) * initialEntityCount;
 
-	header->meshes->entity_ids = (size_t *)((char *)g->buffer + offset);
-	offset += sizeof(size_t) * initialEntityCount;
+#define X(name) DEFINE_ASSIGN_MEMORY(name)
+	SUBKEY_TYPES
+#undef X
 
-	header->meshes->mesh_data = (StaticMesh *)((char *)g->buffer + offset);
-	offset += sizeof(StaticMesh) * initialEntityCount;
+#undef DEFINE_ASSIGN_MEMORY
 
 	// Allocate submeshes for each mesh
 	for (size_t i = 0; i < initialEntityCount; ++i) {
-		header->meshes->mesh_data[i].submeshes =
+		header->pModels->components[i].submeshes =
 			(SubMesh *)((char *)g->buffer + offset);
 		offset += sizeof(SubMesh) * initialSubMeshCount;
-		header->meshes->mesh_data[i].submesh_count = 0;
+		header->pModels->components[i].submesh_count = 0;
 	}
-
-	header->materials = (Materials *)((char *)g->buffer + offset);
-	offset += sizeof(Materials);
-
-	header->materials->entity_ids = (size_t *)((char *)g->buffer + offset);
-	offset += sizeof(size_t) * initialEntityCount;
-
-	header->materials->materials = (Material *)((char *)g->buffer + offset);
-	offset += sizeof(Material) * initialEntityCount;
 
 	// Calculate remaining buffer size
 	down_offset = g->buffer_size - sizeof(MemoryHeader);

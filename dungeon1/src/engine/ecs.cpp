@@ -1,9 +1,4 @@
 #include "ecs.h"
-#include "ext/matrix_clip_space.hpp"
-#include "ext/matrix_float4x4.hpp"
-#include "ext/matrix_transform.hpp"
-#include "ext/vector_float3.hpp"
-#include "fwd.hpp"
 #include "memory.h"
 #include <assert.h>
 
@@ -39,11 +34,66 @@ size_t component_count = sizeof(component_names) / sizeof(component_names[0]);
 SubkeyType mapStringToSubkeyType(const char *type_key) {
 #define X(name)                                                                \
 	if (strcasecmp(type_key, #name) == 0)                                      \
-		return name##_TYPE;
+		return name##Type;
 	SUBKEY_TYPES
 #undef X
 	return UNKNOWN_TYPE;
 }
+
+#define DEFINE_ADD_COMPONENT_FUNCTION(name)                                    \
+	void add_component(MemoryHeader *h, size_t entity_id, name component) {    \
+		size_t i = h->p##name##s->count;                                       \
+		h->p##name##s->entity_ids[i] = entity_id;                              \
+		h->p##name##s->components[i] = component;                              \
+		h->p##name##s->count++;                                                \
+		h->world.component_masks[entity_id] |= name##Component;                \
+	}
+
+#define X(name) DEFINE_ADD_COMPONENT_FUNCTION(name)
+SUBKEY_TYPES
+#undef X
+
+#undef DEFINE_ADD_COMPONENT_FUNCTION
+
+#define DEFINE_GET_COMPONENT_FUNCTION(name)                                    \
+	bool get_component(MemoryHeader *h, size_t entity_id, name *component) {   \
+		if (!check_entity_component(h, entity_id, name##Component)) {          \
+			return false;                                                      \
+		}                                                                      \
+		for (size_t i = 0; i < h->p##name##s->count; i++) {                    \
+			if (h->p##name##s->entity_ids[i] == entity_id) {                   \
+				*component = h->p##name##s->components[i];                     \
+				return true;                                                   \
+			}                                                                  \
+		}                                                                      \
+		return false;                                                          \
+	}
+
+#define X(name) DEFINE_GET_COMPONENT_FUNCTION(name)
+SUBKEY_TYPES
+#undef X
+
+#undef DEFINE_GET_COMPONENT_FUNCTION
+
+#define DEFINE_SET_COMPONENT_FUNCTION(name)                                    \
+	bool set_component(MemoryHeader *h, size_t entity_id, name component) {    \
+		if (!check_entity_component(h, entity_id, name##Component)) {          \
+			return false;                                                      \
+		}                                                                      \
+		for (size_t i = 0; i < h->p##name##s->count; i++) {                    \
+			if (h->p##name##s->entity_ids[i] == entity_id) {                   \
+				h->p##name##s->components[i] = component;                      \
+				return true;                                                   \
+			}                                                                  \
+		}                                                                      \
+		return false;                                                          \
+	}
+
+#define X(name) DEFINE_SET_COMPONENT_FUNCTION(name)
+SUBKEY_TYPES
+#undef X
+
+#undef DEFINE_SET_COMPONENT_FUNCTION
 
 bool get_entity_name(World *w, size_t entity, char *name) {
 	for (size_t i = 0; i < w->entity_count; ++i) {
@@ -95,7 +145,7 @@ size_t create_entity(World *w) {
 bool get_entity(MemoryHeader *h, uint32_t component_mask,
 				size_t &out_entity_id) {
 	for (size_t i = 0; i < h->world.entity_count; ++i) {
-		if (h->world.component_masks[i] & component_mask) {
+		if ((h->world.component_masks[i] & component_mask) == component_mask) {
 			out_entity_id = h->world.entity_ids[i];
 			return true;
 		}
@@ -123,47 +173,6 @@ void set_entity_name(World *w, size_t entity, const char *friendly_name) {
 	memset(w->entity_names[entity], '\0', ENTITY_NAME_LENGTH);
 	strncpy_s(w->entity_names[entity], friendly_name, name_length);
 	w->entity_names[entity][name_length] = '\0';
-}
-
-void add_component(MemoryHeader *h, size_t entity_id, uint32_t component_mask) {
-	switch (component_mask) {
-	case CAMERA_COMPONENT: {
-		size_t i = h->cameras->count;
-		h->cameras->entity_ids[i] = entity_id;
-		h->cameras->count++;
-		break;
-	}
-	case POSITION_COMPONENT: {
-		size_t i = h->transforms->count;
-		h->transforms->entity_ids[i] = entity_id;
-		h->transforms->count++;
-		break;
-	}
-	case MATERIAL_COMPONENT: {
-		size_t i = h->materials->count;
-		h->materials->entity_ids[i] = entity_id;
-		h->materials->count++;
-		break;
-	}
-	case MODEL_COMPONENT: {
-		size_t i = h->meshes->count;
-		h->meshes->entity_ids[i] = entity_id;
-		h->meshes->count++;
-		break;
-	}
-	}
-	h->world.component_masks[entity_id] |= component_mask;
-}
-
-void add_component(MemoryHeader *h, size_t entity, Camera camera) {
-	char entity_name[ENTITY_NAME_LENGTH];
-	get_entity_name(&h->world, entity, entity_name);
-	printf("add camera component to entity %s", entity_name);
-	size_t i = h->cameras->count;
-	h->cameras->entity_ids[i] = entity;
-	h->cameras->cameras[i] = camera;
-	h->cameras->count++;
-	h->world.component_masks[entity] |= CAMERA_COMPONENT;
 }
 
 bool add_shader(MemoryHeader *h, char *name, GLuint programID) {
@@ -215,119 +224,6 @@ bool get_shader_by_name_caseinsenstive(MemoryHeader *h, const char *name,
 	return false;
 }
 
-bool get_component_value(MemoryHeader *h, size_t entity, Vec3 *value) {
-	if (!check_entity_component(h, entity, POSITION_COMPONENT))
-		return false;
-
-	for (size_t i = 0; i < h->transforms->count; i++) {
-		if (h->transforms->entity_ids[i] == entity) {
-			*value = h->transforms->positions[i];
-			return true;
-		}
-	}
-
-	return false;
-}
-
-bool set_component_value(MemoryHeader *h, size_t entity, Vec3 value) {
-	if (!check_entity_component(h, entity, POSITION_COMPONENT))
-		return false;
-
-	for (size_t i = 0; i < h->transforms->count; i++) {
-		if (h->transforms->entity_ids[i] == entity) {
-			h->transforms->positions[i] = value;
-			return true;
-		}
-	}
-	return false;
-}
-
-bool get_component_value(MemoryHeader *h, size_t entity, Camera *value) {
-	if (!check_entity_component(h, entity, CAMERA_COMPONENT))
-		return false;
-
-	for (size_t i = 0; i < h->cameras->count; i++) {
-		if (h->cameras->entity_ids[i] == entity) {
-			*value = h->cameras->cameras[i];
-			return true;
-		}
-	}
-
-	return false;
-}
-
-bool set_component_value(MemoryHeader *h, size_t entity, Camera value) {
-	if (!check_entity_component(h, entity, CAMERA_COMPONENT))
-		return false;
-
-	for (size_t i = 0; i < h->cameras->count; i++) {
-		if (h->cameras->entity_ids[i] == entity) {
-			h->cameras->cameras[i] = value;
-			return true;
-		}
-	}
-
-	return false;
-}
-
-bool get_component_value(MemoryHeader *h, size_t entity, StaticMesh *value) {
-	if (!check_entity_component(h, entity, MODEL_COMPONENT))
-		return false;
-
-	for (size_t i = 0; i < h->meshes->count; i++) {
-		if (h->meshes->entity_ids[i] == entity) {
-			*value = h->meshes->mesh_data[i];
-			return true;
-		}
-	}
-
-	return false;
-}
-
-bool set_component_value(MemoryHeader *h, size_t entity, StaticMesh value) {
-	if (!check_entity_component(h, entity, MODEL_COMPONENT))
-		return false;
-
-	for (size_t i = 0; i < h->meshes->count; i++) {
-		if (h->meshes->entity_ids[i] == entity) {
-			h->meshes->mesh_data[i] = value;
-			for (int j = 0; j < value.submesh_count; ++j) {
-
-				h->meshes->mesh_data[i].submeshes[j] = value.submeshes[j];
-			}
-			return true;
-		}
-	}
-
-	return false;
-}
-
-bool get_component_value(MemoryHeader *h, size_t entity, Material *value) {
-	if (!check_entity_component(h, entity, MATERIAL_COMPONENT))
-		return false;
-
-	for (size_t i = 0; i < h->materials->count; i++) {
-		if (h->materials->entity_ids[i] == entity) {
-			*value = h->materials->materials[i];
-			return true;
-		}
-	}
-	return false;
-}
-bool set_component_value(MemoryHeader *h, size_t entity, Material value) {
-	if (!check_entity_component(h, entity, MATERIAL_COMPONENT))
-		return false;
-
-	for (size_t i = 0; i < h->materials->count; i++) {
-		if (h->materials->entity_ids[i] == entity) {
-			h->materials->materials[i] = value;
-			return true;
-		}
-	}
-
-	return false;
-}
-
 void load_material(MemoryHeader *h, size_t entity, const char *material_name) {
 
 	GLuint shader_id;
@@ -335,10 +231,8 @@ void load_material(MemoryHeader *h, size_t entity, const char *material_name) {
 		printf("can't find shader by case insensitive name %s\n",
 			   material_name);
 	}
-	add_component(h, entity, MATERIAL_COMPONENT);
-	if (!set_component_value(h, entity, Material{.shader_id = shader_id})) {
-		printf("error setting component material value\n");
-	}
+	Material m{.shader_id = shader_id};
+	add_component(h, entity, m);
 }
 
 void ecs_load_level(game *g, const char *sceneFilePath) {
@@ -374,45 +268,48 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 					break;
 
 				switch (mapStringToSubkeyType(type_key)) {
-				case POSITION_TYPE: {
-					toml_table_t *nested_table =
-						toml_table_in(attributes, type_key);
-					if (nested_table) {
-						toml_datum_t x_datum =
-							toml_double_in(nested_table, "x");
-						toml_datum_t y_datum =
-							toml_double_in(nested_table, "y");
-						toml_datum_t z_datum =
-							toml_double_in(nested_table, "z");
+				case PositionType: {
+					toml_table_t *nt = toml_table_in(attributes, type_key);
+					if (nt) {
+						toml_datum_t x_datum = toml_double_in(nt, "x");
+						toml_datum_t y_datum = toml_double_in(nt, "y");
+						toml_datum_t z_datum = toml_double_in(nt, "z");
 
 						float x = static_cast<float>(x_datum.u.d);
 						float y = static_cast<float>(y_datum.u.d);
 						float z = static_cast<float>(z_datum.u.d);
 
-						// printf("  %s = { x = %.2f, y = %.2f, z = %.2f }\n",
-						//	   type_key, x, y, z);
-
-						add_component(h, entity, POSITION_COMPONENT);
-						if (set_component_value(h, entity, Vec3{x, y, z})) {
-							// printf("set position\n");
-						}
+						printf("%s = { x = %.2f, y = %.2f, z = %.2f}\n",
+							   type_key, x, y, z);
+						Position p{x, y, z};
+						add_component(h, entity, p);
 					}
 					break;
 				}
-				case ROTATION_TYPE: {
+				case RotationType: {
 					toml_table_t *nested_table =
 						toml_table_in(attributes, type_key);
 					if (nested_table) {
-						toml_datum_t x = toml_double_in(nested_table, "pitch");
-						toml_datum_t y = toml_double_in(nested_table, "yaw");
-						toml_datum_t z = toml_double_in(nested_table, "roll");
+						toml_datum_t p_datum =
+							toml_double_in(nested_table, "pitch");
+						toml_datum_t y_datum =
+							toml_double_in(nested_table, "yaw");
+						toml_datum_t r_datum =
+							toml_double_in(nested_table, "roll");
 
-						// printf("  %s = { x = %.2f, y = %.2f, z = %.2f }\n",
-						// 	   type_key, x.u.d, y.u.d, z.u.d);
+						float p = static_cast<float>(p_datum.u.d);
+						float y = static_cast<float>(y_datum.u.d);
+						float r = static_cast<float>(r_datum.u.d);
+
+						Rotation rot{p, y, r};
+						add_component(h, entity, rot);
+
+						printf("  %s = { p = %.2f, y = %.2f, r = %.2f }\n",
+							   type_key, p, y, r);
 					}
 					break;
 				}
-				case COLOR_TYPE: {
+				case ColorType: {
 					toml_table_t *nested_table =
 						toml_table_in(attributes, type_key);
 					if (nested_table) {
@@ -425,7 +322,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 					}
 					break;
 				}
-				case CAMERA_TYPE: {
+				case CameraType: {
 					toml_table_t *nested_table =
 						toml_table_in(attributes, type_key);
 					if (nested_table) {
@@ -440,48 +337,31 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 						float near = static_cast<float>(near_datum.u.d);
 						float far = static_cast<float>(far_datum.u.d);
 
-						// printf(
-						// 	"  %s = { fov = %.2f, near = %.2f, far = %.2f }\n",
-						// 	type_key, fov, near, far);
+						printf(
+							"  %s = { fov = %.2f, near = %.2f, far = %.2f }\n",
+							type_key, fov, near, far);
 
-						glm::vec3 cameraPosition = glm::vec3(-1.5f, 1.0f, 2.0f);
-						glm::vec3 targetPosition = glm::vec3(1.0f, 0.0f, 0.0f);
-						glm::vec3 upDirection = glm::vec3(0.0f, 1.0f, 0.0f);
-
-						glm::mat4 view = glm::lookAt(
-							cameraPosition, targetPosition, upDirection);
-
-						float aspectRatio = 16.0f / 9.0f;
-
-						glm::mat4 projection = glm::perspective(
-							glm::radians(fov), aspectRatio, near, far);
-
-						glm::mat4 viewProj = projection * view;
-						Camera camera{.projection = viewProj};
+						Camera camera{fov, near, far};
 						add_component(h, entity, camera);
-
-						// printf("set camera projection");
 					}
 					break;
 				}
-				case MODEL_TYPE: {
+				case ModelType: {
 					toml_datum_t model = toml_string_in(attributes, type_key);
 
 					if (model.ok) {
-						// printf("  model = \"%s\"\n", model.u.s);
-						StaticMesh staticMesh{0};
-						if (!LoadGLTFMeshes(h, model.u.s, &staticMesh)) {
+						printf("  model = \"%s\"\n", model.u.s);
+						Model m{0};
+						if (!LoadGLTFMeshes(h, model.u.s, &m)) {
 							printf("error loading model to ecs\n");
 						}
 
-						add_component(h, entity, MODEL_COMPONENT);
-						if (set_component_value(h, entity, staticMesh)) {
-						}
+						add_component(h, entity, m);
 						free(model.u.s);
 					}
 					break;
 				}
-				case MATERIAL_TYPE: {
+				case MaterialType: {
 					toml_datum_t material =
 						toml_string_in(attributes, type_key);
 
@@ -490,21 +370,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 					}
 					break;
 				}
-				case TEXTURE_TYPE: {
-					break;
-				}
-				case FOV_TYPE: {
-					toml_datum_t fov_value =
-						toml_double_in(attributes, type_key);
-					if (fov_value.ok)
-						printf("  %s = %.2f\n", type_key, fov_value.u.d);
-					break;
-				}
-				case INTENSITY_TYPE: {
-					toml_datum_t intensity_value =
-						toml_double_in(attributes, type_key);
-					if (intensity_value.ok)
-						printf("  %s = %.2f\n", type_key, intensity_value.u.d);
+				case TextureType: {
 					break;
 				}
 				default:
@@ -535,41 +401,41 @@ void save_level(MemoryHeader *h, const char *saveFilePath) {
 		fprintf(fp, "[%s]\n", w->entity_names[entity_id]);
 
 		// Serialize each component type based on the component mask
-		if (mask & POSITION_COMPONENT) {
-			Vec3 position;
-			if (get_component_value(h, entity_id, &position)) {
-				fprintf(fp, "position = { x = %.2f, y = %.2f, z = %.2f }\n",
-						position.x, position.y, position.z);
-			}
-		}
+		// if (mask & PositionComponent) {
+		// 	Vec3 position;
+		// 	if (get_component_value(h, entity_id, &position)) {
+		// 		fprintf(fp, "position = { x = %.2f, y = %.2f, z = %.2f }\n",
+		// 				position.x, position.y, position.z);
+		// 	}
+		// }
 
-		// if (mask & ROTATION_COMPONENT) {
+		// if (mask & RotationComponent) {
 		// 	Vec3 rotation;
-		// 	if (get_component_value(h, entity_id, ROTATION_COMPONENT,
+		// 	if (get_component_value(h, entity_id, RotationComponent,
 		// &rotation)) { 		fprintf(fp, "rotation = { pitch = %.2f, yaw =
 		// %.2f, roll = %.2f
 		// }\n", rotation.x, rotation.y, rotation.z);
 		// 	}
 		// }
 
-		// if (mask & COLOR_COMPONENT) {
+		// if (mask & ColorComponent) {
 		// 	Vec3 color;
-		// 	if (get_component_value(h, entity_id, COLOR_COMPONENT, &color)) {
+		// 	if (get_component_value(h, entity_id, ColorComponent, &color)) {
 		// 		fprintf(fp, "color = { r = %.2f, g = %.2f, b = %.2f }\n",
 		// color.x, color.y, color.z);
 		// 	}
 		// }
 
-		// if (mask & FOV_COMPONENT) {
+		// if (mask & FovComponent) {
 		// 	double fov;
-		// 	if (get_component_value(h, entity_id, FOV_COMPONENT, &fov)) {
+		// 	if (get_component_value(h, entity_id, FovComponent, &fov)) {
 		// 		fprintf(fp, "fov = %.2f\n", fov);
 		// 	}
 		// }
 
-		// if (mask & INTENSITY_COMPONENT) {
+		// if (mask & IntensityComponent) {
 		// 	double intensity;
-		// 	if (get_component_value(h, entity_id, INTENSITY_COMPONENT,
+		// 	if (get_component_value(h, entity_id, IntensityComponent,
 		// &intensity)) { 		fprintf(fp, "intensity = %.2f\n", intensity);
 		// 	}
 		// }

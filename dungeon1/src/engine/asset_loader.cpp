@@ -17,8 +17,9 @@
 #include <Windows.h>
 #include <minwinbase.h>
 #include <winnt.h>
+
 bool LoadGLTFMeshes(MemoryHeader *h, const char *meshFilePath,
-					StaticMesh *outMesh) {
+					Model *outMesh) {
 	constexpr auto gltfOptions = fastgltf::Options::LoadExternalBuffers |
 								 fastgltf::Options::LoadExternalImages |
 								 fastgltf::Options::GenerateMeshIndices;
@@ -48,9 +49,9 @@ bool LoadGLTFMeshes(MemoryHeader *h, const char *meshFilePath,
 		return false;
 	}
 
-	*outMesh = h->meshes->mesh_data[h->meshes->count++];
+	*outMesh = h->pModels->components[h->pModels->count++];
 
-	printf("h->meshes->mesh_data count %zu\n", h->meshes->count);
+	//	printf("h->meshes->mesh_data count %zu\n", h->meshes->count);
 
 	for (auto &mesh : asset.get().meshes) {
 		for (auto it = mesh.primitives.begin(); it != mesh.primitives.end();

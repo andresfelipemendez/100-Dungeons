@@ -10,19 +10,17 @@
 #define ENTITY_NAME_LENGTH 16
 
 #define SUBKEY_TYPES                                                           \
-	X(POSITION)                                                                \
-	X(COLOR)                                                                   \
-	X(SCALE)                                                                   \
-	X(ROTATION)                                                                \
-	X(CAMERA)                                                                  \
-	X(FOV)                                                                     \
-	X(INTENSITY)                                                               \
-	X(MODEL)                                                                   \
-	X(MATERIAL)                                                                \
-	X(TEXTURE)
+	X(Position)                                                                \
+	X(Rotation)                                                                \
+	X(Color)                                                                   \
+	X(Camera)                                                                  \
+	X(Model)                                                                   \
+	X(Material)                                                                \
+	X(Input)                                                                   \
+	X(Texture)
 
 enum SubkeyType {
-#define X(name) name##_TYPE,
+#define X(name) name##Type,
 	SUBKEY_TYPES
 #undef X
 		UNKNOWN_TYPE
@@ -30,7 +28,7 @@ enum SubkeyType {
 
 SubkeyType mapStringToSubkeyType(const char *type_key);
 
-#define EXPAND_AS_ENUM(name, index) name##_COMPONENT = (1 << index),
+#define EXPAND_AS_ENUM(name, index) name##Component = (1 << index),
 
 extern const char *component_names[];
 extern size_t component_count;
@@ -40,6 +38,45 @@ enum ComponentBitmask {
 	SUBKEY_TYPES
 #undef X
 };
+
+struct Position {
+	float x;
+	float y;
+	float z;
+};
+
+struct Rotation {
+	float pitch;
+	float yaw;
+	float roll;
+};
+
+struct Color {};
+
+typedef struct IndirectDrawCommand {
+	uint32_t count;
+	uint32_t instanceCount;
+	uint32_t firstIndex;
+	int32_t baseVertex;
+	uint32_t baseInstance;
+} IndirectDrawCommand;
+
+typedef struct SubMesh {
+	IndirectDrawCommand draw;
+	unsigned int vertexArray;
+	unsigned int vertexBuffer;
+	unsigned int indexBuffer;
+	GLenum indexType;
+} SubMesh;
+
+struct Model {
+	size_t entity_id;
+	size_t submesh_count;
+	GLuint drawsBuffer;
+	SubMesh *submeshes;
+};
+struct Fov {};
+struct Input {};
 
 typedef union Vec3 {
 	struct {
@@ -70,40 +107,7 @@ typedef struct Vertex {
 	Vec2 uv;
 } Vertex;
 
-struct Transforms {
-	size_t count;
-	size_t *entity_ids;
-	Vec3 *positions;
-};
-
-struct Rotations {
-	size_t count;
-	size_t *entity_ids;
-	Vec3 *rotations;
-};
-
-typedef struct Models {
-	size_t count;
-	size_t *entity_ids;
-	Vec3 *positions;
-} Models;
-
-typedef struct IndirectDrawCommand {
-	uint32_t count;
-	uint32_t instanceCount;
-	uint32_t firstIndex;
-	int32_t baseVertex;
-	uint32_t baseInstance;
-} IndirectDrawCommand;
-
-typedef struct SubMesh {
-	IndirectDrawCommand draw;
-	unsigned int vertexArray;
-	unsigned int vertexBuffer;
-	unsigned int indexBuffer;
-	GLenum indexType;
-
-} SubMesh;
+struct Transform {};
 
 typedef struct StaticMesh {
 	size_t entity_id;
@@ -124,21 +128,9 @@ typedef struct Texture {
 	int texHeight;
 } Texture;
 
-typedef struct Textures {
-	size_t count;
-	size_t *entity_ids;
-	Texture *textures;
-} Textures;
-
 struct Material {
 	GLuint shader_id;
 };
-
-typedef struct Materials {
-	size_t count;
-	size_t *entity_ids;
-	Material *materials;
-} Materials;
 
 typedef struct Shaders {
 	size_t count;
@@ -147,17 +139,10 @@ typedef struct Shaders {
 } Shaders;
 
 struct Camera {
-	glm::mat4 projection;
-	// float fov;
-	// glm::vec3 position;
-	// glm::vec3 rotation;
+	float fov;
+	float near;
+	float far;
 };
-
-typedef struct Cameras {
-	size_t count;
-	size_t *entity_ids;
-	Camera *cameras;
-} Cameras;
 
 typedef struct World {
 	size_t entity_count;
@@ -171,17 +156,32 @@ struct ECSQuery {
 	size_t *entities;
 };
 
+#define DEFINE_COMPONENT_STRUCT(name)                                          \
+	typedef struct name##s {                                                   \
+		size_t count;                                                          \
+		size_t *entity_ids;                                                    \
+		name *components;                                                      \
+	} name##s;
+
+#define X(name) DEFINE_COMPONENT_STRUCT(name)
+SUBKEY_TYPES
+#undef X
+
+#undef DEFINE_COMPONENT_STRUCT
+
+#define MEMORY_HEADER_COMPONENT(name) name##s *p##name##s;
+
 struct MemoryHeader {
-	// add arrays above to add components at runtime
-	Materials *materials;
+#define X(name) MEMORY_HEADER_COMPONENT(name)
+	SUBKEY_TYPES
+#undef X
 	Shaders *shaders;
-	Cameras *cameras;
-	Transforms *transforms;
-	Meshes *meshes;
 	ECSQuery query;
 	World world;
 	size_t total_size;
 };
+
+#undef MEMORY_HEADER_COMPONENT
 
 void ecs_load_level(struct game *g, const char *saveFilePath);
 void save_level(MemoryHeader *h, const char *saveFilePath);
@@ -195,21 +195,31 @@ bool get_entities(MemoryHeader *h, uint32_t component_mask);
 
 void set_entity_name(World *w, size_t entity, const char *friendly_name);
 
-void add_component(MemoryHeader *h, size_t entity_id, uint32_t component_mask);
-
-bool add_shader(MemoryHeader *h, char *name, GLuint programID);
-
-bool get_component_value(MemoryHeader *h, size_t entity_id, Vec3 *value);
-bool set_component_value(MemoryHeader *h, size_t entity_id, Vec3 value);
-
-bool get_component_value(MemoryHeader *h, size_t entity_id, Camera *value);
-bool set_component_value(MemoryHeader *h, size_t entity_id, Camera value);
-
-bool get_component_value(MemoryHeader *h, size_t entity, StaticMesh *value);
-bool set_component_value(MemoryHeader *h, size_t entity, StaticMesh value);
-
-bool get_component_value(MemoryHeader *h, size_t entity, Material *value);
-bool set_component_value(MemoryHeader *h, size_t entity, Material value);
 bool check_entity_component(MemoryHeader *h, size_t entity,
 							uint32_t component_mask);
 bool get_entity_name(World *w, size_t entity, char *name);
+
+bool add_shader(MemoryHeader *h, char *name, GLuint programID);
+
+#define DECLARE_ADD_COMPONENT_FUNCTION(name)                                   \
+	void add_component(MemoryHeader *h, size_t entity_id, name component);
+#define X(name) DECLARE_ADD_COMPONENT_FUNCTION(name)
+SUBKEY_TYPES
+#undef X
+#undef DECLARE_ADD_COMPONENT_FUNCTION
+
+#define DECLARE_GET_COMPONENT_FUNCTION(name)                                   \
+	bool get_component(MemoryHeader *h, size_t entity_id, name *component);
+
+#define X(name) DECLARE_GET_COMPONENT_FUNCTION(name)
+SUBKEY_TYPES
+#undef X
+#undef DECLARE_GET_COMPONENT_FUNCTION
+
+#define DECLARE_SET_COMPONENT_FUNCTION(name)                                   \
+	bool set_component(MemoryHeader *h, size_t entity_id, name component);
+
+#define X(name) DECLARE_SET_COMPONENT_FUNCTION(name)
+SUBKEY_TYPES
+#undef X
+#undef DECLARE_SET_COMPONENT_FUNCTION
