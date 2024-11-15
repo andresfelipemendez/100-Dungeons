@@ -370,6 +370,15 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 					}
 					break;
 				}
+				case InputType: {
+					toml_datum_t input = toml_string_in(attributes, type_key);
+					if (input.ok) {
+						Input i{};
+						add_component(h, entity, i);
+						printf("input\n");
+					}
+					break;
+				}
 				case TextureType: {
 					break;
 				}
@@ -399,6 +408,14 @@ void save_level(MemoryHeader *h, const char *saveFilePath) {
 
 		fprintf(fp, "[%s]\n", w->entity_names[entity_id]);
 
+		if (mask & CameraComponent) {
+			Camera c;
+			if (get_component(h, entity_id, &c)) {
+				fprintf(fp, "camera = { fov = %.2f, near = %.2f, far = %.2f }\n",
+						c.fov, c.near, c.far);
+			}
+		}
+
 		if (mask & PositionComponent) {
 			Position position;
 			if (get_component(h, entity_id, &position)) {
@@ -414,6 +431,14 @@ void save_level(MemoryHeader *h, const char *saveFilePath) {
 					fp,
 					"rotation = { pitch = %.2f, yaw = %.2f, roll = %.2f	}\n ",
 					rotation.pitch, rotation.yaw, rotation.roll);
+			}
+		}
+
+		if (mask & ModelComponent) {
+			Model m;
+			if (get_component(h, entity_id, &m)) {
+				fprintf(	fp,
+					"model = { %s	}\n ","not sure yet");
 			}
 		}
 
