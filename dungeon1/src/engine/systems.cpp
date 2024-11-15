@@ -40,16 +40,13 @@ void rendering_system(MemoryHeader *h) {
 
 	float aspectRatio = 16.0f / 9.0f;
 
-	glm::mat4 projection;
-
-	glm::mat4 viewProj = projection * view;
-
 	Camera c;
 	if (!get_component(h, camera_entity, &c)) {
 		printf("couldn't find camera entity\n");
-		projection =
-			glm::perspective(glm::radians(c.fov), aspectRatio, c.near, c.far);
 	}
+	glm::mat4 projection =
+		glm::perspective(glm::radians(c.fov), aspectRatio, c.near, c.far);
+	glm::mat4 viewProj = projection * view;
 
 	if (!get_entities(h,
 					  MaterialComponent | ModelComponent | PositionComponent)) {
@@ -65,10 +62,6 @@ void rendering_system(MemoryHeader *h) {
 
 		Position p;
 		if (get_component(h, h->query.entities[i], &p)) {
-			projection = glm::perspective(glm::radians(c.fov), aspectRatio,
-										  c.near, c.far);
-
-			viewProj = projection * view;
 			GLuint view_loc =
 				glGetUniformLocation(material.shader_id, "uViewProj");
 			glUniformMatrix4fv(view_loc, 1, GL_TRUE, &viewProj[0][0]);

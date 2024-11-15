@@ -15,28 +15,17 @@ void reset_memory(MemoryHeader *h) {
 	if (h == NULL)
 		return;
 
-	// if (h->cameras != NULL) {
-	// 	h->cameras->count = 0;
-	// }
+#define DEFINE_ASSIGN_MEMORY(name) h->p##name##s->count = 0;
 
-	// if (h->transforms != NULL) {
-	// 	h->transforms->count = 0;
-	// }
+#define X(name) DEFINE_ASSIGN_MEMORY(name)
+	SUBKEY_TYPES
+#undef X
 
-	// if (h->meshes != NULL) {
-	// 	h->meshes->count = 0;
-	// 	for (size_t i = 0; i < h->meshes->count; ++i) {
-	// 		h->meshes->mesh_data[i].submesh_count = 0;
-	// 	}
-	// }
+#undef DEFINE_ASSIGN_MEMORY
 
-	// if (h->materials != NULL) {
-	// 	h->materials->count = 0;
-	// }
-
-	// if (h->shaders != NULL) {
-	// 	h->shaders->count = 0;
-	// }
+	if (h->shaders != NULL) {
+		h->shaders->count = 0;
+	}
 
 	h->query.count = 0;
 	h->world.entity_count = 0;
