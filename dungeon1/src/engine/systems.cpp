@@ -32,7 +32,12 @@ void rendering_system(MemoryHeader *h) {
 		printf("couldn't find camera entity\n");
 	}
 
-	glm::vec3 cameraPosition = glm::vec3(-1.5f, 1.0f, 2.0f);
+	Position p;
+	if (!get_component(h, camera_entity, &p)) {
+		return;
+	}
+
+	glm::vec3 cameraPosition = glm::vec3(p.x, p.y, p.z);
 	glm::vec3 targetPosition = glm::vec3(1.0f, 0.0f, 0.0f);
 	glm::vec3 upDirection = glm::vec3(0.0f, 1.0f, 0.0f);
 

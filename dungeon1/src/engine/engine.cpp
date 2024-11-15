@@ -113,7 +113,7 @@ EXPORT void hotreloadable_imgui_draw(game *g) {
 	static size_t selected_entity = SIZE_MAX;
 
 	if (ImGui::Button("Save World")) {
-		const char *saveFilePath = "ecs_world_save.toml";
+		const char *saveFilePath = "scene.toml";
 		save_level(h, saveFilePath);
 		ImGui::Text("World saved to %s", saveFilePath);
 	}
@@ -135,10 +135,25 @@ EXPORT void hotreloadable_imgui_draw(game *g) {
 		ImGui::Text("Inspecting Entity: %s", w->entity_names[selected_entity]);
 
 		if (w->component_masks[selected_entity] & PositionComponent) {
+
 			Position position;
 			get_component(h, selected_entity, &position);
 
-			glm::vec3 cameraPosition = glm::vec3(-1.5f, 1.0f, 2.0f);
+			size_t camera_entity;
+			if (!get_entity(h, CameraComponent, camera_entity)) {
+				printf("couldn't find camera entity\n");
+			}
+
+			Position p;
+			if (!get_component(h, camera_entity, &p)) {
+				return;
+			}
+			Camera c;
+			if (!get_component(h, camera_entity, &c)) {
+				printf("couldn't find camera entity\n");
+			}
+
+			glm::vec3 cameraPosition = glm::vec3(p.x, p.y, p.z);
 			glm::vec3 targetPosition = glm::vec3(1.0f, 0.0f, 0.0f);
 			glm::vec3 upDirection = glm::vec3(0.0f, 1.0f, 0.0f);
 

@@ -397,50 +397,27 @@ void save_level(MemoryHeader *h, const char *saveFilePath) {
 		size_t entity_id = w->entity_ids[i];
 		uint32_t mask = w->component_masks[entity_id];
 
-		// Write the entity's name as the TOML table header
 		fprintf(fp, "[%s]\n", w->entity_names[entity_id]);
 
-		// Serialize each component type based on the component mask
-		// if (mask & PositionComponent) {
-		// 	Vec3 position;
-		// 	if (get_component_value(h, entity_id, &position)) {
-		// 		fprintf(fp, "position = { x = %.2f, y = %.2f, z = %.2f }\n",
-		// 				position.x, position.y, position.z);
-		// 	}
-		// }
+		if (mask & PositionComponent) {
+			Position position;
+			if (get_component(h, entity_id, &position)) {
+				fprintf(fp, "position = { x = %.2f, y = %.2f, z = %.2f }\n",
+						position.x, position.y, position.z);
+			}
+		}
 
-		// if (mask & RotationComponent) {
-		// 	Vec3 rotation;
-		// 	if (get_component_value(h, entity_id, RotationComponent,
-		// &rotation)) { 		fprintf(fp, "rotation = { pitch = %.2f, yaw =
-		// %.2f, roll = %.2f
-		// }\n", rotation.x, rotation.y, rotation.z);
-		// 	}
-		// }
+		if (mask & RotationComponent) {
+			Rotation rotation;
+			if (get_component(h, entity_id, &rotation)) {
+				fprintf(
+					fp,
+					"rotation = { pitch = %.2f, yaw = %.2f, roll = %.2f	}\n ",
+					rotation.pitch, rotation.yaw, rotation.roll);
+			}
+		}
 
-		// if (mask & ColorComponent) {
-		// 	Vec3 color;
-		// 	if (get_component_value(h, entity_id, ColorComponent, &color)) {
-		// 		fprintf(fp, "color = { r = %.2f, g = %.2f, b = %.2f }\n",
-		// color.x, color.y, color.z);
-		// 	}
-		// }
-
-		// if (mask & FovComponent) {
-		// 	double fov;
-		// 	if (get_component_value(h, entity_id, FovComponent, &fov)) {
-		// 		fprintf(fp, "fov = %.2f\n", fov);
-		// 	}
-		// }
-
-		// if (mask & IntensityComponent) {
-		// 	double intensity;
-		// 	if (get_component_value(h, entity_id, IntensityComponent,
-		// &intensity)) { 		fprintf(fp, "intensity = %.2f\n", intensity);
-		// 	}
-		// }
-
-		fprintf(fp, "\n"); // Add a newline between entities for readability
+		fprintf(fp, "\n");
 	}
 
 	fclose(fp);
