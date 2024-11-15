@@ -270,10 +270,10 @@ void reload_loop() {
 
 int main() {
 	signal(SIGINT, signalHandler);
-
-	// system("build_core.bat");
-	// system("build_externals.bat");
+	system("build_editor.bat");
 	system("build_engine.bat");
+	system("build_core.bat");
+	system("build_externals.bat");
 
 	std::thread watch_thread(watch_core);
 	std::thread reload_thread(reload_loop);

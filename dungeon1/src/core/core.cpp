@@ -1,3 +1,4 @@
+#include <cmath>
 #define WIN32_LEAN_AND_MEAN
 #include "core.h"
 #include "loadlibrary.h"
@@ -21,6 +22,7 @@ update_externals_func update_externals_ptr = nullptr;
 end_externals_func end_externals_ptr = nullptr;
 
 std::atomic<bool> reloadEngineFlag(false);
+std::atomic<bool> reloadEditorFlag(false);
 std::atomic<bool> reloadExternalsFlag(false);
 
 constexpr auto DEBOUNCE_INTERVAL_MS = 2000;
@@ -67,6 +69,18 @@ void compile_externals_dll() {
 	system(command);
 }
 
+void compile_editor_dll() {
+	print_log(COLOR_YELLOW, "compiling editor.dll");
+
+	char cwd[MAX_PATH];
+	getCurrentWorkingDirectory(cwd, MAX_PATH);
+
+	char command[1024];
+	snprintf(command, sizeof(command), "\"%s\\build_editor.bat\"", cwd);
+
+	system(command);
+}
+
 void shutdown_externals(game &g) { end_externals_ptr(&g); }
 
 void unload_externals(game &g) {
@@ -90,7 +104,6 @@ void load_function_pointers(game &g) {
 		(update_externals_func)getfunction(externals_lib, "update_externals");
 	end_externals_ptr =
 		(end_externals_func)getfunction(externals_lib, "end_externals");
-
 }
 
 void reload_externals(game &g) {
@@ -110,7 +123,7 @@ void reload_externals(game &g) {
 	g.update = (draw_opengl_func)getfunction(g.engine_lib, "update");
 }
 
-void directory_watch_function(const std::string &directory,
+void directory_watch_function(game &g, const std::string &directory,
 							  std::function<void()> onChange) {
 	HANDLE hDir = CreateFileA(
 		directory.c_str(), FILE_LIST_DIRECTORY,
@@ -151,23 +164,8 @@ void directory_watch_function(const std::string &directory,
 				onChange();
 			}
 			ResetEvent(overlapped.hEvent);
-			
 		}
 	}
-}
-
-void watch_engine_directory() {
-	directory_watch_function("../../src/engine", []() {
-		compile_engine_dll();
-		reloadEngineFlag.store(true);
-	});
-}
-
-void watch_externals_directory() {
-	directory_watch_function("../../src/externals", []() {
-		compile_externals_dll();
-		reloadExternalsFlag.store(true);
-	});
 }
 
 void begin_game_loop(game &g) {
@@ -233,6 +231,14 @@ EXPORT void stop() {
 	printf("stop core loop\n");
 }
 
+void begin_watch(game &g, const std::string &directory,
+				 std::function<void()> onChange) {
+	std::thread watchThread([&g, directory, onChange]() {
+		directory_watch_function(g, directory, onChange);
+	});
+	watchThread.detach();
+}
+
 EXPORT void init() {
 	char cwd[MAX_PATH];
 	getCurrentWorkingDirectory(cwd, MAX_PATH);
@@ -256,7 +262,6 @@ EXPORT void init() {
 	if (!copy_dll("engine", copiedEgnineDllPath, sizeof(copiedEgnineDllPath))) {
 		return;
 	}
-
 
 	g.engine_lib = loadlibrary(copiedEgnineDllPath);
 
@@ -286,28 +291,26 @@ EXPORT void init() {
 		(load_meshes_func)getfunction(g.engine_lib, "load_meshes");
 	load_meshes(&g);
 	g.update = (draw_opengl_func)getfunction(g.engine_lib, "update");
-
-	begin_watch_engine_directory(g);
-	begin_watch_externals_directory(g);
+	begin_watch(g, "../../src/editor", [&]() {
+		compile_editor_dll();
+		reloadEditorFlag.store(true);
+	});
+	begin_watch(g, "../../src/engine", [&]() {
+		compile_engine_dll();
+		reloadEngineFlag.store(true);
+	});
+	begin_watch(g, "../../src/externals", [&]() {
+		compile_externals_dll();
+		reloadExternalsFlag.store(true);
+	});
 
 	update_externals_ptr =
 		(update_externals_func)getfunction(externals_lib, "update_externals");
 	end_externals_ptr =
 		(end_externals_func)getfunction(externals_lib, "end_externals");
 
-	
-	//load_function_pointers(g);
+	// load_function_pointers(g);
 	begin_game_loop(g);
-}
-
-void begin_watch_engine_directory(game &g) {
-	std::thread watchThread(watch_engine_directory);
-	watchThread.detach();
-}
-
-void begin_watch_externals_directory(game &g) {
-	std::thread watchThread(watch_externals_directory);
-	watchThread.detach();
 }
 
 void waitforreloadsignal(void *hEvent) {

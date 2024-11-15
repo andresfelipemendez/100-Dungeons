@@ -60,6 +60,19 @@ if not exist "%OUTPUT_PATH%\build_engine.bat" (
     powershell -Command "Write-Host 'Symbolic link to build_engine.bat already exists.' -ForegroundColor Cyan"
 )
 
+
+if not exist "%OUTPUT_PATH%\build_editor.bat" (
+    mklink "%OUTPUT_PATH%\build_editor.bat" "%PROJECT_ROOT%\build_editor.bat"
+    if %errorlevel% neq 0 (
+        powershell -Command "Write-Host 'Failed to create symbolic link to build_editor.bat. Please run as Administrator.' -ForegroundColor Red"
+        exit /b %errorlevel%
+    ) else (
+        powershell -Command "Write-Host 'Symbolic link to build_editor.bat created successfully.' -ForegroundColor Green"
+    )
+) else (
+    powershell -Command "Write-Host 'Symbolic link to build_editor.bat already exists.' -ForegroundColor Cyan"
+)
+
 :: Create symbolic link for build_engine.bat if it doesn't exist
 if not exist "%OUTPUT_PATH%\build_externals.bat" (
     mklink "%OUTPUT_PATH%\build_externals.bat" "%BUILD_EXTERNALS_BAT%"
@@ -105,6 +118,7 @@ if not exist "%OUTPUT_PATH%\env_vars.bat" (
 call "%PROJECT_ROOT%\build_main.bat"
 call "%PROJECT_ROOT%\build_core.bat"
 call "%PROJECT_ROOT%\build_externals.bat"
+call "%PROJECT_ROOT%\build_editor.bat"
 call "%PROJECT_ROOT%\build_engine.bat"
 call "%PROJECT_ROOT%\generate_compile_commands.bat"
 
