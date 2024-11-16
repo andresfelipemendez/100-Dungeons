@@ -22,7 +22,6 @@ typedef struct game {
 	GLADloadproc loader;
 	hotreloadable_imgui_draw_func g_imguiUpdate = nullptr;
 	begin_frame_func begin_frame = nullptr;
-	draw_opengl_func draw_opengl = nullptr;
 	void_pGame_func update = nullptr;
 	double deltaTime = 0.0;
 } game;

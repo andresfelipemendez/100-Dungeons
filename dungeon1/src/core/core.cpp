@@ -1,8 +1,6 @@
-#include <cmath>
-#define WIN32_LEAN_AND_MEAN
 #include "core.h"
 #include "loadlibrary.h"
-#include <Windows.h>
+
 #include <atomic>
 #include <chrono>
 #include <engine.h>
@@ -14,6 +12,9 @@
 #include <stdio.h>
 #include <string>
 #include <thread>
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 
 HMODULE externals_lib = nullptr;
 
@@ -99,7 +100,7 @@ void load_function_pointers(game &g) {
 	load_meshes_func load_meshes =
 		(load_meshes_func)getfunction(g.engine_lib, "load_meshes");
 	load_meshes(&g);
-	g.update = (draw_opengl_func)getfunction(g.engine_lib, "update");
+	g.update = (void_pGame_func)getfunction(g.engine_lib, "update");
 	update_externals_ptr =
 		(update_externals_func)getfunction(externals_lib, "update_externals");
 	end_externals_ptr =
@@ -120,7 +121,7 @@ void reload_externals(game &g) {
 		print_log(COLOR_RED, "Failed to load externals_copy.dll\n");
 	}
 
-	g.update = (draw_opengl_func)getfunction(g.engine_lib, "update");
+	g.update = (void_pGame_func)getfunction(g.engine_lib, "update");
 }
 
 void directory_watch_function(game &g, const std::string &directory,
@@ -202,7 +203,7 @@ void begin_game_loop(game &g) {
 				(begin_frame_func)getfunction(g.engine_lib, "begin_frame");
 			g.begin_frame(&g);
 
-			g.update = (draw_opengl_func)getfunction(g.engine_lib, "update");
+			g.update = (void_pGame_func)getfunction(g.engine_lib, "update");
 			load_meshes_func load_meshes =
 				(load_meshes_func)getfunction(g.engine_lib, "load_meshes");
 			load_meshes(&g);
@@ -274,14 +275,13 @@ EXPORT void init() {
 
 	init_engine_func init_engine =
 		(init_engine_func)getfunction(g.engine_lib, "init_engine");
-	init_engine(&g);
-	load_level_func load_level =
-		(load_level_func)getfunction(g.engine_lib, "load_level");
-	load_level(&g, "assets\\scene.toml");
 
+	g.update = (void_pGame_func)getfunction(g.engine_lib, "update");
 	g.begin_frame = (begin_frame_func)getfunction(g.engine_lib, "begin_frame");
 	g.g_imguiUpdate = (hotreloadable_imgui_draw_func)getfunction(
 		g.engine_lib, "hotreloadable_imgui_draw");
+
+	init_engine(&g);
 
 	char copiedDllPath[MAX_PATH];
 	if (!copy_dll("externals", copiedDllPath, sizeof(copiedDllPath))) {
@@ -294,10 +294,16 @@ EXPORT void init() {
 	init_externals(&g);
 
 	g.begin_frame(&g);
+
+	load_level_func load_level =
+		(load_level_func)getfunction(g.engine_lib, "load_level");
+
 	load_meshes_func load_meshes =
 		(load_meshes_func)getfunction(g.engine_lib, "load_meshes");
 	load_meshes(&g);
-	g.update = (draw_opengl_func)getfunction(g.engine_lib, "update");
+
+	load_level(&g, "assets\\scene.toml");
+
 	begin_watch(g, "../../src/editor", [&]() {
 		compile_editor_dll();
 		reloadEditorFlag.store(true);

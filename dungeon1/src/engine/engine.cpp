@@ -27,7 +27,16 @@
 
 unsigned int VAO, VBO, shaderProgram;
 
-EXPORT void load_level(game *g, const char *sceneFilePath) {}
+EXPORT void load_level(game *g, const char *sceneFilePath) {
+	MemoryHeader *h = get_header(g);
+	World *w = get_world(g);
+
+	reset_memory(h);
+
+	load_shaders(g);
+
+	ecs_load_level(g, sceneFilePath);
+}
 
 static void glfw_error_callback(int error, const char *description) {
 	fprintf(stderr, "GLFW Error %d: %s\n", error, description);
@@ -35,19 +44,7 @@ static void glfw_error_callback(int error, const char *description) {
 
 EXPORT void init_engine(game *g) { init_engine_memory(g); }
 
-EXPORT void init_engine_renderer(game *g) {}
-
-EXPORT void load_meshes(game *g) {
-	MemoryHeader *h = get_header(g);
-	World *w = get_world(g);
-
-	reset_memory(h);
-
-	load_shaders(g);
-	const char *sceneFilePath = "assets\\scene.toml";
-
-	ecs_load_level(g, sceneFilePath);
-}
+EXPORT void load_meshes(game *g) {}
 
 EXPORT void begin_frame(game *g) {
 	glfwSetErrorCallback(glfw_error_callback);
@@ -66,13 +63,8 @@ EXPORT void begin_frame(game *g) {
 EXPORT void update(game *g) {
 	MemoryHeader *h = get_header(g);
 	systems(g, h);
-
-	draw_opengl(g);
 }
 
-EXPORT void draw_opengl(game *g) { MemoryHeader *h = get_header(g); }
-
-// Helper function to handle transformations with ImGuizmo
 void EditTransform(float *cameraView, float *cameraProjection, float *matrix,
 				   bool editTransformDecomposition) {
 
@@ -87,21 +79,14 @@ void EditTransform(float *cameraView, float *cameraProjection, float *matrix,
 }
 
 EXPORT void hotreloadable_imgui_draw(game *g) {
-	// Set the ImGui context and allocator functions
 	ImGui::SetCurrentContext(g->ctx);
 	ImGui::SetAllocatorFunctions(g->alloc_func, g->free_func, g->user_data);
 
-	// Start a new ImGui frame if not already done in your main loop
-	// ImGui::NewFrame(); // Uncomment if necessary
-
-	// Set the ImGui context for ImGuizmo and begin the frame
 	ImGuizmo::SetImGuiContext(ImGui::GetCurrentContext());
 	ImGuizmo::BeginFrame();
 
-	// Begin your ImGui window
 	ImGui::Begin("Editor");
 
-	// Set the viewport rectangle for ImGuizmo
 	ImVec2 viewportPos = ImVec2(0, 0);
 	ImVec2 viewportSize = ImGui::GetIO().DisplaySize;
 	ImGuizmo::SetRect(viewportPos.x, viewportPos.y, viewportSize.x,
@@ -201,9 +186,5 @@ EXPORT void hotreloadable_imgui_draw(game *g) {
 		}
 	}
 
-	// End your ImGui window
 	ImGui::End();
-
-	// Render ImGui if not already done in your main loop
-	// ImGui::Render(); // Uncomment if necessary
 }

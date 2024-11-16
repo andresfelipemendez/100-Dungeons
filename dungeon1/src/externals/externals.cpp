@@ -1,4 +1,4 @@
-#include <externals.h>
+#include "externals.h"
 #include <game.h>
 #include <stdio.h>
 
