@@ -44,8 +44,6 @@ static void glfw_error_callback(int error, const char *description) {
 
 EXPORT void init_engine(game *g) { init_engine_memory(g); }
 
-EXPORT void load_meshes(game *g) {}
-
 EXPORT void begin_frame(game *g) {
 	glfwSetErrorCallback(glfw_error_callback);
 	glfwMakeContextCurrent(g->window);

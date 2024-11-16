@@ -82,11 +82,9 @@ void compile_editor_dll() {
 	system(command);
 }
 
-void shutdown_externals(game &g) { end_externals_ptr(&g); }
-
 void unload_externals(game &g) {
 	print_log(COLOR_YELLOW, "Unloading externals.dll\n");
-	shutdown_externals(g);
+	end_externals_ptr(&g);
 	unloadlibrary(externals_lib);
 	externals_lib = nullptr;
 	printf("unload_externals \n");
@@ -97,9 +95,7 @@ void load_function_pointers(game &g) {
 		(init_externals_func)getfunction(externals_lib, "init_externals");
 	init_externals_ptr(&g);
 	g.begin_frame(&g);
-	load_meshes_func load_meshes =
-		(load_meshes_func)getfunction(g.engine_lib, "load_meshes");
-	load_meshes(&g);
+
 	g.update = (void_pGame_func)getfunction(g.engine_lib, "update");
 	update_externals_ptr =
 		(update_externals_func)getfunction(externals_lib, "update_externals");
@@ -166,15 +162,14 @@ void directory_watch_function(game &g, const std::string &directory,
 			}
 			ResetEvent(overlapped.hEvent);
 		}
+
+		printf("exiting directory_watch_function\n");
 	}
 }
 
 void begin_game_loop(game &g) {
-
-	std::cout << "Starting game loop." << std::endl;
-
+	printf("Starting game loop.\n");
 	auto lastTime = std::chrono::high_resolution_clock::now();
-
 	while (g.play.load()) {
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double> elapsedTime = currentTime - lastTime;
@@ -204,9 +199,6 @@ void begin_game_loop(game &g) {
 			g.begin_frame(&g);
 
 			g.update = (void_pGame_func)getfunction(g.engine_lib, "update");
-			load_meshes_func load_meshes =
-				(load_meshes_func)getfunction(g.engine_lib, "load_meshes");
-			load_meshes(&g);
 		}
 
 		if (reloadExternalsFlag.load()) {
@@ -228,9 +220,14 @@ void begin_game_loop(game &g) {
 		}
 	}
 
-	std::cout << "Ending game loop..." << std::endl;
+	printf("Ending game loop...\n");
+	end_externals_ptr(&g);
+	printf("Ended externals...\n");
+	unloadlibrary(externals_lib);
+	printf("Freed externals lib...\n");
 	unloadlibrary(g.engine_lib);
-	unload_externals(g);
+	printf("Freed engine lib...\n");
+
 	printf("core loop ended\n");
 }
 
@@ -273,8 +270,8 @@ EXPORT void init() {
 
 	g.engine_lib = loadlibrary(copiedEgnineDllPath);
 
-	init_engine_func init_engine =
-		(init_engine_func)getfunction(g.engine_lib, "init_engine");
+	void_pGame_func init_engine =
+		(void_pGame_func)getfunction(g.engine_lib, "init_engine");
 
 	g.update = (void_pGame_func)getfunction(g.engine_lib, "update");
 	g.begin_frame = (begin_frame_func)getfunction(g.engine_lib, "begin_frame");
@@ -291,16 +288,16 @@ EXPORT void init() {
 
 	init_externals_func init_externals =
 		(init_externals_func)getfunction(externals_lib, "init_externals");
+	update_externals_ptr =
+		(update_externals_func)getfunction(externals_lib, "update_externals");
+	end_externals_ptr =
+		(end_externals_func)getfunction(externals_lib, "end_externals");
 	init_externals(&g);
 
 	g.begin_frame(&g);
 
 	load_level_func load_level =
 		(load_level_func)getfunction(g.engine_lib, "load_level");
-
-	load_meshes_func load_meshes =
-		(load_meshes_func)getfunction(g.engine_lib, "load_meshes");
-	load_meshes(&g);
 
 	load_level(&g, "assets\\scene.toml");
 
@@ -316,13 +313,10 @@ EXPORT void init() {
 		compile_externals_dll();
 		reloadExternalsFlag.store(true);
 	});
+	begin_watch(g, "../../assets/shaders", [&]() {
 
-	update_externals_ptr =
-		(update_externals_func)getfunction(externals_lib, "update_externals");
-	end_externals_ptr =
-		(end_externals_func)getfunction(externals_lib, "end_externals");
+	});
 
-	// load_function_pointers(g);
 	begin_game_loop(g);
 }
 

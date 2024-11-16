@@ -9,7 +9,7 @@ typedef void (*ImGuiMemFreeFunc)(void *ptr, void *user_data);
 typedef void *(*GLADloadproc)(const char *name);
 
 typedef struct game {
-	std::atomic<bool> play{true}; // Changed to atomic to ensure thread safety
+	std::atomic<bool> play{true};
 	struct GLFWwindow *window;
 	struct ImGuiContext *ctx;
 	ImGuiMemAllocFunc alloc_func;
@@ -21,7 +21,8 @@ typedef struct game {
 
 	GLADloadproc loader;
 	hotreloadable_imgui_draw_func g_imguiUpdate = nullptr;
-	begin_frame_func begin_frame = nullptr;
+	void_pGame_func begin_frame = nullptr;
 	void_pGame_func update = nullptr;
+	void_pGame_func compile_shaders = nullptr;
 	double deltaTime = 0.0;
 } game;

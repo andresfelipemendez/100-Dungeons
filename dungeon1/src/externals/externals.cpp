@@ -141,7 +141,7 @@ EXPORT void update_externals(game *g) {
 }
 
 EXPORT void end_externals(game *g) {
-
+	g->play.store(false);
 	glfwMakeContextCurrent(g->window);
 
 	if (g->ctx) {

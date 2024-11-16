@@ -38,5 +38,4 @@ typedef void (*void_pGame_func)(struct game *game);
 	EXPORT void func(hotreloadable_imgui_draw_func g);                         \
 	typedef void (*func##_func)(hotreloadable_imgui_draw_func g);
 
-DECLARE_FUNC_VOID_pGAME(begin_frame) DECLARE_FUNC_VOID_pGAME(load_meshes)
-	DECLARE_FUNC_VOID_pGAME(draw_opengl)
+DECLARE_FUNC_VOID_pGAME(begin_frame)
