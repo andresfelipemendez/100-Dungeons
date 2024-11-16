@@ -117,6 +117,8 @@ EXPORT int init_externals(game *g) {
 	return 1;
 }
 
+EXPORT void load_meshe(game *g) {}
+
 EXPORT void update_externals(game *g) {
 	glfwMakeContextCurrent(g->window);
 	glfwPollEvents();
@@ -124,7 +126,7 @@ EXPORT void update_externals(game *g) {
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
 
-	g->g_imguiUpdate(g);
+	g->draw_editor(g);
 
 	ImGui::SetCurrentContext(g->ctx);
 	ImGui::SetAllocatorFunctions(g->alloc_func, g->free_func, g->user_data);

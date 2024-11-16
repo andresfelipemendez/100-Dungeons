@@ -161,6 +161,11 @@ void rendering_system(MemoryHeader *h) {
 	while ((err = glGetError()) != GL_NO_ERROR) {
 		printf("OpenGL error: %d\n", err);
 	}
+
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	if (get_entities(h, ColliderComponent | PositionComponent)) {
+	}
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }
 
 void systems(game *g, MemoryHeader *h) {

@@ -82,15 +82,12 @@ void init_engine_memory(game *g) {
 
 #undef DEFINE_ASSIGN_MEMORY
 
-	// Allocate submeshes for each mesh
 	for (size_t i = 0; i < initialEntityCount; ++i) {
 		header->pModels->components[i].submeshes =
 			(SubMesh *)((char *)g->buffer + offset);
 		offset += sizeof(SubMesh) * initialSubMeshCount;
-		header->pModels->components[i].submesh_count = 0;
 	}
 
-	// Calculate remaining buffer size
 	down_offset = g->buffer_size - sizeof(MemoryHeader);
 	header->total_size = down_offset - offset;
 }

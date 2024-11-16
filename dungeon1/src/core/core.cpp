@@ -15,23 +15,32 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <winnt.h>
 
 HMODULE externals_lib = nullptr;
 
-init_externals_func init_externals_ptr = nullptr;
-update_externals_func update_externals_ptr = nullptr;
-end_externals_func end_externals_ptr = nullptr;
+int_pGame_func init_externals_ptr = nullptr;
+void_pGame_func update_externals_ptr = nullptr;
+void_pGame_func end_externals_ptr = nullptr;
+
+void_pGamepChar_func load_level_ptr = nullptr;
+void_pGamepChar_func asset_reload_ptr = nullptr;
+void_pGame_func init_engine_ptr = nullptr;
 
 std::atomic<bool> reloadEngineFlag(false);
 std::atomic<bool> reloadEditorFlag(false);
 std::atomic<bool> reloadExternalsFlag(false);
 
-constexpr auto DEBOUNCE_INTERVAL_MS = 2000;
+constexpr auto DEBOUNCE_INTERVAL_MS = 3000;
 
 static game g;
 
 void getCurrentWorkingDirectory(char *buffer, size_t size) {
 	GetCurrentDirectoryA((DWORD)size, buffer);
+}
+
+void_pGame_func getEngineFunction(const game &g, const char *functionName) {
+	return (void_pGame_func)getfunction(g.engine_lib, functionName);
 }
 
 bool copy_dll(const char *dll_name, char *dest, size_t dest_size) {
@@ -91,16 +100,27 @@ void unload_externals(game &g) {
 }
 
 void load_function_pointers(game &g) {
+	g.update = getEngineFunction(g, "update");
+	g.begin_frame = getEngineFunction(g, "begin_frame");
+	g.draw_editor = getEngineFunction(g, "hotreloadable_imgui_draw");
+	init_engine_ptr = getEngineFunction(g, "init_engine");
+
 	init_externals_ptr =
 		(init_externals_func)getfunction(externals_lib, "init_externals");
-	init_externals_ptr(&g);
-	g.begin_frame(&g);
-
-	g.update = (void_pGame_func)getfunction(g.engine_lib, "update");
 	update_externals_ptr =
 		(update_externals_func)getfunction(externals_lib, "update_externals");
 	end_externals_ptr =
 		(end_externals_func)getfunction(externals_lib, "end_externals");
+
+	load_level_ptr =
+		(void_pGamepChar_func)getfunction(g.engine_lib, "load_level");
+	asset_reload_ptr =
+		(void_pGamepChar_func)getfunction(g.engine_lib, "asset_reload");
+
+	init_externals_ptr(&g);
+	g.begin_frame(&g);
+
+	g.update = getEngineFunction(g, "update");
 }
 
 void reload_externals(game &g) {
@@ -117,11 +137,11 @@ void reload_externals(game &g) {
 		print_log(COLOR_RED, "Failed to load externals_copy.dll\n");
 	}
 
-	g.update = (void_pGame_func)getfunction(g.engine_lib, "update");
+	g.update = getEngineFunction(g, "update");
 }
 
 void directory_watch_function(game &g, const std::string &directory,
-							  std::function<void()> onChange) {
+							  std::function<void(std::string path)> onChange) {
 	HANDLE hDir = CreateFileA(
 		directory.c_str(), FILE_LIST_DIRECTORY,
 		FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
@@ -144,6 +164,7 @@ void directory_watch_function(game &g, const std::string &directory,
 		CloseHandle(hDir);
 		return;
 	}
+
 	auto lastCompilationTime = std::chrono::steady_clock::now();
 
 	while (g.play.load()) {
@@ -158,13 +179,36 @@ void directory_watch_function(game &g, const std::string &directory,
 					currentTime - lastCompilationTime)
 					.count() >= DEBOUNCE_INTERVAL_MS) {
 				lastCompilationTime = currentTime;
-				onChange();
+
+				FILE_NOTIFY_INFORMATION *fni =
+					reinterpret_cast<FILE_NOTIFY_INFORMATION *>(buffer);
+				do {
+					// Get the file name from FILE_NOTIFY_INFORMATION
+					std::wstring fileNameW(fni->FileName,
+										   fni->FileNameLength / sizeof(WCHAR));
+					std::string fileName(fileNameW.begin(), fileNameW.end());
+
+					// Construct full path
+					std::string fullPath = directory + "/" + fileName;
+
+					// Call the callback
+					onChange(fullPath);
+
+					// Move to the next entry if present
+					if (fni->NextEntryOffset == 0)
+						break;
+					fni = reinterpret_cast<FILE_NOTIFY_INFORMATION *>(
+						reinterpret_cast<char *>(fni) + fni->NextEntryOffset);
+				} while (true);
 			}
 			ResetEvent(overlapped.hEvent);
 		}
-
-		printf("exiting directory_watch_function\n");
 	}
+
+	CloseHandle(hDir);
+	CloseHandle(overlapped.hEvent);
+
+	printf("exiting directory_watch_function\n");
 }
 
 void begin_game_loop(game &g) {
@@ -190,7 +234,7 @@ void begin_game_loop(game &g) {
 			g.engine_lib = loadlibrary(copiedEgnineDllPath);
 			init_engine_func init_engine =
 				(init_engine_func)getfunction(g.engine_lib, "init_engine");
-			g.g_imguiUpdate = (hotreloadable_imgui_draw_func)getfunction(
+			g.draw_editor = (void_pGame_func)getfunction(
 				g.engine_lib, "hotreloadable_imgui_draw");
 			init_engine(&g);
 
@@ -198,7 +242,7 @@ void begin_game_loop(game &g) {
 				(begin_frame_func)getfunction(g.engine_lib, "begin_frame");
 			g.begin_frame(&g);
 
-			g.update = (void_pGame_func)getfunction(g.engine_lib, "update");
+			g.update = getEngineFunction(g, "update");
 		}
 
 		if (reloadExternalsFlag.load()) {
@@ -237,7 +281,7 @@ EXPORT void stop() {
 }
 
 void begin_watch(game &g, const std::string &directory,
-				 std::function<void()> onChange) {
+				 std::function<void(std::string path)> onChange) {
 	std::thread watchThread([&g, directory, onChange]() {
 		directory_watch_function(g, directory, onChange);
 	});
@@ -267,18 +311,7 @@ EXPORT void init() {
 	if (!copy_dll("engine", copiedEgnineDllPath, sizeof(copiedEgnineDllPath))) {
 		return;
 	}
-
 	g.engine_lib = loadlibrary(copiedEgnineDllPath);
-
-	void_pGame_func init_engine =
-		(void_pGame_func)getfunction(g.engine_lib, "init_engine");
-
-	g.update = (void_pGame_func)getfunction(g.engine_lib, "update");
-	g.begin_frame = (begin_frame_func)getfunction(g.engine_lib, "begin_frame");
-	g.g_imguiUpdate = (hotreloadable_imgui_draw_func)getfunction(
-		g.engine_lib, "hotreloadable_imgui_draw");
-
-	init_engine(&g);
 
 	char copiedDllPath[MAX_PATH];
 	if (!copy_dll("externals", copiedDllPath, sizeof(copiedDllPath))) {
@@ -286,36 +319,26 @@ EXPORT void init() {
 	}
 	externals_lib = (HMODULE)loadlibrary(copiedDllPath);
 
-	init_externals_func init_externals =
-		(init_externals_func)getfunction(externals_lib, "init_externals");
-	update_externals_ptr =
-		(update_externals_func)getfunction(externals_lib, "update_externals");
-	end_externals_ptr =
-		(end_externals_func)getfunction(externals_lib, "end_externals");
-	init_externals(&g);
+	load_function_pointers(g);
 
-	g.begin_frame(&g);
+	init_engine_ptr(&g);
+	load_level_ptr(&g, "assets\\scene.toml");
 
-	load_level_func load_level =
-		(load_level_func)getfunction(g.engine_lib, "load_level");
-
-	load_level(&g, "assets\\scene.toml");
-
-	begin_watch(g, "../../src/editor", [&]() {
+	begin_watch(g, "../../src/editor", [&](std::string path) {
 		compile_editor_dll();
 		reloadEditorFlag.store(true);
 	});
-	begin_watch(g, "../../src/engine", [&]() {
+	begin_watch(g, "../../src/engine", [&](std::string path) {
 		compile_engine_dll();
 		reloadEngineFlag.store(true);
 	});
-	begin_watch(g, "../../src/externals", [&]() {
+	begin_watch(g, "../../src/externals", [&](std::string path) {
 		compile_externals_dll();
 		reloadExternalsFlag.store(true);
 	});
-	begin_watch(g, "../../assets/shaders", [&]() {
 
-	});
+	begin_watch(g, "../../assets",
+				[&](std::string path) { asset_reload_ptr(&g, path.c_str()); });
 
 	begin_game_loop(g);
 }

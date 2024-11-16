@@ -17,6 +17,7 @@
 	X(Model)                                                                   \
 	X(Material)                                                                \
 	X(Input)                                                                   \
+	X(Collider)                                                                \
 	X(Texture)
 
 enum SubkeyType {
@@ -53,6 +54,7 @@ struct Rotation {
 };
 
 struct Color {};
+struct Collider {};
 
 typedef struct IndirectDrawCommand {
 	uint32_t count;

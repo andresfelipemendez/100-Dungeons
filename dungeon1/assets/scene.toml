@@ -3,7 +3,7 @@ camera = { fov = 70, near = 0.1, far = 1000 }
 position = { x = -1, y = 1, z = 2 }
 rotation = { pitch = 30, yaw = 0, roll = 0 }
 
-[floor1]
+[wall]
 model    = "assets/models/static/wall.glb"
 material = "unlit"
 texture  = "dungeon_texture.png"
@@ -17,3 +17,12 @@ texture  = "dungeon_texture.png"
 position = { x = 1, y = 0, z = 0 }
 rotation = { pitch = 0.00, yaw = 0.00, roll = 0.00 }
 input = "keyboard"
+
+[floor]
+model    = "assets/models/static/wall.glb"
+material = "unlit"
+texture  = "dungeon_texture.png"
+position = { x = 2, y = 0, z = 4 }
+rotation = { pitch = 0.00, yaw = 0.00, roll = 0.00 }
+collider = "box"
+

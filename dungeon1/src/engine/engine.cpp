@@ -1,6 +1,7 @@
 #include "engine.h"
 #include "fwd.hpp"
 #include "memory.h"
+#include <cstring>
 #include <externals.h>
 #include <game.h>
 #include <stdio.h>
@@ -36,6 +37,21 @@ EXPORT void load_level(game *g, const char *sceneFilePath) {
 	load_shaders(g);
 
 	ecs_load_level(g, sceneFilePath);
+}
+
+EXPORT void asset_reload(game *g, const char *assetLoaded) {
+	printf("asset_reload\n");
+	printf("aset to reload %s\n", assetLoaded);
+
+	const char *pLastDot = strrchr(assetLoaded, '.');
+	if (pLastDot == nullptr)
+		return;
+
+	size_t len = strlen(assetLoaded);
+	printf("extension %s \n", pLastDot);
+	if (strcmp(pLastDot, ".toml") == 0) {
+		printf("reload scene\n");
+	}
 }
 
 static void glfw_error_callback(int error, const char *description) {

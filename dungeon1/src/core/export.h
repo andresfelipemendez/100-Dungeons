@@ -1,12 +1,12 @@
 
 #define EXPORT extern "C" __declspec(dllexport) __stdcall
 
-typedef void (*hotreloadable_imgui_draw_func)(struct game *g);
-
 typedef void (*init_engine_func)(struct game *g);
 
 typedef void (*void_func)(void);
+typedef int (*int_pGame_func)(struct game *game);
 typedef void (*void_pGame_func)(struct game *game);
+typedef void (*void_pGamepChar_func)(struct game *game, const char *str);
 
 #define HOTRELOAD_EVENT_NAME "Global\\ReloadEvent"
 

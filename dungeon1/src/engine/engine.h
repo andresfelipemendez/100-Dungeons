@@ -4,6 +4,7 @@
 #include <export.h>
 
 DECLARE_FUNC_VOID_pGAME_pCHAR(load_level);
+DECLARE_FUNC_VOID_pGAME_pCHAR(asset_reload);
 
 DECLARE_FUNC_VOID_pGAME(init_engine);
 
