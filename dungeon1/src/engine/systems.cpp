@@ -5,8 +5,10 @@
 
 #include <cstdio>
 #include <glm.hpp>
+
 #include <gtc/constants.hpp>
 #include <gtc/matrix_transform.hpp>
+#include <gtc/quaternion.hpp>
 
 #include <glad.h>
 
@@ -22,39 +24,27 @@ void input_system(game *g, MemoryHeader *h) {
 	for (size_t i = 0; i < h->query.count; ++i) {
 		size_t entity = h->query.entities[i];
 
-		// Retrieve the current position of the entity
 		Position p;
 		if (!get_component(h, entity, &p)) {
 			continue;
 		}
 
-		float speed = 0.1f; // Adjust movement speed as needed
+		float speed = 3.f;
 
 		int joystickID = GLFW_JOYSTICK_1;
 		if (glfwJoystickPresent(joystickID)) {
 			int count;
 			const float *axes = glfwGetJoystickAxes(GLFW_JOYSTICK_1, &count);
 			if (axes && count >= 2) {
-				Position p{.x = axes[0], .z = axes[1]};
-				set_component(h, entity, p);
+				glm::vec2 v(axes[0], axes[1]);
+				if (glm::length(v) > 0.5f) {
+					v = glm::normalize(v);
+					p.x += v.x * speed * g->deltaTime;
+					p.z += v.y * speed * g->deltaTime;
+					set_component(h, entity, p);
+				}
 			}
 		}
-		// Update position based on WASD input
-		if (glfwGetKey(g->window, GLFW_KEY_W) == GLFW_PRESS) {
-			p.z -= speed;
-		}
-		if (glfwGetKey(g->window, GLFW_KEY_S) == GLFW_PRESS) {
-			p.z += speed;
-		}
-		if (glfwGetKey(g->window, GLFW_KEY_A) == GLFW_PRESS) {
-			p.x -= speed;
-		}
-		if (glfwGetKey(g->window, GLFW_KEY_D) == GLFW_PRESS) {
-			p.x += speed;
-		}
-
-		// Update the entity's position component with the new position
-		// set_component_value(h, entity, &position);
 	}
 }
 
@@ -80,9 +70,9 @@ void camera_follow_system(game *g, MemoryHeader *h) {
 	}
 
 	camera_position = {
-		.x = player_position.x + 1,
-		.y = player_position.y + 1,
-		.z = player_position.z + 1,
+		.x = player_position.x + 0,
+		.y = player_position.y + 10,
+		.z = player_position.z + 10,
 	};
 	set_component(h, camera_entity, camera_position);
 }
@@ -105,11 +95,20 @@ void rendering_system(MemoryHeader *h) {
 		return;
 	}
 
+	Rotation r;
+	if (!get_component(h, camera_entity, &r)) {
+		return;
+	}
+
 	glm::vec3 cameraPosition = glm::vec3(p.x, p.y, p.z);
 	glm::vec3 targetPosition = glm::vec3(1.0f, 0.0f, 0.0f);
 	glm::vec3 upDirection = glm::vec3(0.0f, 1.0f, 0.0f);
 
-	glm::mat4 view = glm::lookAt(cameraPosition, targetPosition, upDirection);
+	glm::quat orientation = glm::quat(r.w, r.x, r.y, r.z);
+	glm::mat4 rotMat = glm::mat4_cast(orientation);
+	glm::mat4 traslationMat = glm::translate(glm::mat4(1.0f), -cameraPosition);
+
+	glm::mat4 view = rotMat * traslationMat;
 
 	float aspectRatio = 16.0f / 9.0f;
 

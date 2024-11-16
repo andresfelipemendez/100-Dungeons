@@ -14,6 +14,7 @@
 #include "asset_loader.h"
 
 #include <glm.hpp>
+#include <gtc/quaternion.hpp>
 #include <gtc/constants.hpp>
 #include <gtc/matrix_transform.hpp>
 
@@ -296,11 +297,19 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 						toml_datum_t r_datum =
 							toml_double_in(nested_table, "roll");
 
-						float p = static_cast<float>(p_datum.u.d);
-						float y = static_cast<float>(y_datum.u.d);
-						float r = static_cast<float>(r_datum.u.d);
+						float p = glm::radians(static_cast<float>(p_datum.u.d));
+						float y = glm::radians(static_cast<float>(y_datum.u.d));
+						float r = glm::radians(static_cast<float>(r_datum.u.d));
 
-						Rotation rot{p, y, r};
+						glm::quat q = glm::quat(glm::vec3(p,y,r));
+
+						Rotation rot {
+							.x = q.x,
+							.y = q.y,
+							.z = q.z,
+							.w = q.w
+						};
+
 						add_component(h, entity, rot);
 
 						printf("  %s = { p = %.2f, y = %.2f, r = %.2f }\n",
@@ -426,10 +435,11 @@ void save_level(MemoryHeader *h, const char *saveFilePath) {
 		if (mask & RotationComponent) {
 			Rotation rotation;
 			if (get_component(h, entity_id, &rotation)) {
-				fprintf(
-					fp,
-					"rotation = { pitch = %.2f, yaw = %.2f, roll = %.2f	}\n ",
-					rotation.pitch, rotation.yaw, rotation.roll);
+				// quat to euler
+				// fprintf(
+				// 	fp,
+				// 	"rotation = { pitch = %.2f, yaw = %.2f, roll = %.2f	}\n ",
+				// 	rotation.pitch, rotation.yaw, rotation.roll);
 			}
 		}
 

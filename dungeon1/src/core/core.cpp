@@ -171,8 +171,15 @@ void directory_watch_function(game &g, const std::string &directory,
 void begin_game_loop(game &g) {
 
 	std::cout << "Starting game loop." << std::endl;
-	while (g.play.load()) {
 
+	auto lastTime = std::chrono::high_resolution_clock::now();
+
+	while (g.play.load()) {
+		auto currentTime = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> elapsedTime = currentTime - lastTime;
+		g.deltaTime = elapsedTime.count();
+
+		lastTime = currentTime;
 		if (reloadEngineFlag.load()) {
 			reloadEngineFlag.store(false);
 			print_log(COLOR_YELLOW, "Reloading Engine...\n");

@@ -46,9 +46,10 @@ struct Position {
 };
 
 struct Rotation {
-	float pitch;
-	float yaw;
-	float roll;
+	float x;
+	float y;
+	float z;
+	float w;
 };
 
 struct Color {};

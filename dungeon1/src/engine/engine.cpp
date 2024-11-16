@@ -22,6 +22,7 @@
 #include <glm.hpp>
 #include <gtc/constants.hpp>
 #include <gtc/matrix_transform.hpp>
+#include <gtc/quaternion.hpp>
 #include <gtc/type_ptr.hpp>
 
 unsigned int VAO, VBO, shaderProgram;
@@ -148,6 +149,10 @@ EXPORT void hotreloadable_imgui_draw(game *g) {
 			if (!get_component(h, camera_entity, &p)) {
 				return;
 			}
+			Rotation r;
+			if (!get_component(h, camera_entity, &r)) {
+				return;
+			}
 			Camera c;
 			if (!get_component(h, camera_entity, &c)) {
 				printf("couldn't find camera entity\n");
@@ -158,8 +163,12 @@ EXPORT void hotreloadable_imgui_draw(game *g) {
 				glm::vec3 targetPosition = glm::vec3(1.0f, 0.0f, 0.0f);
 				glm::vec3 upDirection = glm::vec3(0.0f, 1.0f, 0.0f);
 
-				glm::mat4 view =
-					glm::lookAt(cameraPosition, targetPosition, upDirection);
+				glm::quat orientation = glm::quat(r.w, r.x, r.y, r.z);
+				glm::mat4 rotMat = glm::mat4_cast(orientation);
+				glm::mat4 traslationMat =
+					glm::translate(glm::mat4(1.0f), -cameraPosition);
+
+				glm::mat4 view = rotMat * traslationMat;
 
 				float aspectRatio = 16.0f / 9.0f;
 
@@ -170,11 +179,9 @@ EXPORT void hotreloadable_imgui_draw(game *g) {
 					glm::mat4(1.0f),
 					glm::vec3(position.x, position.y, position.z));
 
-				// Call your EditTransform function
 				EditTransform(glm::value_ptr(view), glm::value_ptr(projection),
 							  glm::value_ptr(modelMatrix), true);
 
-				// Update position based on the manipulated model matrix
 				position.x = modelMatrix[3][0];
 				position.y = modelMatrix[3][1];
 				position.z = modelMatrix[3][2];
