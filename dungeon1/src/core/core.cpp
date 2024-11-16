@@ -102,15 +102,15 @@ void unload_externals(game &g) {
 void load_function_pointers(game &g) {
 	g.update = getEngineFunction(g, "update");
 	g.begin_frame = getEngineFunction(g, "begin_frame");
-	g.draw_editor = getEngineFunction(g, "hotreloadable_imgui_draw");
+	g.draw_editor = getEngineFunction(g, "draw_editor");
 	init_engine_ptr = getEngineFunction(g, "init_engine");
 
 	init_externals_ptr =
-		(init_externals_func)getfunction(externals_lib, "init_externals");
+		(int_pGame_func)getfunction(externals_lib, "init_externals");
 	update_externals_ptr =
-		(update_externals_func)getfunction(externals_lib, "update_externals");
+		(void_pGame_func)getfunction(externals_lib, "update_externals");
 	end_externals_ptr =
-		(end_externals_func)getfunction(externals_lib, "end_externals");
+		(void_pGame_func)getfunction(externals_lib, "end_externals");
 
 	load_level_ptr =
 		(void_pGamepChar_func)getfunction(g.engine_lib, "load_level");
@@ -222,6 +222,7 @@ void begin_game_loop(game &g) {
 		lastTime = currentTime;
 		if (reloadEngineFlag.load()) {
 			reloadEngineFlag.store(false);
+
 			print_log(COLOR_YELLOW, "Reloading Engine...\n");
 
 			unloadlibrary(g.engine_lib);
@@ -232,14 +233,11 @@ void begin_game_loop(game &g) {
 			}
 			printf("loading lib: %s\n", copiedEgnineDllPath);
 			g.engine_lib = loadlibrary(copiedEgnineDllPath);
-			init_engine_func init_engine =
-				(init_engine_func)getfunction(g.engine_lib, "init_engine");
-			g.draw_editor = (void_pGame_func)getfunction(
-				g.engine_lib, "hotreloadable_imgui_draw");
-			init_engine(&g);
 
-			g.begin_frame =
-				(begin_frame_func)getfunction(g.engine_lib, "begin_frame");
+			load_function_pointers(g);
+
+			init_engine_ptr(&g);
+
 			g.begin_frame(&g);
 
 			g.update = getEngineFunction(g, "update");

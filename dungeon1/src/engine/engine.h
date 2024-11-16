@@ -3,13 +3,10 @@
 
 #include <export.h>
 
-DECLARE_FUNC_VOID_pGAME_pCHAR(load_level);
-DECLARE_FUNC_VOID_pGAME_pCHAR(asset_reload);
-
-DECLARE_FUNC_VOID_pGAME(init_engine);
-
-DECLARE_FUNC_VOID_pGAME(update);
-
-DECLARE_FUNC_VOID_pGAME(hotreloadable_imgui_draw)
+EXPORT void load_level(struct game *g, const char *c);
+EXPORT void asset_reload(struct game *g, const char *c);
+EXPORT void init_engine(struct game *g);
+EXPORT void update(struct game *g);
+EXPORT void draw_editor(struct game *g);
 
 #endif

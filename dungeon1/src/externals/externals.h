@@ -3,9 +3,9 @@
 
 #include <export.h>
 
-DECLARE_FUNC_INT_pGAME(init_externals);
-DECLARE_FUNC_VOID_pGAME(update_externals);
-DECLARE_FUNC_VOID_pGAME(end_externals);
-DECLARE_FUNC_VOID_pGAME(load_mesh);
+EXPORT int init_externals(struct game *g);
+EXPORT void update_externals(struct game *g);
+EXPORT void end_externals(struct game *g);
+EXPORT void load_mesh(struct game *g);
 
 #endif

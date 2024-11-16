@@ -3,6 +3,6 @@
 
 #include <export.h>
 
-DECLARE_FUNC_VOID_pGAME(draw_editor)
+EXPORT void draw_editor(struct game *g);
 
 #endif

@@ -92,7 +92,7 @@ void EditTransform(float *cameraView, float *cameraProjection, float *matrix,
 						 mCurrentGizmoMode, matrix, NULL, NULL);
 }
 
-EXPORT void hotreloadable_imgui_draw(game *g) {
+EXPORT void draw_editor(game *g) {
 	ImGui::SetCurrentContext(g->ctx);
 	ImGui::SetAllocatorFunctions(g->alloc_func, g->free_func, g->user_data);
 
