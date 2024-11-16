@@ -12,7 +12,6 @@
 #include <toml.h>
 
 #include "asset_loader.h"
-#include "trigonometric.hpp"
 
 #include <glm.hpp>
 #include <gtc/constants.hpp>

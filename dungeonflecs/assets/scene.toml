@@ -1,0 +1,19 @@
+[camera]
+camera = { fov = 70, near = 0.1, far = 1000 }
+position = { x = -1, y = 1, z = 2 }
+rotation = { pitch = 0.00, yaw = 0, roll = 0 }
+
+[floor1]
+model    = "assets/models/static/wall.glb"
+material = "unlit"
+texture  = "dungeon_texture.png"
+position = { x = 1, y = 0, z = 0 }
+rotation = { pitch = 0.00, yaw = 0.00, roll = 0.00 }
+
+[player]
+model    = "assets/models/static/player.glb"
+material = "unlit"
+texture  = "dungeon_texture.png"
+position = { x = 1, y = 0, z = 0 }
+rotation = { pitch = 0.00, yaw = 0.00, roll = 0.00 }
+input = "keyboard"

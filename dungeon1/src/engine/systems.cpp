@@ -14,9 +14,77 @@
 
 #include <game.h>
 
-void systems(game *g, MemoryHeader *h) {
-	input_system(g, h);
-	rendering_system(h);
+void input_system(game *g, MemoryHeader *h) {
+	if (!get_entities(h, InputComponent | PositionComponent)) {
+		return;
+	}
+
+	for (size_t i = 0; i < h->query.count; ++i) {
+		size_t entity = h->query.entities[i];
+
+		// Retrieve the current position of the entity
+		Position p;
+		if (!get_component(h, entity, &p)) {
+			continue;
+		}
+
+		float speed = 0.1f; // Adjust movement speed as needed
+
+		int joystickID = GLFW_JOYSTICK_1;
+		if (glfwJoystickPresent(joystickID)) {
+			int count;
+			const float *axes = glfwGetJoystickAxes(GLFW_JOYSTICK_1, &count);
+			if (axes && count >= 2) {
+				Position p{.x = axes[0], .z = axes[1]};
+				set_component(h, entity, p);
+			}
+		}
+		// Update position based on WASD input
+		if (glfwGetKey(g->window, GLFW_KEY_W) == GLFW_PRESS) {
+			p.z -= speed;
+		}
+		if (glfwGetKey(g->window, GLFW_KEY_S) == GLFW_PRESS) {
+			p.z += speed;
+		}
+		if (glfwGetKey(g->window, GLFW_KEY_A) == GLFW_PRESS) {
+			p.x -= speed;
+		}
+		if (glfwGetKey(g->window, GLFW_KEY_D) == GLFW_PRESS) {
+			p.x += speed;
+		}
+
+		// Update the entity's position component with the new position
+		// set_component_value(h, entity, &position);
+	}
+}
+
+void camera_follow_system(game *g, MemoryHeader *h) {
+	size_t camera_entity;
+	if (!get_entity(h, CameraComponent, camera_entity)) {
+		return;
+	}
+
+	size_t player_entity;
+	if (!get_entity(h, InputComponent, player_entity)) {
+		return;
+	}
+
+	Position camera_position;
+	if (!get_component(h, camera_entity, &camera_position)) {
+		return;
+	}
+
+	Position player_position;
+	if (!get_component(h, player_entity, &player_position)) {
+		return;
+	}
+
+	camera_position = {
+		.x = player_position.x + 1,
+		.y = player_position.y + 1,
+		.z = player_position.z + 1,
+	};
+	set_component(h, camera_entity, camera_position);
 }
 
 glm::vec4 cc(0.45f, 0.55f, 0.60f, 1.00f);
@@ -96,37 +164,8 @@ void rendering_system(MemoryHeader *h) {
 	}
 }
 
-void input_system(game *g, MemoryHeader *h) {
-	if (!get_entities(h, InputComponent | PositionComponent)) {
-		return;
-	}
-
-	for (size_t i = 0; i < h->query.count; ++i) {
-		size_t entity = h->query.entities[i];
-
-		// Retrieve the current position of the entity
-		Position p;
-		if (!get_component(h, entity, &p)) {
-			continue;
-		}
-
-		float speed = 0.1f; // Adjust movement speed as needed
-
-		// Update position based on WASD input
-		if (glfwGetKey(g->window, GLFW_KEY_W) == GLFW_PRESS) {
-			p.z -= speed;
-		}
-		if (glfwGetKey(g->window, GLFW_KEY_S) == GLFW_PRESS) {
-			p.z += speed;
-		}
-		if (glfwGetKey(g->window, GLFW_KEY_A) == GLFW_PRESS) {
-			p.x -= speed;
-		}
-		if (glfwGetKey(g->window, GLFW_KEY_D) == GLFW_PRESS) {
-			p.x += speed;
-		}
-
-		// Update the entity's position component with the new position
-		// set_component_value(h, entity, &position);
-	}
+void systems(game *g, MemoryHeader *h) {
+	input_system(g, h);
+	camera_follow_system(g, h);
+	rendering_system(h);
 }
