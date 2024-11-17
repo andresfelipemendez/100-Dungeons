@@ -199,6 +199,5 @@ EXPORT void draw_editor(game *g) {
 			}
 		}
 	}
-
 	ImGui::End();
 }

@@ -6,6 +6,6 @@
 EXPORT int init_externals(struct game *g);
 EXPORT void update_externals(struct game *g);
 EXPORT void end_externals(struct game *g);
-EXPORT void load_mesh(struct game *g);
+EXPORT void load_mesh(game *g, const char* c);
 
 #endif

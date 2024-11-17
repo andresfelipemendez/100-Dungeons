@@ -164,6 +164,7 @@ void rendering_system(MemoryHeader *h) {
 
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	if (get_entities(h, ColliderComponent | PositionComponent)) {
+		
 	}
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }

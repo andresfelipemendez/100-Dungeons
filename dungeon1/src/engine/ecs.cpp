@@ -14,9 +14,9 @@
 #include "asset_loader.h"
 
 #include <glm.hpp>
-#include <gtc/quaternion.hpp>
 #include <gtc/constants.hpp>
 #include <gtc/matrix_transform.hpp>
+#include <gtc/quaternion.hpp>
 
 #ifdef _WIN32
 #define strcasecmp _stricmp
@@ -301,14 +301,9 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 						float y = glm::radians(static_cast<float>(y_datum.u.d));
 						float r = glm::radians(static_cast<float>(r_datum.u.d));
 
-						glm::quat q = glm::quat(glm::vec3(p,y,r));
+						glm::quat q = glm::quat(glm::vec3(p, y, r));
 
-						Rotation rot {
-							.x = q.x,
-							.y = q.y,
-							.z = q.z,
-							.w = q.w
-						};
+						Rotation rot{.x = q.x, .y = q.y, .z = q.z, .w = q.w};
 
 						add_component(h, entity, rot);
 
@@ -359,12 +354,9 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 
 					if (model.ok) {
 						printf("  model = \"%s\"\n", model.u.s);
-						Model m{0};
-						if (!LoadGLTFMeshes(h, model.u.s, &m)) {
-							printf("error loading model to ecs\n");
-						}
-
-						add_component(h, entity, m);
+						Model* m = &h->pModels->components[h->pModels->count];
+						g->load_mesh(g, model.u.s);
+						add_component(h, entity, *m);
 						free(model.u.s);
 					}
 					break;
@@ -419,7 +411,8 @@ void save_level(MemoryHeader *h, const char *saveFilePath) {
 		if (mask & CameraComponent) {
 			Camera c;
 			if (get_component(h, entity_id, &c)) {
-				fprintf(fp, "camera = { fov = %.2f, near = %.2f, far = %.2f }\n",
+				fprintf(fp,
+						"camera = { fov = %.2f, near = %.2f, far = %.2f }\n",
 						c.fov, c.near, c.far);
 			}
 		}
@@ -446,8 +439,7 @@ void save_level(MemoryHeader *h, const char *saveFilePath) {
 		if (mask & ModelComponent) {
 			Model m;
 			if (get_component(h, entity_id, &m)) {
-				fprintf(	fp,
-					"model = { %s	}\n ","not sure yet");
+				fprintf(fp, "model = { %s	}\n ", "not sure yet");
 			}
 		}
 

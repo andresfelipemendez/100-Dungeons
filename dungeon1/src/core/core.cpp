@@ -103,6 +103,8 @@ void load_function_pointers(game &g) {
 	g.update = getEngineFunction(g, "update");
 	g.begin_frame = getEngineFunction(g, "begin_frame");
 	g.draw_editor = getEngineFunction(g, "draw_editor");
+	g.load_mesh = (void_pGamepChar_func)getfunction(externals_lib, "load_mesh");
+
 	init_engine_ptr = getEngineFunction(g, "init_engine");
 
 	init_externals_ptr =
@@ -118,9 +120,8 @@ void load_function_pointers(game &g) {
 		(void_pGamepChar_func)getfunction(g.engine_lib, "asset_reload");
 
 	init_externals_ptr(&g);
-	g.begin_frame(&g);
 
-	g.update = getEngineFunction(g, "update");
+	g.begin_frame(&g);
 }
 
 void reload_externals(game &g) {
@@ -215,40 +216,45 @@ void begin_game_loop(game &g) {
 	printf("Starting game loop.\n");
 	auto lastTime = std::chrono::high_resolution_clock::now();
 	while (g.play.load()) {
+
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double> elapsedTime = currentTime - lastTime;
 		g.deltaTime = elapsedTime.count();
-
 		lastTime = currentTime;
-		if (reloadEngineFlag.load()) {
-			reloadEngineFlag.store(false);
+		if (g.play.load()) {
+			if (reloadEngineFlag.load()) {
+				reloadEngineFlag.store(false);
 
-			print_log(COLOR_YELLOW, "Reloading Engine...\n");
+				print_log(COLOR_YELLOW, "Reloading Engine...\n");
 
-			unloadlibrary(g.engine_lib);
-			char copiedEgnineDllPath[MAX_PATH];
-			if (!copy_dll("engine", copiedEgnineDllPath,
-						  sizeof(copiedEgnineDllPath))) {
-				return;
+				unloadlibrary(g.engine_lib);
+				char copiedEgnineDllPath[MAX_PATH];
+				if (!copy_dll("engine", copiedEgnineDllPath,
+							  sizeof(copiedEgnineDllPath))) {
+					return;
+				}
+				printf("loading lib: %s\n", copiedEgnineDllPath);
+				g.engine_lib = loadlibrary(copiedEgnineDllPath);
+
+				load_function_pointers(g);
+
+				init_engine_ptr(&g);
+
+				g.begin_frame(&g);
 			}
-			printf("loading lib: %s\n", copiedEgnineDllPath);
-			g.engine_lib = loadlibrary(copiedEgnineDllPath);
-
-			load_function_pointers(g);
-
-			init_engine_ptr(&g);
-
-			g.begin_frame(&g);
-
-			g.update = getEngineFunction(g, "update");
+		} else {
+			break;
 		}
-
-		if (reloadExternalsFlag.load()) {
-			reloadExternalsFlag.store(false);
-			unload_externals(g);
-			reload_externals(g);
+		
+		if (g.play.load()) {
+			if (reloadExternalsFlag.load()) {
+				reloadExternalsFlag.store(false);
+				unload_externals(g);
+				reload_externals(g);
+			}
+		} else {
+			break;
 		}
-
 		if (g.play.load()) {
 			g.update(&g);
 		} else {
@@ -304,18 +310,17 @@ EXPORT void init() {
 	if (g.buffer != NULL) {
 		memset(g.buffer, 0, g.buffer_size);
 	}
+	char copiedDllPath[MAX_PATH];
+	if (!copy_dll("externals", copiedDllPath, sizeof(copiedDllPath))) {
+		return;
+	}
+	externals_lib = (HMODULE)loadlibrary(copiedDllPath);
 
 	char copiedEgnineDllPath[MAX_PATH];
 	if (!copy_dll("engine", copiedEgnineDllPath, sizeof(copiedEgnineDllPath))) {
 		return;
 	}
 	g.engine_lib = loadlibrary(copiedEgnineDllPath);
-
-	char copiedDllPath[MAX_PATH];
-	if (!copy_dll("externals", copiedDllPath, sizeof(copiedDllPath))) {
-		return;
-	}
-	externals_lib = (HMODULE)loadlibrary(copiedDllPath);
 
 	load_function_pointers(g);
 

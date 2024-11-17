@@ -25,7 +25,7 @@ typedef struct game {
 	void_pGame_func draw_editor = nullptr;
 	void_pGame_func begin_frame = nullptr;
 	void_pGame_func update = nullptr;
-	void_pGame_func load_mesh = nullptr;
+	void_pGamepChar_func load_mesh = nullptr;
 
 	double deltaTime = 0.0;
 } game;
