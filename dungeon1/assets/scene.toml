@@ -16,12 +16,14 @@ material = "unlit"
 texture  = "dungeon_texture.png"
 position = { x = 1, y = 0, z = 4 }
 rotation = { pitch = 0.00, yaw = 0.00, roll = 0.00 }
+rbody = { invMass = 1.0f}
 input = "keyboard"
 
 [floor]
 model    = "assets/models/static/wall.glb"
 material = "unlit"
 texture  = "dungeon_texture.png"
-position = { x = 5, y = 0, z = 0 }
+position = { x = 6, y = 0, z = 0 }
 rotation = { pitch = 0.00, yaw = 0.00, roll = 0.00 }
+rbody = { invMass = 1.0f}
 collider = {shape = "box", x = 0, y=0, z=0, w=10, h=5, d=3 }
