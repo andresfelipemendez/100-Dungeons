@@ -26,6 +26,7 @@
 #include <gtc/quaternion.hpp>
 #include <gtc/type_ptr.hpp>
 
+#include "memory.h"
 unsigned int VAO, VBO, shaderProgram;
 
 EXPORT void load_level(game *g, const char *sceneFilePath) {
@@ -39,7 +40,7 @@ EXPORT void load_level(game *g, const char *sceneFilePath) {
 EXPORT void asset_reload(game *g, const char *assetLoaded) {
 	printf("asset_reload\n");
 	printf("aset to reload %s\n", assetLoaded);
-
+	MemoryHeader *h = get_header(g);
 	const char *pLastDot = strrchr(assetLoaded, '.');
 	if (pLastDot == nullptr)
 		return;
@@ -47,6 +48,8 @@ EXPORT void asset_reload(game *g, const char *assetLoaded) {
 	size_t len = strlen(assetLoaded);
 	printf("extension %s \n", pLastDot);
 	if (strcmp(pLastDot, ".toml") == 0) {
+		reset_memory(h);
+		ecs_load_level(g, assetLoaded);
 		printf("reload scene\n");
 	}
 

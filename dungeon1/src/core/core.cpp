@@ -2,6 +2,7 @@
 #include "loadlibrary.h"
 
 #include <atomic>
+#include <mutex>
 #include <chrono>
 #include <engine.h>
 #include <externals.h>
@@ -30,6 +31,10 @@ void_pGame_func init_engine_ptr = nullptr;
 std::atomic<bool> reloadEngineFlag(false);
 std::atomic<bool> reloadEditorFlag(false);
 std::atomic<bool> reloadExternalsFlag(false);
+std::atomic<bool> reloadAssetsFlag(false);
+
+std::mutex mutex;
+std::string assetReloaded;
 
 constexpr auto DEBOUNCE_INTERVAL_MS = 4000;
 
@@ -250,6 +255,17 @@ void begin_game_loop(game &g) {
 		}
 		if (g.play.load()) {
 			g.begin_frame(&g);
+			if (reloadAssetsFlag.load()) {
+                
+                
+				{
+					std::string pathToReload;
+				    std::lock_guard<std::mutex> lock(mutex);
+				    reloadAssetsFlag.store(false);
+				    pathToReload = assetReloaded;
+				    asset_reload_ptr(&g, pathToReload.c_str());
+				}
+            }
 			g.update(&g);
 		} else {
 			break;
@@ -335,8 +351,13 @@ EXPORT void init() {
 		reloadExternalsFlag.store(true);
 	});
 
-	begin_watch(g, "../../assets",
-				[&](std::string path) { asset_reload_ptr(&g, path.c_str()); });
+	begin_watch(g, "../../assets", [&](std::string path) { 
+		{
+	        std::lock_guard<std::mutex> lock(mutex);
+	        assetReloaded = path;
+	    	reloadAssetsFlag.store(true);
+	    }
+	});
 
 	begin_game_loop(g);
 }

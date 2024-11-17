@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <string.h>
 
+const size_t initialEntityCount = 100;
+
 #define ALIGN_OFFSET(type)                                                     \
 	offset = (offset + alignof(type) - 1) & ~(alignof(type) - 1)
 
@@ -27,14 +29,19 @@ void reset_memory(MemoryHeader *h) {
 		h->shaders->count = 0;
 	}
 
+	for (size_t i = 0; i < initialEntityCount; ++i) {
+		h->pModels->components[i].submesh_count = 0;
+	}
+
 	h->query.count = 0;
+	h->world.entity_count = 0;
 	h->world.entity_count = 0;
 
 	printf("reset_memory\n");
 }
 
 void init_engine_memory(game *g) {
-	const size_t initialEntityCount = 100;
+
 	const size_t initialSubMeshCount = 10;
 
 	MemoryHeader *header = (MemoryHeader *)((char *)g->buffer + g->buffer_size -
@@ -93,12 +100,11 @@ void init_engine_memory(game *g) {
 }
 
 MemoryHeader *get_header(game *g) {
-	MemoryHeader *header = (MemoryHeader *)((char *)g->buffer + g->buffer_size -
-											sizeof(MemoryHeader));
-	return header;
+	return (MemoryHeader *)((char *)g->buffer + g->buffer_size -
+							sizeof(MemoryHeader));
 }
 
 World *get_world(game *g) {
-	MemoryHeader *header = get_header(g);
-	return &header->world;
+	// MemoryHeader *header = get_header(g);
+	return &get_header(g)->world;
 }

@@ -235,6 +235,10 @@ void load_material(MemoryHeader *h, size_t entity, const char *material_name) {
 	add_component(h, entity, m);
 }
 
+void load_collider(MemoryHeader *h, size_t entity, toml_datum_t *collider) {
+
+}
+
 void ecs_load_level(game *g, const char *sceneFilePath) {
 	FILE *fp;
 	char errbuf[200];
@@ -379,6 +383,13 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 					}
 					break;
 				}
+			case ColliderType:{
+				toml_datum_t collider = toml_string_in(attributes, type_key);
+				if(collider.ok){
+					load_collider(h, entity,&collider);
+				}
+				break;
+			}
 				case TextureType: {
 					break;
 				}
