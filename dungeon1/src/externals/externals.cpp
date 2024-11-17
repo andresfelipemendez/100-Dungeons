@@ -124,9 +124,11 @@ EXPORT int init_externals(game *g) {
 	return 1;
 }
 
+// EXPORT void free_mesh()
+
 EXPORT void load_mesh(game *g, const char *meshFilePath) {
 	MemoryHeader *h = (MemoryHeader *)((char *)g->buffer + g->buffer_size -
-											sizeof(MemoryHeader));
+									   sizeof(MemoryHeader));
 
 	printf("load mesh from external %s \n", meshFilePath);
 
@@ -138,9 +140,9 @@ EXPORT void load_mesh(game *g, const char *meshFilePath) {
 
 	std::filesystem::path fullMeshPath =
 		std::filesystem::current_path() / meshFilePath;
-		fullMeshPath.make_preferred();
+	fullMeshPath.make_preferred();
 
-		auto data = fastgltf::GltfDataBuffer::FromPath(fullMeshPath);
+	auto data = fastgltf::GltfDataBuffer::FromPath(fullMeshPath);
 	if (data.error() != fastgltf::Error::None) {
 		print_log(COLOR_RED, "error loading model");
 		return;
@@ -159,7 +161,7 @@ EXPORT void load_mesh(game *g, const char *meshFilePath) {
 		return;
 	}
 
-	Model* outMesh = &h->pModels->components[h->pModels->count];
+	Model *outMesh = &h->pModels->components[h->pModels->count];
 	for (auto &mesh : asset.get().meshes) {
 		for (auto it = mesh.primitives.begin(); it != mesh.primitives.end();
 			 ++it) {
@@ -168,7 +170,7 @@ EXPORT void load_mesh(game *g, const char *meshFilePath) {
 
 			if (it->type != fastgltf::PrimitiveType::Triangles) {
 				print_log(COLOR_RED, "submesh type it's not GL_TRIANGLES\n");
-				return ;
+				return;
 			}
 
 			GLuint vao = GL_NONE;
@@ -265,7 +267,7 @@ EXPORT void load_mesh(game *g, const char *meshFilePath) {
 			auto &indexAccessor =
 				asset.get().accessors[it->indicesAccessor.value()];
 			if (!indexAccessor.bufferViewIndex.has_value())
-				return ;
+				return;
 			draw.count = static_cast<uint32_t>(indexAccessor.count);
 			glCreateBuffers(1, &subMesh->indexBuffer);
 

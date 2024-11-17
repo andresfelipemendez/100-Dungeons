@@ -48,7 +48,14 @@ EXPORT void asset_reload(game *g, const char *assetLoaded) {
 	size_t len = strlen(assetLoaded);
 	printf("extension %s \n", pLastDot);
 	if (strcmp(pLastDot, ".toml") == 0) {
+
+		for (size_t i = 0; i < h->shaders->count; ++i) {
+			glDeleteProgram(h->shaders->program_ids[i]);
+			printf("Deleted shader program: %u\n", h->shaders->program_ids[i]);
+		}
+
 		reset_memory(h);
+
 		ecs_load_level(g, assetLoaded);
 		printf("reload scene\n");
 	}
