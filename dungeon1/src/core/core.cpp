@@ -119,9 +119,6 @@ void load_function_pointers(game &g) {
 	asset_reload_ptr =
 		(void_pGamepChar_func)getfunction(g.engine_lib, "asset_reload");
 
-	init_externals_ptr(&g);
-
-	g.begin_frame(&g);
 }
 
 void reload_externals(game &g) {
@@ -134,11 +131,10 @@ void reload_externals(game &g) {
 	externals_lib = (HMODULE)loadlibrary(copiedExternalsDllPath);
 	if (externals_lib) {
 		load_function_pointers(g);
+		init_externals_ptr(&g);
 	} else {
 		print_log(COLOR_RED, "Failed to load externals_copy.dll\n");
 	}
-
-	g.update = getEngineFunction(g, "update");
 }
 
 void directory_watch_function(game &g, const std::string &directory,
@@ -237,15 +233,12 @@ void begin_game_loop(game &g) {
 				g.engine_lib = loadlibrary(copiedEgnineDllPath);
 
 				load_function_pointers(g);
-
 				init_engine_ptr(&g);
-
-				g.begin_frame(&g);
 			}
 		} else {
 			break;
 		}
-		
+
 		if (g.play.load()) {
 			if (reloadExternalsFlag.load()) {
 				reloadExternalsFlag.store(false);
@@ -256,6 +249,7 @@ void begin_game_loop(game &g) {
 			break;
 		}
 		if (g.play.load()) {
+			g.begin_frame(&g);
 			g.update(&g);
 		} else {
 			break;
@@ -323,8 +317,9 @@ EXPORT void init() {
 	g.engine_lib = loadlibrary(copiedEgnineDllPath);
 
 	load_function_pointers(g);
-
+	init_externals_ptr(&g);
 	init_engine_ptr(&g);
+	g.begin_frame(&g);
 	load_level_ptr(&g, "assets\\scene.toml");
 
 	begin_watch(g, "../../src/editor", [&](std::string path) {

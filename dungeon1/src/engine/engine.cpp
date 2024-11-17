@@ -31,11 +31,8 @@ unsigned int VAO, VBO, shaderProgram;
 EXPORT void load_level(game *g, const char *sceneFilePath) {
 	MemoryHeader *h = get_header(g);
 	World *w = get_world(g);
-
 	reset_memory(h);
-
 	load_shaders(g);
-
 	ecs_load_level(g, sceneFilePath);
 }
 
@@ -87,7 +84,6 @@ void EditTransform(float *cameraView, float *cameraProjection, float *matrix,
 	static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
 	static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::WORLD);
 	ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
-
 	ImGuizmo::Manipulate(cameraView, cameraProjection, mCurrentGizmoOperation,
 						 mCurrentGizmoMode, matrix, NULL, NULL);
 }
@@ -98,7 +94,6 @@ EXPORT void draw_editor(game *g) {
 
 	ImGuizmo::SetImGuiContext(ImGui::GetCurrentContext());
 	ImGuizmo::BeginFrame();
-
 	ImGui::Begin("Editor");
 
 	ImVec2 viewportPos = ImVec2(0, 0);
@@ -161,7 +156,6 @@ EXPORT void draw_editor(game *g) {
 				glm::vec3 cameraPosition = glm::vec3(p.x, p.y, p.z);
 				glm::vec3 targetPosition = glm::vec3(1.0f, 0.0f, 0.0f);
 				glm::vec3 upDirection = glm::vec3(0.0f, 1.0f, 0.0f);
-
 				glm::quat orientation = glm::quat(r.w, r.x, r.y, r.z);
 				glm::mat4 rotMat = glm::mat4_cast(orientation);
 				glm::mat4 traslationMat =
