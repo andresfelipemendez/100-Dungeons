@@ -49,6 +49,10 @@ EXPORT void asset_reload(game *g, const char *assetLoaded) {
 	if (strcmp(pLastDot, ".toml") == 0) {
 		printf("reload scene\n");
 	}
+
+	if (strcmp(pLastDot, ".frag") == 0 || strcmp(pLastDot, ".vert") == 0) {
+		printf("reload shader\n");
+	}
 }
 
 static void glfw_error_callback(int error, const char *description) {

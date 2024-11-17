@@ -31,7 +31,7 @@ std::atomic<bool> reloadEngineFlag(false);
 std::atomic<bool> reloadEditorFlag(false);
 std::atomic<bool> reloadExternalsFlag(false);
 
-constexpr auto DEBOUNCE_INTERVAL_MS = 3000;
+constexpr auto DEBOUNCE_INTERVAL_MS = 4000;
 
 static game g;
 
