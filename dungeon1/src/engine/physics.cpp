@@ -9,8 +9,30 @@
 #include <gtc/quaternion.hpp>
 
 void physics_system(game *g, MemoryHeader *h) {
+    // Apply gravity force generator
+    if (!get_entities(h, ForceAccumulatorComponent | GravityComponent)) {
+        return;
+    }
+    for (size_t i = 0; i < h->query.count; ++i) {
+        size_t entity = h->query.entities[i];
+        Gravity gravity;
+        get_component(h, entity, &gravity);
 
-    if (!get_entities(h, RigidBodyComponent | PositionComponent | ForceAccumulatorComponent | VelocityComponent)) {
+        ForceAccumulator accumulator;
+        get_component(h, entity, &accumulator);
+
+        Mass mass;
+        get_component(h, entity, &mass);
+        
+        // Apply gravity force if the object is not static (invMass > 0)
+        if (mass.inv > 0.0f) {
+            accumulator.force += glm::vec3(0.0f, -gravity.value * (1.0f / mass.inv), 0.0f);
+            set_component(h, entity, accumulator);
+        }
+    }
+
+    // Integrate forces for dynamic entities
+    if (!get_entities(h, MassComponent | RigidBodyComponent | PositionComponent | ForceAccumulatorComponent | VelocityComponent)) {
         return;
     }
 
@@ -19,7 +41,10 @@ void physics_system(game *g, MemoryHeader *h) {
 
         RigidBody rb;
         get_component(h, entity, &rb);
-        if (rb.invMass <= 0.0f) {
+
+        Mass mass;
+        get_component(h, entity, &mass);
+        if (mass.inv <= 0.0f) {
             continue;
         }
 
@@ -33,14 +58,14 @@ void physics_system(game *g, MemoryHeader *h) {
         get_component(h, entity, &pos);
 
         // Step 1: Integrate forces to update velocity
-        glm::vec3 acceleration = accumulator.force * rb.invMass;
+        glm::vec3 acceleration = accumulator.force * mass.inv;
         velocity.linear += acceleration * (float)g->deltaTime;
 
         // Apply damping to linear velocity
         velocity.linear *= pow(rb.linearDamping, (float)g->deltaTime);
 
         // Integrate angular forces (torques) to update angular velocity
-        glm::vec3 angularAcceleration = accumulator.torque * rb.invMass;
+        glm::vec3 angularAcceleration = accumulator.torque * mass.inv;
         velocity.angular += angularAcceleration * (float)g->deltaTime;
 
         // Apply damping to angular velocity

@@ -21,7 +21,9 @@
 	X(ForceAccumulator)                                                        \
 	X(RigidBody)                                                               \
 	X(Collider)                                                                \
-	X(Texture)
+	X(Texture)                                                                 \
+	X(Mass)                                                                    \
+	X(Gravity)
 
 enum SubkeyType {
 #define X(name) name##Type,
@@ -43,13 +45,20 @@ enum ComponentBitmask {
 #undef X
 };
 
+struct Gravity {
+	float value;
+};
+
 struct Velocity {
 	glm::vec3 linear;
 	glm::vec3 angular;
 };
 
+struct Mass {
+	float inv;
+};
+
 struct RigidBody {
-	float invMass;
 	float restitution;
 	float friction;
 	float linearDamping;
