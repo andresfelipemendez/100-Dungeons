@@ -16,6 +16,8 @@
 
 #include <game.h>
 
+#include "physics.h"
+
 void input_system(game *g, MemoryHeader *h) {
 	if (!get_entities(h, InputComponent | PositionComponent)) {
 		return;
@@ -164,13 +166,13 @@ void rendering_system(MemoryHeader *h) {
 
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	if (get_entities(h, ColliderComponent | PositionComponent)) {
-		
 	}
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }
 
 void systems(game *g, MemoryHeader *h) {
 	input_system(g, h);
+	physics_system(g, h);
 	camera_follow_system(g, h);
 	rendering_system(h);
 }

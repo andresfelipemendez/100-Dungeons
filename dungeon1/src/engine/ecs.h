@@ -17,6 +17,9 @@
 	X(Model)                                                                   \
 	X(Material)                                                                \
 	X(Input)                                                                   \
+	X(Velocity)                                                                \
+	X(ForceAccumulator)                                                        \
+	X(RigidBody)                                                               \
 	X(Collider)                                                                \
 	X(Texture)
 
@@ -38,6 +41,23 @@ enum ComponentBitmask {
 #define X(name) EXPAND_AS_ENUM(name, __COUNTER__)
 	SUBKEY_TYPES
 #undef X
+};
+
+struct Velocity {
+	glm::vec3 linear;
+	glm::vec3 angular;
+};
+
+struct RigidBody {
+	float invMass;
+	float restitution;
+	float friction;
+	float linearDamping;
+	float angularDamping;
+};
+struct ForceAccumulator {
+	glm::vec3 force;
+	glm::vec3 torque;
 };
 
 struct Position {
