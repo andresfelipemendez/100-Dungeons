@@ -2,7 +2,14 @@
 #include "utest.h"
 
 UTEST(code_generator, generates_correct_output_with_buffers) {
-	const char *input_data = "Line1\nLine2\nLine3\n";
+	// clang-format off
+	const char *input_data =
+	"struct Position {\n"
+	"    float x;\n"
+	"    float y;\n"
+	"    float z;\n"
+	"};\n";
+	// clang-format on
 	char output_buffer[1024] = {0};
 
 	generate_code_from_buffers(input_data, output_buffer,
