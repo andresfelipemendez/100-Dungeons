@@ -17,6 +17,9 @@ if "!SOURCE_FILES!"=="" (
     echo Error: No source files found in %CORE_SRC_PATH%.
     exit /b 1
 )
+clang "%PROJECT_ROOT%\src\generator\componentserializer.c" -o "%OUTPUT_PATH%\componentserializer.exe"
+
+"%OUTPUT_PATH%\componentserializer.exe"
 
 :: Compile the DLL with clang++, using all source files, include paths, and libraries
 clang++ -shared -std=c++17 -g -D_ITERATOR_DEBUG_LEVEL=0 -D_MT -D_DLL -DIMGUI_DEFINE_MATH_OPERATORS^
