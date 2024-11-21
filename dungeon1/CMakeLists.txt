@@ -175,3 +175,32 @@ target_link_libraries(
 		toml
 		glad
 	)
+
+
+set(CODEGENERATOR_SRC_FILES
+    src/generator/codegenerator.c
+)
+
+add_library(codegenerator STATIC ${CODEGENERATOR_SRC_FILES})
+target_include_directories(codegenerator PRIVATE "${CMAKE_SOURCE_DIR}/include")
+target_compile_features(codegenerator PUBLIC c_std_23)  # Use C23 standard
+
+# Add a target for the test executable
+set(TEST_SRC_FILES
+    src/generator/test_codegenerator.c
+)
+
+add_executable(tests ${TEST_SRC_FILES})
+target_compile_features(tests PUBLIC c_std_23)  # Use C23 standard
+target_include_directories(tests PRIVATE "${CMAKE_SOURCE_DIR}/include")
+target_link_libraries(tests PRIVATE codegenerator)
+
+# Add warning and diagnostic flags for tests
+target_compile_options(tests PRIVATE -Wall -Wextra -pedantic)
+
+# Custom command to run the tests
+add_custom_target(run_tests
+    COMMAND tests
+    DEPENDS tests
+    COMMENT "Running code generator tests..."
+)
