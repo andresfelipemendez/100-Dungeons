@@ -1,5 +1,7 @@
 #include "codegenerator.h"
 #include "arena.h"
+
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -112,11 +114,12 @@ size_t generate_struct_data_structure(toml_table_t *conf, Arena *structs_arena,
   return structs_count;
 }
 
+#define APPEND(fmt, ...) o += snprintf(output + o, size - o, fmt, __VA_ARGS__)
+
 size_t gen_struct_definitions(struct_input *structs, size_t structs_count,
                               char *output, size_t o, size_t size) {
   for (size_t i = 0; i < structs_count; i++) {
-    o += snprintf(output + o, size - o, "struct %s {\n", structs[i].name);
-    // printf("parsed struct: %s\n", structs[i].name);
+    APPEND("struct %s {\n", structs[i].name);
     for (size_t j = 0; j < structs[i].field_count; j++) {
       char *field_type_name = NULL;
       switch (structs[i].fields[j].type) {
@@ -126,19 +129,47 @@ size_t gen_struct_definitions(struct_input *structs, size_t structs_count,
       if (field_type_name == NULL) {
         error("type not found", NULL);
       }
-      // printf("%s %s\n", structs[i].fields[j].name, field_type_name);
-      o += snprintf(output + o, size - o, "\t%s %s;\n", field_type_name,
-                    structs[i].fields[j].name);
+      APPEND("\t%s %s;\n", field_type_name, structs[i].fields[j].name);
     }
-    o += snprintf(output + o, size - o, "};\n");
+    APPEND("};\n");
   }
   return o;
 }
 
 size_t gen_struct_serializer(struct_input *structs, size_t structs_count,
                              char *output, size_t o, size_t size) {
+
   for (size_t i = 0; i < structs_count; i++) {
-    o += snprintf(output + o, size - o, "struct %s {\n", structs[i].name);
+    APPEND("if(mask & %sComponent) {\n", structs[i].name);
+    size_t name_len = strlen(structs[i].name) + 1;
+    char lowerName[name_len];
+    strcpy_s(lowerName, name_len, structs[i].name);
+    lowerName[0] = tolower(lowerName[0]);
+    APPEND("\t%s %s;\n", structs[i].name, lowerName);
+    APPEND("\tif (get_component(h, entity_id, &%s)) {\n", lowerName);
+    APPEND("\t\tfprintf(fp,\"%s = { ", lowerName);
+    for (size_t j = 0; j < structs[i].field_count; j++) {
+      char *separator = (j == structs[i].field_count - 1) ? "" : ",";
+      char *type_serializer;
+      switch (structs[i].fields[j].type) {
+      case float_type:
+        type_serializer = "%.2f";
+        break;
+      default:
+        type_serializer = "";
+        error("Unsupported field type: ", structs[i].fields[j].name);
+        break;
+      }
+      APPEND("%s = %s%s ", structs[i].fields[j].name, type_serializer,
+             separator);
+    }
+    APPEND("}\",");
+    for (size_t j = 0; j < structs[i].field_count; j++) {
+      char *separator = (j == structs[i].field_count - 1) ? "" : ",";
+
+      APPEND(" %s.%s%s", lowerName, structs[i].fields[j].name, separator);
+    }
+    APPEND(");\n\t}\n}\n");
   }
   return o;
 }

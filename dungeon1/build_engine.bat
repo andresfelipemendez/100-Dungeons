@@ -17,8 +17,7 @@ if "!SOURCE_FILES!"=="" (
     echo Error: No source files found in %CORE_SRC_PATH%.
     exit /b 1
 )
-clang "%PROJECT_ROOT%\src\generator\componentserializer.c" -o "%OUTPUT_PATH%\componentserializer.exe"
-
+call "%~dp0build_component_serializer.bat" 
 "%OUTPUT_PATH%\componentserializer.exe"
 
 :: Compile the DLL with clang++, using all source files, include paths, and libraries

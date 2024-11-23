@@ -1,5 +1,5 @@
 {
   "watch": ["src/generator"],
   "ext": "c,h",
-  "exec": "test_codegenerator.bat"
+  "exec": "test_component_serializer.bat"
 }

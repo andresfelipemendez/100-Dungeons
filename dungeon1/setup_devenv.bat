@@ -99,6 +99,19 @@ if not exist "%OUTPUT_PATH%\build_core.bat" (
     powershell -Command "Write-Host 'Symbolic link to build_core.bat already exists.' -ForegroundColor Cyan"
 )
 
+:: Create symbolic link for build_engine.bat if it doesn't exist
+if not exist "%OUTPUT_PATH%\build_component_serializer.bat" (
+    mklink "%OUTPUT_PATH%\build_component_serializer.bat" "%PROJECT_ROOT%\build_component_serializer.bat"
+    if %errorlevel% neq 0 (
+        powershell -Command "Write-Host 'Failed to create symbolic link to build_component_serializer.bat. Please run as Administrator.' -ForegroundColor Red"
+        exit /b %errorlevel%
+    ) else (
+        powershell -Command "Write-Host 'Symbolic link to build_component_serializer.bat created successfully.' -ForegroundColor Green"
+    )
+) else (
+    powershell -Command "Write-Host 'Symbolic link to build_component_serializer.bat already exists.' -ForegroundColor Cyan"
+)
+
 
 echo %OUTPUT_PATH%
 :: Create symbolic link for build_engine.bat if it doesn't exist

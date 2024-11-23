@@ -64,7 +64,7 @@ UTEST(code_generator, generates_correct_output_with_buffers) {
   struct_input structs[] = {
       {.name = "Position", .fields = fields, .field_count = 3}};
 
-  constexpr size_t output_size = 1024;
+#define output_size 1024
   char output_buffer[output_size] = {0};
   gen_struct_definitions(structs, 1, output_buffer, 0, output_size);
 
@@ -73,6 +73,29 @@ UTEST(code_generator, generates_correct_output_with_buffers) {
                                 "\tfloat y;\n"
                                 "\tfloat z;\n"
                                 "};\n";
+  ASSERT_STREQ(expected_output, output_buffer);
+}
+
+UTEST(code_generator, serializer) {
+  field fields[] = {{.name = "x", .type = float_type},
+                    {.name = "y", .type = float_type},
+                    {.name = "z", .type = float_type}};
+
+  struct_input structs[] = {
+      {.name = "Position", .fields = fields, .field_count = 3}};
+
+#define output_size 1024
+  char output_buffer[output_size] = {0};
+  gen_struct_serializer(structs, 1, output_buffer, 0, output_size);
+
+  const char *expected_output =
+      "if(mask & PositionComponent) {\n"
+      "\tPosition position;\n"
+      "\tif (get_component(h, entity_id, &position)) {\n"
+      "\t\tfprintf(fp,\"position = { x = %.2f, y = %.2f, z = %.2f }\", "
+      "position.x, position.y, position.z);\n"
+      "\t}\n"
+      "}\n";
   ASSERT_STREQ(expected_output, output_buffer);
 }
 UTEST_MAIN()
