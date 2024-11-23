@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
 
   if (generate_code_from_buffers(fileContent, outputHeader,outputSource, outputSize)) {
     char outputFilePath[1024];
-    snprintf(outputFilePath, sizeof(outputFilePath), "%s/generated_code.c",
+    snprintf(outputFilePath, sizeof(outputFilePath), "%s\\generated_code.c",
              outputDir);
 
     FILE *outputFile = NULL;

@@ -13,7 +13,7 @@ static void error(const char *msg, const char *msg1) {
 }
 
 int generate_code_from_buffers(const char *input, char *outputHeader,char *outputSource, size_t size) {
-  char errbuf[200];
+  char errbuf[200]; 
   toml_table_t *conf = toml_parse((char *)input, errbuf, sizeof(errbuf));
   if (!conf) {
     error("cannot parse - ", errbuf);
@@ -30,7 +30,7 @@ int generate_code_from_buffers(const char *input, char *outputHeader,char *outpu
 
   arena_destroy(structs_arena);
   arena_destroy(strings_arena);
-  return 0;
+  return 1;
 }
 
 size_t generate_struct_data_structure(toml_table_t *conf, Arena *structs_arena,
