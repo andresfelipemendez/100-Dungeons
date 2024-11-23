@@ -73,7 +73,8 @@ size_t generate_struct_data_structure(toml_table_t *conf, Arena *structs_arena,
 #ifdef print_debug
     printf("allocating %zu fields\n", field_count);
 #endif
-    current_struct->fields = (field *)arena_alloc(structs_arena, field_count);
+    current_struct->fields =
+        (field *)arena_alloc(structs_arena, sizeof(field) * field_count);
     current_struct->field_count = 0;
     for (int j = 0;; j++) {
       const char *field_name = toml_key_in(fields, j);
@@ -88,7 +89,7 @@ size_t generate_struct_data_structure(toml_table_t *conf, Arena *structs_arena,
 
       curren_field->name = (char *)arena_alloc(strings_arena, field_name_len);
       strcpy_s(curren_field->name, field_name_len, field_name);
-      curren_field->name[struct_name_len - 1] = '\0';
+      curren_field->name[field_name_len - 1] = '\0';
 #ifdef print_debug
       printf("copyed field name: %s\n", curren_field->name);
 #endif

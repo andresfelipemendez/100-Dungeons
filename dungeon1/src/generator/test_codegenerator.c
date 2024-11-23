@@ -22,10 +22,13 @@ UTEST(code_generator, two_structs) {
   size_t structs_count = generate_struct_data_structure(
       conf, structs_arena, strings_arena, &structs);
   ASSERT_EQ(structs_count, (size_t)2);
-  // ASSERT_STREQ(structs[0].name, "Position");
-  //  ASSERT_EQ(structs[0].field_count, (size_t)3);
-  //  ASSERT_STREQ(structs[0].fields[0].name, "x");
+  ASSERT_STREQ(structs[0].name, "Position");
+  ASSERT_EQ(structs[0].field_count, (size_t)3);
+  ASSERT_STREQ(structs[0].fields[0].name, "x");
 
+  ASSERT_STREQ(structs[1].name, "Rotation");
+  ASSERT_EQ(structs[1].field_count, (size_t)1);
+  ASSERT_STREQ(structs[1].fields[0].name, "x");
   arena_destroy(structs_arena);
   arena_destroy(strings_arena);
 }
