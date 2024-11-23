@@ -182,7 +182,7 @@ set(CODEGENERATOR_SRC_FILES
 )
 
 add_library(codegenerator STATIC ${CODEGENERATOR_SRC_FILES})
-target_include_directories(codegenerator PRIVATE "${CMAKE_SOURCE_DIR}/include")
+target_include_directories(codegenerator PRIVATE "${CMAKE_SOURCE_DIR}/include" "${TOML_INCLUDE_DIR}")
 target_compile_features(codegenerator PUBLIC c_std_23)  # Use C23 standard
 
 # Add a target for the test executable
@@ -192,8 +192,8 @@ set(TEST_SRC_FILES
 
 add_executable(tests ${TEST_SRC_FILES})
 target_compile_features(tests PUBLIC c_std_23)  # Use C23 standard
-target_include_directories(tests PRIVATE "${CMAKE_SOURCE_DIR}/include")
-target_link_libraries(tests PRIVATE codegenerator)
+target_include_directories(tests PRIVATE "${CMAKE_SOURCE_DIR}/include" "${TOML_INCLUDE_DIR}")
+target_link_libraries(tests PRIVATE codegenerator toml)
 
 # Add warning and diagnostic flags for tests
 target_compile_options(tests PRIVATE -Wall -Wextra -pedantic)

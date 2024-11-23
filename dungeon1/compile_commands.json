@@ -169,13 +169,13 @@
 },
 {
   "directory": "C:/Users/andres/development/100-Dungeons/dungeon1/build",
-  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang.exe -IC:/Users/andres/development/100-Dungeons/dungeon1/include -O0 -g -Xclang -gcodeview -D_DEBUG -D_DLL -D_MT -Xclang --dependent-lib=msvcrtd -std=gnu23 -o CMakeFiles\\codegenerator.dir\\src\\generator\\codegenerator.c.obj -c C:\\Users\\andres\\development\\100-Dungeons\\dungeon1\\src\\generator\\codegenerator.c",
+  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang.exe -IC:/Users/andres/development/100-Dungeons/dungeon1/include -IC:/Users/andres/development/100-Dungeons/dungeon1/lib/toml -O0 -g -Xclang -gcodeview -D_DEBUG -D_DLL -D_MT -Xclang --dependent-lib=msvcrtd -std=gnu23 -o CMakeFiles\\codegenerator.dir\\src\\generator\\codegenerator.c.obj -c C:\\Users\\andres\\development\\100-Dungeons\\dungeon1\\src\\generator\\codegenerator.c",
   "file": "C:\\Users\\andres\\development\\100-Dungeons\\dungeon1\\src\\generator\\codegenerator.c",
   "output": "CMakeFiles\\codegenerator.dir\\src\\generator\\codegenerator.c.obj"
 },
 {
   "directory": "C:/Users/andres/development/100-Dungeons/dungeon1/build",
-  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang.exe -IC:/Users/andres/development/100-Dungeons/dungeon1/include -O0 -g -Xclang -gcodeview -D_DEBUG -D_DLL -D_MT -Xclang --dependent-lib=msvcrtd -std=gnu23 -Wall -Wextra -pedantic -o CMakeFiles\\tests.dir\\src\\generator\\test_codegenerator.c.obj -c C:\\Users\\andres\\development\\100-Dungeons\\dungeon1\\src\\generator\\test_codegenerator.c",
+  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang.exe -IC:/Users/andres/development/100-Dungeons/dungeon1/include -IC:/Users/andres/development/100-Dungeons/dungeon1/lib/toml -O0 -g -Xclang -gcodeview -D_DEBUG -D_DLL -D_MT -Xclang --dependent-lib=msvcrtd -std=gnu23 -Wall -Wextra -pedantic -o CMakeFiles\\tests.dir\\src\\generator\\test_codegenerator.c.obj -c C:\\Users\\andres\\development\\100-Dungeons\\dungeon1\\src\\generator\\test_codegenerator.c",
   "file": "C:\\Users\\andres\\development\\100-Dungeons\\dungeon1\\src\\generator\\test_codegenerator.c",
   "output": "CMakeFiles\\tests.dir\\src\\generator\\test_codegenerator.c.obj"
 }
