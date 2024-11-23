@@ -18,7 +18,7 @@ if "!SOURCE_FILES!"=="" (
     exit /b 1
 )
 call "%~dp0build_component_serializer.bat" 
-"%OUTPUT_PATH%\componentserializer.exe"
+"%OUTPUT_PATH%\componentserializer.exe" "../../src/engine/components.toml" "../../engine"
 
 :: Compile the DLL with clang++, using all source files, include paths, and libraries
 clang++ -shared -std=c++17 -g -D_ITERATOR_DEBUG_LEVEL=0 -D_MT -D_DLL -DIMGUI_DEFINE_MATH_OPERATORS^

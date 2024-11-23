@@ -17,13 +17,7 @@ typedef struct struct_input {
   size_t field_count;
 } struct_input;
 
-// typedef struct structs
-// {
-// 	struct_input* array_structs;
-
-// } structs;
-
-int generate_code_from_buffers(const char *input, char *output, size_t size);
+int generate_code_from_buffers(const char *input, char *outputHeader,char *outputSource, size_t size);
 size_t generate_struct_data_structure(toml_table_t *conf, Arena *structs_arena,
                                       Arena *strings_arena,
                                       struct_input **structs);

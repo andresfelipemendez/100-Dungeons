@@ -12,7 +12,7 @@ static void error(const char *msg, const char *msg1) {
   exit(1);
 }
 
-int generate_code_from_buffers(const char *input, char *output, size_t size) {
+int generate_code_from_buffers(const char *input, char *outputHeader,char *outputSource, size_t size) {
   char errbuf[200];
   toml_table_t *conf = toml_parse((char *)input, errbuf, sizeof(errbuf));
   if (!conf) {
@@ -25,8 +25,8 @@ int generate_code_from_buffers(const char *input, char *output, size_t size) {
       conf, structs_arena, strings_arena, &structs);
 
   size_t offset = 0;
-  offset = gen_struct_definitions(structs, structs_count, output, offset, size);
-  offset = gen_struct_serializer(structs, structs_count, output, offset, size);
+  offset = gen_struct_definitions(structs, structs_count, outputHeader, offset, size);
+  offset = gen_struct_serializer(structs, structs_count, outputHeader, offset, size);
 
   arena_destroy(structs_arena);
   arena_destroy(strings_arena);
