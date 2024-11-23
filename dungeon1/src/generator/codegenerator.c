@@ -10,53 +10,58 @@ static void error(const char *msg, const char *msg1) {
   exit(1);
 }
 
-int open_struct(char *output, size_t size, int offset, const char *structName) {
-  return snprintf(output + offset, size - offset, "struct %s {\n", structName);
-}
-int close_struct(char *output, size_t size, int offset) {
-  return snprintf(output + offset, size - offset, "};\n");
-}
-int struct_field(char *output, size_t size, int offset, char *type,
-                 const char *name) {
-  return snprintf(output + offset, size - offset, "\t%s %s;\n", type, name);
-}
-
 int generate_code_from_buffers(const char *input, char *output, size_t size) {
   char errbuf[200];
   toml_table_t *conf = toml_parse((char *)input, errbuf, sizeof(errbuf));
   if (!conf) {
     error("cannot parse - ", errbuf);
   }
-
-  Arena *arena = arena_create(1024);
+  Arena *structs_arena = arena_create(1024);
   Arena *strings_arena = arena_create(1024);
+  struct_input *structs = NULL;
+  size_t structs_count = generate_struct_data_structure(
+      conf, structs_arena, strings_arena, &structs);
 
-  struct_input *structs =
-      (struct_input *)arena_alloc(arena, sizeof(struct_input));
+  size_t o = generate_struct_definitions(structs, structs_count, output, size);
+  arena_destroy(structs_arena);
+  arena_destroy(strings_arena);
+  return 0;
+}
 
-  if (!structs) {
-    error("Couldn't allocate memory for the structs array", NULL);
-  }
+size_t generate_struct_data_structure(toml_table_t *conf, Arena *structs_arena,
+                                      Arena *strings_arena,
+                                      struct_input **structs) {
+  // #define print_debug
 
   size_t structs_count = 0;
-
   for (int i = 0;; i++) {
     const char *structName = toml_key_in(conf, i);
     if (!structName)
       break;
-
+    structs_count++;
+  }
+  *structs = (struct_input *)arena_alloc(structs_arena,
+                                         sizeof(struct_input) * structs_count);
+  structs_count = 0;
+  for (int i = 0;; i++) {
+    const char *structName = toml_key_in(conf, i);
+    if (!structName)
+      break;
     toml_table_t *fields = toml_table_in(conf, structName);
-
     if (!fields)
       break;
 
     size_t struct_name_len = strlen(structName) + 1;
-
-    struct_input *current_struct = &structs[structs_count];
+    struct_input *current_struct = &(*structs)[structs_count];
     current_struct->name = (char *)arena_alloc(strings_arena, struct_name_len);
-
+    if (!current_struct->name) {
+      error("Couldn't allocate memory for struct name", structName);
+    }
     strcpy_s(current_struct->name, struct_name_len, structName);
     current_struct->name[struct_name_len - 1] = '\0';
+#ifdef print_debug
+    printf("copyed struct name: %s\n", current_struct->name);
+#endif
 
     size_t field_count = 0;
     for (int j = 0;; j++) {
@@ -65,8 +70,10 @@ int generate_code_from_buffers(const char *input, char *output, size_t size) {
         break;
       field_count++;
     }
-    // printf("allocating %zu fields\n", field_count);
-    current_struct->fields = (field *)arena_alloc(arena, field_count);
+#ifdef print_debug
+    printf("allocating %zu fields\n", field_count);
+#endif
+    current_struct->fields = (field *)arena_alloc(structs_arena, field_count);
     current_struct->field_count = 0;
     for (int j = 0;; j++) {
       const char *field_name = toml_key_in(fields, j);
@@ -82,7 +89,9 @@ int generate_code_from_buffers(const char *input, char *output, size_t size) {
       curren_field->name = (char *)arena_alloc(strings_arena, field_name_len);
       strcpy_s(curren_field->name, field_name_len, field_name);
       curren_field->name[struct_name_len - 1] = '\0';
-
+#ifdef print_debug
+      printf("copyed field name: %s\n", curren_field->name);
+#endif
       if (strcmp(field_type_name.u.s, "float") == 0) {
         current_struct->fields[current_struct->field_count].type = float_type;
       }
@@ -92,6 +101,15 @@ int generate_code_from_buffers(const char *input, char *output, size_t size) {
 
     structs_count++;
   }
+#ifdef print_debug
+  printf("structs count %zu\n", structs_count);
+#endif
+#undef print_debug
+  return structs_count;
+}
+
+size_t generate_struct_definitions(struct_input *structs, size_t structs_count,
+                                   char *output, size_t size) {
 
   size_t o = 0;
   for (size_t i = 0; i < structs_count; i++) {
@@ -112,6 +130,5 @@ int generate_code_from_buffers(const char *input, char *output, size_t size) {
     }
     o += snprintf(output + o, size - o, "};\n");
   }
-
-  return 0;
+  return o;
 }
