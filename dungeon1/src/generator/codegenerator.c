@@ -22,7 +22,10 @@ int generate_code_from_buffers(const char *input, char *output, size_t size) {
   size_t structs_count = generate_struct_data_structure(
       conf, structs_arena, strings_arena, &structs);
 
-  size_t o = generate_struct_definitions(structs, structs_count, output, size);
+  size_t offset = 0;
+  offset = gen_struct_definitions(structs, structs_count, output, offset, size);
+  offset = gen_struct_serializer(structs, structs_count, output, offset, size);
+
   arena_destroy(structs_arena);
   arena_destroy(strings_arena);
   return 0;
@@ -109,10 +112,8 @@ size_t generate_struct_data_structure(toml_table_t *conf, Arena *structs_arena,
   return structs_count;
 }
 
-size_t generate_struct_definitions(struct_input *structs, size_t structs_count,
-                                   char *output, size_t size) {
-
-  size_t o = 0;
+size_t gen_struct_definitions(struct_input *structs, size_t structs_count,
+                              char *output, size_t o, size_t size) {
   for (size_t i = 0; i < structs_count; i++) {
     o += snprintf(output + o, size - o, "struct %s {\n", structs[i].name);
     // printf("parsed struct: %s\n", structs[i].name);
@@ -130,6 +131,14 @@ size_t generate_struct_definitions(struct_input *structs, size_t structs_count,
                     structs[i].fields[j].name);
     }
     o += snprintf(output + o, size - o, "};\n");
+  }
+  return o;
+}
+
+size_t gen_struct_serializer(struct_input *structs, size_t structs_count,
+                             char *output, size_t o, size_t size) {
+  for (size_t i = 0; i < structs_count; i++) {
+    o += snprintf(output + o, size - o, "struct %s {\n", structs[i].name);
   }
   return o;
 }

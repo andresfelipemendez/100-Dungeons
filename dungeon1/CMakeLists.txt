@@ -176,6 +176,8 @@ target_link_libraries(
 		glad
 	)
 
+set(CMAKE_C_STANDARD 23)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c23")
 
 set(CODEGENERATOR_SRC_FILES
     src/generator/codegenerator.c

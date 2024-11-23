@@ -64,9 +64,9 @@ UTEST(code_generator, generates_correct_output_with_buffers) {
   struct_input structs[] = {
       {.name = "Position", .fields = fields, .field_count = 3}};
 
-  const size_t output_size = 1024;
+  constexpr size_t output_size = 1024;
   char output_buffer[output_size] = {0};
-  generate_struct_definitions(structs, 1, output_buffer, output_size);
+  gen_struct_definitions(structs, 1, output_buffer, 0, output_size);
 
   const char *expected_output = "struct Position {\n"
                                 "\tfloat x;\n"
