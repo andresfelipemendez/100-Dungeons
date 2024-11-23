@@ -57,15 +57,16 @@ UTEST(code_generator, structs) {
 }
 
 UTEST(code_generator, generates_correct_output_with_buffers) {
+  field fields[] = {{.name = "x", .type = float_type},
+                    {.name = "y", .type = float_type},
+                    {.name = "z", .type = float_type}};
 
-  const char *input_data = "[Position]\n"
-                           "x = 'float'\n"
-                           "y = 'float'\n"
-                           "z = 'float'\n";
+  struct_input structs[] = {
+      {.name = "Position", .fields = fields, .field_count = 3}};
 
-  char output_buffer[1024] = {0};
-
-  generate_code_from_buffers(input_data, output_buffer, sizeof(output_buffer));
+  const size_t output_size = 1024;
+  char output_buffer[output_size] = {0};
+  generate_struct_definitions(structs, 1, output_buffer, output_size);
 
   const char *expected_output = "struct Position {\n"
                                 "\tfloat x;\n"
