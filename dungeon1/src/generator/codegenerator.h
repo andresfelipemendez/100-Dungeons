@@ -22,13 +22,14 @@ int generate_code_from_buffers(const char *input, char *outputHeader,
 size_t generate_struct_data_structure(toml_table_t *conf, Arena *structs_arena,
                                       Arena *strings_arena,
                                       struct_input **structs);
-size_t gen_struct_definitions(struct_input *structs, size_t structs_count,
-                              char *output, size_t offset, size_t size);
+void gen_struct_definitions(struct_input *structs, size_t structs_count,
+                              char *output, size_t *offset, size_t size);
 
 size_t serializer_header(struct_input *structs, size_t structs_count,
                                    char *output, size_t offset, size_t size);
-
-size_t serializer_source(struct_input *structs, size_t structs_count,
-                             char *output, size_t offset, size_t size);
+void serializer_include(struct_input *structs, size_t structs_count,
+                                   char *output, size_t* offset, size_t size);
+void serializer_source(struct_input *structs, size_t structs_count,
+                             char *output, size_t* offset, size_t size);
 
 #endif // CODE_GENERATOR_H

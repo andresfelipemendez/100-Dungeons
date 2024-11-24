@@ -4,6 +4,8 @@
 
 #include <toml.h>
 
+#define output_size 1024
+
 UTEST(code_generator, two_structs) {
 
   const char *input_data = "[Position]\n"
@@ -64,9 +66,9 @@ UTEST(code_generator, generates_correct_output_with_buffers) {
   struct_input structs[] = {
       {.name = "Position", .fields = fields, .field_count = 3}};
 
-#define output_size 1024
   char output_buffer[output_size] = {0};
-  gen_struct_definitions(structs, 1, output_buffer, 0, output_size);
+  size_t o = 0;
+  gen_struct_definitions(structs, 1, output_buffer, &o, output_size);
 
   const char *expected_output = "struct Position {\n"
                                 "\tfloat x;\n"
@@ -84,9 +86,9 @@ UTEST(code_generator, serializer) {
   struct_input structs[] = {
       {.name = "Position", .fields = fields, .field_count = 3}};
 
-#define output_size 1024
   char output_buffer[output_size] = {0};
-  gen_struct_serializer(structs, 1, output_buffer, 0, output_size);
+  size_t o = 0;
+  serializer_source(structs, 1, output_buffer, &o, output_size);
 
   const char *expected_output =
       "if(mask & PositionComponent) {\n"
@@ -98,4 +100,14 @@ UTEST(code_generator, serializer) {
       "}\n";
   ASSERT_STREQ(expected_output, output_buffer);
 }
+
+UTEST(code_generator, serializer_include) {
+  char output_buffer[output_size] = {0};
+  size_t o = 0;
+  serializer_include(NULL, 0, output_buffer, &o, output_size);
+  printf("output: %s\n",output_buffer);
+  const char *expected_output = "#include \"components.gen.h\"\n";
+  ASSERT_STREQ(expected_output, output_buffer);
+}
+
 UTEST_MAIN()

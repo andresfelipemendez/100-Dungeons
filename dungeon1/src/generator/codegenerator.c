@@ -26,13 +26,14 @@ int generate_code_from_buffers(const char *input, char *outputHeader,
       conf, structs_arena, strings_arena, &structs);
 
   size_t header_offset = 0;
-
-  header_offset = gen_struct_definitions(structs, structs_count, outputHeader,
-                                         header_offset, size);
+ gen_struct_definitions(structs, structs_count, outputHeader,
+                                         &header_offset, size);
 
   size_t source_offset = 0;
-  source_offset = serializer_source(structs, structs_count, outputSource,
-                                    source_offset, size);
+  serializer_include(structs, structs_count, outputSource,
+                                    &source_offset, size);
+  serializer_source(structs, structs_count, outputSource,
+                                    &source_offset, size);
 
   arena_destroy(structs_arena);
   arena_destroy(strings_arena);
@@ -120,10 +121,10 @@ size_t generate_struct_data_structure(toml_table_t *conf, Arena *structs_arena,
   return structs_count;
 }
 
-#define APPEND(fmt, ...) o += snprintf(output + o, size - o, fmt, __VA_ARGS__)
+#define APPEND(fmt, ...) *o += snprintf(output + *o, size - *o, fmt, __VA_ARGS__)
 
-size_t gen_struct_definitions(struct_input *structs, size_t structs_count,
-                              char *output, size_t o, size_t size) {
+void gen_struct_definitions(struct_input *structs, size_t structs_count,
+                              char *output, size_t* o, size_t size) {
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("struct %s {\n", structs[i].name);
     for (size_t j = 0; j < structs[i].field_count; j++) {
@@ -139,11 +140,14 @@ size_t gen_struct_definitions(struct_input *structs, size_t structs_count,
     }
     APPEND("};\n");
   }
-  return o;
 }
 
-size_t serializer_source(struct_input *structs, size_t structs_count,
-                         char *output, size_t o, size_t size) {
+void serializer_include(struct_input *, size_t ,
+                         char *output, size_t* o, size_t size){
+  *o += snprintf(output + (*o), size-(*o),"#include \"components.gen.h\"\n");
+}
+void serializer_source(struct_input *structs, size_t structs_count,
+                         char *output, size_t* o, size_t size) {
 
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("if(mask & %sComponent) {\n", structs[i].name);
@@ -177,5 +181,6 @@ size_t serializer_source(struct_input *structs, size_t structs_count,
     }
     APPEND(");\n\t}\n}\n");
   }
-  return o;
 }
+
+
