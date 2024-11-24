@@ -12,8 +12,9 @@ static void error(const char *msg, const char *msg1) {
   exit(1);
 }
 
-int generate_code_from_buffers(const char *input, char *outputHeader,char *outputSource, size_t size) {
-  char errbuf[200]; 
+int generate_code_from_buffers(const char *input, char *outputHeader,
+                               char *outputSource, size_t size) {
+  char errbuf[200];
   toml_table_t *conf = toml_parse((char *)input, errbuf, sizeof(errbuf));
   if (!conf) {
     error("cannot parse - ", errbuf);
@@ -24,9 +25,14 @@ int generate_code_from_buffers(const char *input, char *outputHeader,char *outpu
   size_t structs_count = generate_struct_data_structure(
       conf, structs_arena, strings_arena, &structs);
 
-  size_t offset = 0;
-  offset = gen_struct_definitions(structs, structs_count, outputHeader, offset, size);
-  offset = gen_struct_serializer(structs, structs_count, outputHeader, offset, size);
+  size_t header_offset = 0;
+
+  header_offset = gen_struct_definitions(structs, structs_count, outputHeader,
+                                         header_offset, size);
+
+  size_t source_offset = 0;
+  source_offset = serializer_source(structs, structs_count, outputSource,
+                                    source_offset, size);
 
   arena_destroy(structs_arena);
   arena_destroy(strings_arena);
@@ -136,8 +142,8 @@ size_t gen_struct_definitions(struct_input *structs, size_t structs_count,
   return o;
 }
 
-size_t gen_struct_serializer(struct_input *structs, size_t structs_count,
-                             char *output, size_t o, size_t size) {
+size_t serializer_source(struct_input *structs, size_t structs_count,
+                         char *output, size_t o, size_t size) {
 
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("if(mask & %sComponent) {\n", structs[i].name);

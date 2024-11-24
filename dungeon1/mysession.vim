@@ -13,10 +13,12 @@ if &shortmess =~ 'A'
 else
   set shortmess=aoO
 endif
-badd +0 src/generator/codegenerator.h
+badd +17 src/generator/codegenerator.h
 badd +1 src/engine/components.toml
 badd +1 src/generator/test_codegenerator.c
-badd +1 src/generator/codegenerator.c
+badd +16 src/generator/codegenerator.c
+badd +0 build_engine.bat
+badd +60 src/generator/componentserializer.c
 argglobal
 %argdel
 edit src/engine/components.toml
@@ -66,34 +68,11 @@ keepjumps 1
 normal! 0
 wincmd w
 argglobal
-if bufexists(fnamemodify("src/generator/test_codegenerator.c", ":p")) | buffer src/generator/test_codegenerator.c | else | edit src/generator/test_codegenerator.c | endif
-if &buftype ==# 'terminal'
-  silent file src/generator/test_codegenerator.c
-endif
-balt src/generator/codegenerator.h
-setlocal fdm=manual
-setlocal fde=0
-setlocal fmr={{{,}}}
-setlocal fdi=#
-setlocal fdl=0
-setlocal fml=1
-setlocal fdn=20
-setlocal fen
-silent! normal! zE
-let &fdl = &fdl
-let s:l = 1 - ((0 * winheight(0) + 30) / 61)
-if s:l < 1 | let s:l = 1 | endif
-keepjumps exe s:l
-normal! zt
-keepjumps 1
-normal! 0
-wincmd w
-argglobal
 if bufexists(fnamemodify("src/generator/codegenerator.c", ":p")) | buffer src/generator/codegenerator.c | else | edit src/generator/codegenerator.c | endif
 if &buftype ==# 'terminal'
   silent file src/generator/codegenerator.c
 endif
-balt src/generator/codegenerator.h
+balt src/generator/test_codegenerator.c
 setlocal fdm=manual
 setlocal fde=0
 setlocal fmr={{{,}}}
@@ -104,17 +83,40 @@ setlocal fdn=20
 setlocal fen
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 1 - ((0 * winheight(0) + 30) / 61)
+let s:l = 33 - ((32 * winheight(0) + 30) / 61)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 1
-normal! 0
+keepjumps 33
+normal! 011|
 wincmd w
 argglobal
-if bufexists(fnamemodify("src/generator/codegenerator.h", ":p")) | buffer src/generator/codegenerator.h | else | edit src/generator/codegenerator.h | endif
+if bufexists(fnamemodify("src/generator/componentserializer.c", ":p")) | buffer src/generator/componentserializer.c | else | edit src/generator/componentserializer.c | endif
 if &buftype ==# 'terminal'
-  silent file src/generator/codegenerator.h
+  silent file src/generator/componentserializer.c
+endif
+balt src/generator/codegenerator.c
+setlocal fdm=manual
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal fen
+silent! normal! zE
+let &fdl = &fdl
+let s:l = 62 - ((35 * winheight(0) + 30) / 61)
+if s:l < 1 | let s:l = 1 | endif
+keepjumps exe s:l
+normal! zt
+keepjumps 62
+normal! 075|
+wincmd w
+argglobal
+if bufexists(fnamemodify("build_engine.bat", ":p")) | buffer build_engine.bat | else | edit build_engine.bat | endif
+if &buftype ==# 'terminal'
+  silent file build_engine.bat
 endif
 balt src/generator/codegenerator.h
 setlocal fdm=manual
@@ -127,14 +129,14 @@ setlocal fdn=20
 setlocal fen
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 1 - ((0 * winheight(0) + 30) / 61)
+let s:l = 32 - ((31 * winheight(0) + 30) / 61)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 1
+keepjumps 32
 normal! 0
 wincmd w
-4wincmd w
+3wincmd w
 exe 'vert 1resize ' . ((&columns * 85 + 171) / 342)
 exe 'vert 2resize ' . ((&columns * 85 + 171) / 342)
 exe 'vert 3resize ' . ((&columns * 84 + 171) / 342)

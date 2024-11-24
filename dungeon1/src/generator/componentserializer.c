@@ -1,7 +1,7 @@
 #include "codegenerator.h"
-#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 int main(int argc, char *argv[]) {
   if (argc != 3) {
@@ -55,25 +55,38 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
+  if (generate_code_from_buffers(fileContent, outputHeader, outputSource,
+                                 outputSize)) {
+    char outputSourceFilePath[1024];
+    snprintf(outputSourceFilePath, sizeof(outputSourceFilePath),
+             "%s\\componets.gen.cpp", outputDir);
 
-
-  if (generate_code_from_buffers(fileContent, outputHeader,outputSource, outputSize)) {
-    char outputFilePath[1024];
-    snprintf(outputFilePath, sizeof(outputFilePath), "%s\\generated_code.c",
-             outputDir);
-
-    FILE *outputFile = NULL;
-    if (fopen_s(&outputFile, outputFilePath, "w") != 0 || outputFile == NULL) {
-      perror("Failed to create output file");
+    FILE *outputSourceFile = NULL;
+    if (fopen_s(&outputSourceFile, outputSourceFilePath, "w") != 0 ||
+        outputSourceFile == NULL) {
+      perror("Failed to create output source file");
       free(fileContent);
       free(outputHeader);
       return EXIT_FAILURE;
     }
+    fwrite(outputSource, 1, strlen(outputSource), outputSourceFile);
+    fclose(outputSourceFile);
 
-    fwrite(outputHeader, 1, strlen(outputHeader), outputFile);
-    fclose(outputFile);
+    char outputHeaderFilePath[1024];
+    snprintf(outputHeaderFilePath, sizeof(outputHeaderFilePath),
+             "%s\\components.gen.h", outputDir);
+    FILE *outputHeaderFile = NULL;
+    if (fopen_s(&outputHeaderFile, outputHeaderFilePath, "w") != 0 ||
+        outputSourceFile == NULL) {
+      perror("Failed to create output source file");
+      free(fileContent);
+      free(outputHeader);
+      return EXIT_FAILURE;
+    }
+    fwrite(outputHeader, 1, strlen(outputHeader), outputHeaderFile);
+    fclose(outputHeaderFile);
 
-    printf("Code succesfully generated at: %s\n", outputFilePath);
+    printf("Code succesfully generated at: %s\n", outputSourceFilePath);
   } else {
     perror("error generating the serializer code");
   }

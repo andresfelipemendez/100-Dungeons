@@ -1,0 +1,3 @@
+struct Position {
+	float x;
+};
