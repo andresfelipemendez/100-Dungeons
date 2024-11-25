@@ -1,3 +1,4 @@
+@echo off
 cls
 call "%~dp0env_vars.bat" 
 

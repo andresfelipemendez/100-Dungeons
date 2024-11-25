@@ -26,14 +26,13 @@ int generate_code_from_buffers(const char *input, char *outputHeader,
       conf, structs_arena, strings_arena, &structs);
 
   size_t header_offset = 0;
- gen_struct_definitions(structs, structs_count, outputHeader,
-                                         &header_offset, size);
+  gen_struct_definitions(structs, structs_count, outputHeader, &header_offset,
+                         size);
 
   size_t source_offset = 0;
-  serializer_include(structs, structs_count, outputSource,
-                                    &source_offset, size);
-  serializer_source(structs, structs_count, outputSource,
-                                    &source_offset, size);
+  serializer_include(structs, structs_count, outputSource, &source_offset,
+                     size);
+  serializer_source(structs, structs_count, outputSource, &source_offset, size);
 
   arena_destroy(structs_arena);
   arena_destroy(strings_arena);
@@ -121,10 +120,21 @@ size_t generate_struct_data_structure(toml_table_t *conf, Arena *structs_arena,
   return structs_count;
 }
 
-#define APPEND(fmt, ...) *o += snprintf(output + *o, size - *o, fmt, __VA_ARGS__)
+#define APPEND(fmt, ...)                                                       \
+  *o += snprintf(output + *o, size - *o, fmt, __VA_ARGS__)
 
 void gen_struct_definitions(struct_input *structs, size_t structs_count,
-                              char *output, size_t* o, size_t size) {
+                            char *output, size_t *o, size_t size) {
+  for (size_t i = 0; i < structs_count; i++) {
+    APPEND("#define %sType\n", structs[i].name);
+  }
+  APPEND("\n");
+  APPEND("enum ComponentBitmask {\n");
+  for (size_t i = 0; i < structs_count; i++) {
+    APPEND("\t%sComponent = (1 << %zu),\n", structs[i].name, i);
+  }
+  APPEND("};\n");
+  APPEND("\n");
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("struct %s {\n", structs[i].name);
     for (size_t j = 0; j < structs[i].field_count; j++) {
@@ -138,19 +148,56 @@ void gen_struct_definitions(struct_input *structs, size_t structs_count,
       }
       APPEND("\t%s %s;\n", field_type_name, structs[i].fields[j].name);
     }
-    APPEND("};\n");
+    APPEND("};\n\n");
+  }
+
+  for (size_t i = 0; i < structs_count; i++) {
+    APPEND("bool add_component(struct MemoryHeader *h, size_t entity_id, %s "
+           "component);\n",
+           structs[i].name);
+  }
+  APPEND("\n");
+  for (size_t i = 0; i < structs_count; i++) {
+    APPEND("bool get_component(struct MemoryHeader *h, size_t entity_id, %s "
+           "*component);\n",
+           structs[i].name);
+  }
+  APPEND("\n");
+  for (size_t i = 0; i < structs_count; i++) {
+    APPEND("bool set_component(struct MemoryHeader *h, size_t entity_id, %s "
+           "*component);\n",
+           structs[i].name);
   }
 }
 
-void serializer_include(struct_input *, size_t ,
-                         char *output, size_t* o, size_t size){
-  *o += snprintf(output + (*o), size-(*o),"#include \"components.gen.h\"\n");
+void serializer_include(struct_input *, size_t, char *output, size_t *o,
+                        size_t size) {
+  APPEND("#include \"components.gen.h\"\n"
+         "#include \"ecs.h\"\n\n");
 }
+
 void serializer_source(struct_input *structs, size_t structs_count,
-                         char *output, size_t* o, size_t size) {
+                       char *output, size_t *o, size_t size) {
 
   for (size_t i = 0; i < structs_count; i++) {
-    APPEND("if(mask & %sComponent) {\n", structs[i].name);
+    // APPEND(
+  }
+
+  APPEND(
+      "void save_level(MemoryHeader *h, const char *saveFilePath) {\n"
+      "\tFILE *fp = fopen(saveFilePath, \"w\");\n"
+      "\tif (!fp) {\n"
+      "\t\tprintf(\"Failed to open file %%s for writing.\\n\", saveFilePath);\n"
+      "\t\treturn;\n"
+      "\t}\n"
+      "\n"
+      "\tWorld *w = &h->world;\n"
+      "\tfor (size_t i = 0; i < w->entity_count; ++i) {\n"
+      "\tsize_t entity_id = w->entity_ids[i];\n"
+      "\tuint32_t mask = w->component_masks[entity_id];\n");
+
+  for (size_t i = 0; i < structs_count; i++) {
+    APPEND("\tif(mask & %sComponent) {\n", structs[i].name);
     size_t name_len = strlen(structs[i].name) + 1;
     char lowerName[name_len];
     strcpy_s(lowerName, name_len, structs[i].name);
@@ -181,6 +228,10 @@ void serializer_source(struct_input *structs, size_t structs_count,
     }
     APPEND(");\n\t}\n}\n");
   }
+
+  APPEND("fprintf(fp, \"\\n\");\n"
+         "}\n"
+         "fclose(fp);\n"
+         "printf(\"World saved to %%s\\n\", saveFilePath);\n"
+         "}\n");
 }
-
-

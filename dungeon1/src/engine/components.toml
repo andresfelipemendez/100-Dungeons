@@ -1,2 +1,69 @@
 [Position]
 x = "float"
+y = "float"
+z = "float"
+
+[Rotation]
+x = "float"
+y = "float"
+z = "float"
+
+[Color]
+x = "float"
+y = "float"
+z = "float"
+
+[Camera]
+x = "float"
+y = "float"
+z = "float"
+
+[Model]
+x = "float"
+y = "float"
+z = "float"
+
+[Material]
+x = "float"
+y = "float"
+z = "float"
+
+[Input]
+x = "float"
+y = "float"
+z = "float"
+
+[Velocity]
+x = "float"
+y = "float"
+z = "float"
+
+[ForceAccumulator]
+x = "float"
+y = "float"
+z = "float"
+
+[RigidBody]
+x = "float"
+y = "float"
+z = "float"
+
+[Collider]
+x = "float"
+y = "float"
+z = "float"
+
+[Texture]
+x = "float"
+y = "float"
+z = "float"
+
+[Mass]
+x = "float"
+y = "float"
+z = "float"
+
+[Gravity]
+x = "float"
+y = "float"
+z = "float"
