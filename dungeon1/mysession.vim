@@ -13,15 +13,19 @@ if &shortmess =~ 'A'
 else
   set shortmess=aoO
 endif
-badd +17 src/generator/codegenerator.h
-badd +1 src/engine/components.toml
-badd +1 src/generator/test_codegenerator.c
-badd +16 src/generator/codegenerator.c
-badd +0 build_engine.bat
-badd +60 src/generator/componentserializer.c
+badd +35 src/generator/codegenerator.h
+badd +2 src/engine/components.toml
+badd +113 src/generator/test_codegenerator.c
+badd +168 src/generator/codegenerator.c
+badd +41 build_engine.bat
+badd +98 src/generator/componentserializer.c
+badd +2 build.c
+badd +31 build.h
+badd +24 ~/bin/connectsoundbar.bat
+badd +640 ~/AppData/Local/nvim/init.lua
 argglobal
 %argdel
-edit src/engine/components.toml
+edit build.h
 let s:save_splitbelow = &splitbelow
 let s:save_splitright = &splitright
 set splitbelow splitright
@@ -29,10 +33,7 @@ wincmd _ | wincmd |
 vsplit
 wincmd _ | wincmd |
 vsplit
-wincmd _ | wincmd |
-vsplit
-3wincmd h
-wincmd w
+2wincmd h
 wincmd w
 wincmd w
 let &splitbelow = s:save_splitbelow
@@ -44,12 +45,11 @@ set winminheight=0
 set winheight=1
 set winminwidth=0
 set winwidth=1
-exe 'vert 1resize ' . ((&columns * 85 + 171) / 342)
-exe 'vert 2resize ' . ((&columns * 85 + 171) / 342)
-exe 'vert 3resize ' . ((&columns * 84 + 171) / 342)
-exe 'vert 4resize ' . ((&columns * 85 + 171) / 342)
+exe 'vert 1resize ' . ((&columns * 159 + 240) / 480)
+exe 'vert 2resize ' . ((&columns * 160 + 240) / 480)
+exe 'vert 3resize ' . ((&columns * 159 + 240) / 480)
 argglobal
-balt src/generator/codegenerator.h
+balt build.c
 setlocal fdm=manual
 setlocal fde=0
 setlocal fmr={{{,}}}
@@ -60,87 +60,63 @@ setlocal fdn=20
 setlocal fen
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 1 - ((0 * winheight(0) + 30) / 61)
-if s:l < 1 | let s:l = 1 | endif
-keepjumps exe s:l
-normal! zt
-keepjumps 1
-normal! 0
-wincmd w
-argglobal
-if bufexists(fnamemodify("src/generator/codegenerator.c", ":p")) | buffer src/generator/codegenerator.c | else | edit src/generator/codegenerator.c | endif
-if &buftype ==# 'terminal'
-  silent file src/generator/codegenerator.c
-endif
-balt src/generator/test_codegenerator.c
-setlocal fdm=manual
-setlocal fde=0
-setlocal fmr={{{,}}}
-setlocal fdi=#
-setlocal fdl=0
-setlocal fml=1
-setlocal fdn=20
-setlocal fen
-silent! normal! zE
-let &fdl = &fdl
-let s:l = 33 - ((32 * winheight(0) + 30) / 61)
-if s:l < 1 | let s:l = 1 | endif
-keepjumps exe s:l
-normal! zt
-keepjumps 33
-normal! 011|
-wincmd w
-argglobal
-if bufexists(fnamemodify("src/generator/componentserializer.c", ":p")) | buffer src/generator/componentserializer.c | else | edit src/generator/componentserializer.c | endif
-if &buftype ==# 'terminal'
-  silent file src/generator/componentserializer.c
-endif
-balt src/generator/codegenerator.c
-setlocal fdm=manual
-setlocal fde=0
-setlocal fmr={{{,}}}
-setlocal fdi=#
-setlocal fdl=0
-setlocal fml=1
-setlocal fdn=20
-setlocal fen
-silent! normal! zE
-let &fdl = &fdl
-let s:l = 62 - ((35 * winheight(0) + 30) / 61)
-if s:l < 1 | let s:l = 1 | endif
-keepjumps exe s:l
-normal! zt
-keepjumps 62
-normal! 075|
-wincmd w
-argglobal
-if bufexists(fnamemodify("build_engine.bat", ":p")) | buffer build_engine.bat | else | edit build_engine.bat | endif
-if &buftype ==# 'terminal'
-  silent file build_engine.bat
-endif
-balt src/generator/codegenerator.h
-setlocal fdm=manual
-setlocal fde=0
-setlocal fmr={{{,}}}
-setlocal fdi=#
-setlocal fdl=0
-setlocal fml=1
-setlocal fdn=20
-setlocal fen
-silent! normal! zE
-let &fdl = &fdl
-let s:l = 32 - ((31 * winheight(0) + 30) / 61)
+let s:l = 32 - ((31 * winheight(0) + 38) / 76)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
 keepjumps 32
 normal! 0
 wincmd w
-3wincmd w
-exe 'vert 1resize ' . ((&columns * 85 + 171) / 342)
-exe 'vert 2resize ' . ((&columns * 85 + 171) / 342)
-exe 'vert 3resize ' . ((&columns * 84 + 171) / 342)
-exe 'vert 4resize ' . ((&columns * 85 + 171) / 342)
+argglobal
+if bufexists(fnamemodify("build.c", ":p")) | buffer build.c | else | edit build.c | endif
+if &buftype ==# 'terminal'
+  silent file build.c
+endif
+balt src/engine/components.toml
+setlocal fdm=manual
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal fen
+silent! normal! zE
+let &fdl = &fdl
+let s:l = 2 - ((1 * winheight(0) + 38) / 76)
+if s:l < 1 | let s:l = 1 | endif
+keepjumps exe s:l
+normal! zt
+keepjumps 2
+normal! 0
+wincmd w
+argglobal
+if bufexists(fnamemodify("~/AppData/Local/nvim/init.lua", ":p")) | buffer ~/AppData/Local/nvim/init.lua | else | edit ~/AppData/Local/nvim/init.lua | endif
+if &buftype ==# 'terminal'
+  silent file ~/AppData/Local/nvim/init.lua
+endif
+balt build_engine.bat
+setlocal fdm=manual
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal fen
+silent! normal! zE
+let &fdl = &fdl
+let s:l = 640 - ((24 * winheight(0) + 38) / 76)
+if s:l < 1 | let s:l = 1 | endif
+keepjumps exe s:l
+normal! zt
+keepjumps 640
+normal! 052|
+wincmd w
+2wincmd w
+exe 'vert 1resize ' . ((&columns * 159 + 240) / 480)
+exe 'vert 2resize ' . ((&columns * 160 + 240) / 480)
+exe 'vert 3resize ' . ((&columns * 159 + 240) / 480)
 tabnext 1
 if exists('s:wipebuf') && len(win_findbuf(s:wipebuf)) == 0 && getbufvar(s:wipebuf, '&buftype') isnot# 'terminal'
   silent exe 'bwipe ' . s:wipebuf
