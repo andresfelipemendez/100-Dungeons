@@ -197,6 +197,7 @@ void serializer_include(struct_input *, size_t, char *output, size_t *o,
                         size_t size) {
   APPEND("#include \"components.gen.h\"\n"
          "#include <toml.h>\n"
+         "#include \"memory.h\"\n"
          "#include \"ecs.h\"\n\n");
   APPEND("#ifdef _WIN32\n"
          "#define strcasecmp _stricmp\n"
@@ -271,6 +272,7 @@ void serializer_source(struct_input *structs, size_t structs_count,
            structs[i].name, structs[i].name, structs[i].name, structs[i].name,
            structs[i].name);
   }
+
   APPEND(
       "void ecs_load_level(game *g, const char *sceneFilePath) {\n"
       "\tFILE *fp;\n"
@@ -278,27 +280,81 @@ void serializer_source(struct_input *structs, size_t structs_count,
       "\n"
       "\tfopen_s(&fp,sceneFilePath, \"r\");\n"
       "\tif (!fp) {\n"
-      "\tstrerror_s(errbuf, sizeof(errbuf), errno);\n"
-      "\tprintf(\"Cannot open %%s - %%s\\n\", sceneFilePath, errbuf);\n"
-      "\treturn;\n"
+      "\t\tstrerror_s(errbuf, sizeof(errbuf), errno);\n"
+      "\t\tprintf(\"Cannot open %%s - %%s\\n\", sceneFilePath, errbuf);\n"
+      "\t\treturn;\n"
       "\t}\n"
       "\ttoml_table_t *level = toml_parse_file(fp, errbuf, sizeof(errbuf));\n"
       "\tfclose(fp);\n"
-      "}\n");
+      "\tWorld *w = get_world(g);\n"
+      "\tMemory *m = get_header(g);\n"
+      "\tfor (int i = 0;; i++) {\n"
+      "\t\tconst char *friendly_name = toml_key_in(level, i);\n"
+      "\t\tif (!friendly_name)\n"
+      "\t\t\tbreak;\n"
+      "\t\tsize_t entity = create_entity(w);\n"
+      "\t\tset_entity_name(w, entity, friendly_name);\n"
+      "\t\ttoml_table_t *attributes = toml_table_in(level, friendly_name);\n"
+      "\t\tif (!attributes)\n"
+      "\t\t\treturn;\n"
+      "\t\tfor (int j = 0;; j++) {\n"
+      "\t\t\tconst char *type_key = toml_key_in(attributes, j);\n"
+      "\t\t\tif (!type_key)\n"
+      "\t\t\t\tbreak;\n"
+      "\t\t\ttoml_table_t *nt = toml_table_in(attributes, type_key);\n"
+      "\t\t\tif (!nt)\n"
+      "\t\t\t\treturn;\n"
+      "\t\t\tswitch (mapStringToComponentType(type_key)) {\n");
 
-  APPEND(
-      "void save_level(Memory *m, const char *saveFilePath) {\n"
-      "\tFILE *fp;\n"
-      "\tfopen_s(&fp,saveFilePath, \"w\");\n"
-      "\tif (!fp) {\n"
-      "\t\tprintf(\"Failed to open file %%s for writing.\\n\", saveFilePath);\n"
-      "\t\treturn;\n"
-      "\t}\n"
-      "\n"
-      "\tWorld *w = &m->world;\n"
-      "\tfor (size_t i = 0; i < w->entity_count; ++i) {\n"
-      "\t\tsize_t entity_id = w->entity_ids[i];\n"
-      "\t\tuint32_t mask = w->component_masks[entity_id];\n");
+  // APPEND();
+  for (size_t i = 0; i < structs_count; i++) {
+    APPEND("\t\t\tcase %sType: {\n", structs[i].name);
+    APPEND("\t\t\t\t%s c {\n", structs[i].name);
+    for (size_t j = 0; j < structs[i].field_count; j++) {
+      char *separator = (j == structs[i].field_count - 1) ? "" : ",";
+      char *type_serializer;
+      switch (structs[i].fields[j].type) {
+      case float_type:
+
+        APPEND("\t\t\t\t\t .%s = static_cast<float>(toml_double_in(nt, "
+               "\"%s\").u.d),\n",
+               structs[i].fields[j].name, structs[i].fields[j].name);
+
+        break;
+      default:
+        type_serializer = "";
+        error("Unsupported field type: ", structs[i].fields[j].name);
+        break;
+      }
+    }
+    APPEND("\t\t\t\t};\n");
+    APPEND("\t\t\t\tadd_component(m,entity,c);\n"
+           "\t\t\t\tbreak;\n"
+           "\t\t\t}\n");
+  }
+  APPEND("\t\t\tcase UNKNOWN_TYPE: {\n"
+         "\t\t\t\tprintf(\"UNKNOWN_TYPE: %%s\\n\",type_key);\n"
+         "\t\t\t\tbreak;\n"
+         "\t\t\t}\n");
+
+  APPEND("\t\t\t}\n"
+         "\t\t}\n"
+         "\t}\n"
+         "}\n");
+
+  APPEND("void save_level(Memory *m, const char *saveFilePath) {\n"
+         "\tFILE *fp;\n"
+         "\tfopen_s(&fp,saveFilePath, \"w\");\n"
+         "\tif (!fp) {\n"
+         "\t\tprintf(\"Failed to open file %%s for writing.\\n\", "
+         "saveFilePath);\n"
+         "\t\treturn;\n"
+         "\t}\n"
+         "\n"
+         "\tWorld *w = &m->world;\n"
+         "\tfor (size_t i = 0; i < w->entity_count; ++i) {\n"
+         "\t\tsize_t entity_id = w->entity_ids[i];\n"
+         "\t\tuint32_t mask = w->component_masks[entity_id];\n");
 
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("\t\tif(mask & %sComponent) {\n", structs[i].name);

@@ -1,5 +1,6 @@
 #include "components.gen.h"
 #include <toml.h>
+#include "memory.h"
 #include "ecs.h"
 
 #ifdef _WIN32
@@ -524,12 +525,164 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 
 	fopen_s(&fp,sceneFilePath, "r");
 	if (!fp) {
-	strerror_s(errbuf, sizeof(errbuf), errno);
-	printf("Cannot open %s - %s\n", sceneFilePath, errbuf);
-	return;
+		strerror_s(errbuf, sizeof(errbuf), errno);
+		printf("Cannot open %s - %s\n", sceneFilePath, errbuf);
+		return;
 	}
 	toml_table_t *level = toml_parse_file(fp, errbuf, sizeof(errbuf));
 	fclose(fp);
+	World *w = get_world(g);
+	Memory *m = get_header(g);
+	for (int i = 0;; i++) {
+		const char *friendly_name = toml_key_in(level, i);
+		if (!friendly_name)
+			break;
+		size_t entity = create_entity(w);
+		set_entity_name(w, entity, friendly_name);
+		toml_table_t *attributes = toml_table_in(level, friendly_name);
+		if (!attributes)
+			return;
+		for (int j = 0;; j++) {
+			const char *type_key = toml_key_in(attributes, j);
+			if (!type_key)
+				break;
+			toml_table_t *nt = toml_table_in(attributes, type_key);
+			if (!nt)
+				return;
+			switch (mapStringToComponentType(type_key)) {
+			case PositionType: {
+				Position c {
+					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
+					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
+					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+				};
+				add_component(m,entity,c);
+				break;
+			}
+			case RotationType: {
+				Rotation c {
+					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
+					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
+					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+				};
+				add_component(m,entity,c);
+				break;
+			}
+			case ColorType: {
+				Color c {
+					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
+					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
+					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+				};
+				add_component(m,entity,c);
+				break;
+			}
+			case CameraType: {
+				Camera c {
+					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
+					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
+					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+				};
+				add_component(m,entity,c);
+				break;
+			}
+			case ModelType: {
+				Model c {
+					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
+					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
+					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+				};
+				add_component(m,entity,c);
+				break;
+			}
+			case MaterialType: {
+				Material c {
+					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
+					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
+					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+				};
+				add_component(m,entity,c);
+				break;
+			}
+			case InputType: {
+				Input c {
+					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
+					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
+					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+				};
+				add_component(m,entity,c);
+				break;
+			}
+			case VelocityType: {
+				Velocity c {
+					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
+					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
+					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+				};
+				add_component(m,entity,c);
+				break;
+			}
+			case ForceAccumulatorType: {
+				ForceAccumulator c {
+					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
+					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
+					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+				};
+				add_component(m,entity,c);
+				break;
+			}
+			case RigidBodyType: {
+				RigidBody c {
+					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
+					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
+					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+				};
+				add_component(m,entity,c);
+				break;
+			}
+			case ColliderType: {
+				Collider c {
+					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
+					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
+					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+				};
+				add_component(m,entity,c);
+				break;
+			}
+			case TextureType: {
+				Texture c {
+					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
+					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
+					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+				};
+				add_component(m,entity,c);
+				break;
+			}
+			case MassType: {
+				Mass c {
+					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
+					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
+					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+				};
+				add_component(m,entity,c);
+				break;
+			}
+			case GravityType: {
+				Gravity c {
+					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
+					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
+					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+				};
+				add_component(m,entity,c);
+				break;
+			}
+			case UNKNOWN_TYPE: {
+				printf("UNKNOWN_TYPE: %s\n",type_key);
+				break;
+			}
+			}
+		}
+	}
 }
 void save_level(Memory *m, const char *saveFilePath) {
 	FILE *fp;
