@@ -9,25 +9,10 @@
 
 #define ENTITY_NAME_LENGTH 16
 
-enum SubkeyType {
-#define X(name) name##Type,
-  SUBKEY_TYPES
-#undef X
-      UNKNOWN_TYPE
-};
-
-SubkeyType mapStringToSubkeyType(const char *type_key);
-
-#define EXPAND_AS_ENUM(name, index) name##Component = (1 << index),
+mapStringToSubkeyType(const char *type_key);
 
 extern const char *component_names[];
 extern size_t component_count;
-
-enum ComponentBitmask {
-#define X(name) EXPAND_AS_ENUM(name, __COUNTER__)
-  SUBKEY_TYPES
-#undef X
-};
 
 struct Gravity {
   float value;
@@ -172,47 +157,20 @@ struct ECSQuery {
   size_t *entities;
 };
 
-#define DEFINE_COMPONENT_STRUCT(name)                                          \
-  typedef struct name##s {                                                     \
-    size_t count;                                                              \
-    size_t *entity_ids;                                                        \
-    name *components;                                                          \
-  } name##s;
-
-#define X(name) DEFINE_COMPONENT_STRUCT(name)
-SUBKEY_TYPES
-#undef X
-
-#undef DEFINE_COMPONENT_STRUCT
-
-#define MEMORY_HEADER_COMPONENT(name) name##s *p##name##s;
-
-struct MemoryHeader {
-#define X(name) MEMORY_HEADER_COMPONENT(name)
-  SUBKEY_TYPES
-#undef X
-  Shaders *shaders;
-  ECSQuery query;
-  World world;
-  size_t total_size;
-};
-
-#undef MEMORY_HEADER_COMPONENT
-
 void ecs_load_level(struct game *g, const char *saveFilePath);
-void save_level(MemoryHeader *h, const char *saveFilePath);
+void save_level(struct MemoryHeader *h, const char *saveFilePath);
 
 size_t create_entity(World *w);
 
-bool get_entity(MemoryHeader *h, uint32_t component_mask,
+bool get_entity(struct MemoryHeader *h, uint32_t component_mask,
                 size_t &out_entity_id);
 
-bool get_entities(MemoryHeader *h, uint32_t component_mask);
+bool get_entities(struct MemoryHeader *h, uint32_t component_mask);
 
 void set_entity_name(World *w, size_t entity, const char *friendly_name);
 
-bool check_entity_component(MemoryHeader *h, size_t entity,
+bool check_entity_component(struct MemoryHeader *h, size_t entity,
                             uint32_t component_mask);
 bool get_entity_name(World *w, size_t entity, char *name);
 
-bool add_shader(MemoryHeader *h, char *name, GLuint programID);
+bool add_shader(struct MemoryHeader *h, char *name, GLuint programID);

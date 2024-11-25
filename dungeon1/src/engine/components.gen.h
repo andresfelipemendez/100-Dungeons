@@ -114,6 +114,107 @@ struct Gravity {
 	float z;
 };
 
+typedef struct Positions {
+	size_t count;
+	size_t *entity_ids;
+	Position *components;
+} Positions;
+
+typedef struct Rotations {
+	size_t count;
+	size_t *entity_ids;
+	Rotation *components;
+} Rotations;
+
+typedef struct Colors {
+	size_t count;
+	size_t *entity_ids;
+	Color *components;
+} Colors;
+
+typedef struct Cameras {
+	size_t count;
+	size_t *entity_ids;
+	Camera *components;
+} Cameras;
+
+typedef struct Models {
+	size_t count;
+	size_t *entity_ids;
+	Model *components;
+} Models;
+
+typedef struct Materials {
+	size_t count;
+	size_t *entity_ids;
+	Material *components;
+} Materials;
+
+typedef struct Inputs {
+	size_t count;
+	size_t *entity_ids;
+	Input *components;
+} Inputs;
+
+typedef struct Velocitys {
+	size_t count;
+	size_t *entity_ids;
+	Velocity *components;
+} Velocitys;
+
+typedef struct ForceAccumulators {
+	size_t count;
+	size_t *entity_ids;
+	ForceAccumulator *components;
+} ForceAccumulators;
+
+typedef struct RigidBodys {
+	size_t count;
+	size_t *entity_ids;
+	RigidBody *components;
+} RigidBodys;
+
+typedef struct Colliders {
+	size_t count;
+	size_t *entity_ids;
+	Collider *components;
+} Colliders;
+
+typedef struct Textures {
+	size_t count;
+	size_t *entity_ids;
+	Texture *components;
+} Textures;
+
+typedef struct Masss {
+	size_t count;
+	size_t *entity_ids;
+	Mass *components;
+} Masss;
+
+typedef struct Gravitys {
+	size_t count;
+	size_t *entity_ids;
+	Gravity *components;
+} Gravitys;
+
+struct MemoryHeader {
+	Positions *pPositions;
+	Rotations *pRotations;
+	Colors *pColors;
+	Cameras *pCameras;
+	Models *pModels;
+	Materials *pMaterials;
+	Inputs *pInputs;
+	Velocitys *pVelocitys;
+	ForceAccumulators *pForceAccumulators;
+	RigidBodys *pRigidBodys;
+	Colliders *pColliders;
+	Textures *pTextures;
+	Masss *pMasss;
+	Gravitys *pGravitys;
+};
+
 bool add_component(struct MemoryHeader *h, size_t entity_id, Position component);
 bool add_component(struct MemoryHeader *h, size_t entity_id, Rotation component);
 bool add_component(struct MemoryHeader *h, size_t entity_id, Color component);

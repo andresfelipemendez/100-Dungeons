@@ -55,46 +55,6 @@ SUBKEY_TYPES
 
 #undef DEFINE_ADD_COMPONENT_FUNCTION
 
-#define DEFINE_GET_COMPONENT_FUNCTION(name)                                    \
-	bool get_component(MemoryHeader *h, size_t entity_id, name *component) {   \
-		if (!check_entity_component(h, entity_id, name##Component)) {          \
-			return false;                                                      \
-		}                                                                      \
-		for (size_t i = 0; i < h->p##name##s->count; i++) {                    \
-			if (h->p##name##s->entity_ids[i] == entity_id) {                   \
-				*component = h->p##name##s->components[i];                     \
-				return true;                                                   \
-			}                                                                  \
-		}                                                                      \
-		return false;                                                          \
-	}
-
-#define X(name) DEFINE_GET_COMPONENT_FUNCTION(name)
-SUBKEY_TYPES
-#undef X
-
-#undef DEFINE_GET_COMPONENT_FUNCTION
-
-#define DEFINE_SET_COMPONENT_FUNCTION(name)                                    \
-	bool set_component(MemoryHeader *h, size_t entity_id, name component) {    \
-		if (!check_entity_component(h, entity_id, name##Component)) {          \
-			return false;                                                      \
-		}                                                                      \
-		for (size_t i = 0; i < h->p##name##s->count; i++) {                    \
-			if (h->p##name##s->entity_ids[i] == entity_id) {                   \
-				h->p##name##s->components[i] = component;                      \
-				return true;                                                   \
-			}                                                                  \
-		}                                                                      \
-		return false;                                                          \
-	}
-
-#define X(name) DEFINE_SET_COMPONENT_FUNCTION(name)
-SUBKEY_TYPES
-#undef X
-
-#undef DEFINE_SET_COMPONENT_FUNCTION
-
 bool get_entity_name(World *w, size_t entity, char *name) {
 	for (size_t i = 0; i < w->entity_count; ++i) {
 		if (w->entity_ids[i] == entity) {
@@ -402,61 +362,4 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 	}
 
 	toml_free(level);
-}
-
-void save_level(MemoryHeader *h, const char *saveFilePath) {
-	FILE *fp = fopen(saveFilePath, "w");
-	if (!fp) {
-		printf("Failed to open file %s for writing.\n", saveFilePath);
-		return;
-	}
-
-	World *w = &h->world;
-
-	for (size_t i = 0; i < w->entity_count; ++i) {
-		size_t entity_id = w->entity_ids[i];
-		uint32_t mask = w->component_masks[entity_id];
-
-		fprintf(fp, "[%s]\n", w->entity_names[entity_id]);
-
-		if (mask & CameraComponent) {
-			Camera c;
-			if (get_component(h, entity_id, &c)) {
-				fprintf(fp,
-						"camera = { fov = %.2f, near = %.2f, far = %.2f }\n",
-						c.fov, c.near, c.far);
-			}
-		}
-
-		if (mask & PositionComponent) {
-			Position position;
-			if (get_component(h, entity_id, &position)) {
-				fprintf(fp, "position = { x = %.2f, y = %.2f, z = %.2f }\n",
-						position.x, position.y, position.z);
-			}
-		}
-
-		if (mask & RotationComponent) {
-			Rotation rotation;
-			if (get_component(h, entity_id, &rotation)) {
-				// quat to euler
-				// fprintf(
-				// 	fp,
-				// 	"rotation = { pitch = %.2f, yaw = %.2f, roll = %.2f	}\n ",
-				// 	rotation.pitch, rotation.yaw, rotation.roll);
-			}
-		}
-
-		if (mask & ModelComponent) {
-			Model m;
-			if (get_component(h, entity_id, &m)) {
-				fprintf(fp, "model = { %s	}\n ", "not sure yet");
-			}
-		}
-
-		fprintf(fp, "\n");
-	}
-
-	fclose(fp);
-	printf("World saved to %s\n", saveFilePath);
 }

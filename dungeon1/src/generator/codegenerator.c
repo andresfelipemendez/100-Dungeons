@@ -152,6 +152,27 @@ void gen_struct_definitions(struct_input *structs, size_t structs_count,
   }
 
   for (size_t i = 0; i < structs_count; i++) {
+    APPEND("typedef struct %ss {\n"
+           "\tsize_t count;\n"
+           "\tsize_t *entity_ids;\n"
+           "\t%s *components;\n"
+           "} %ss;\n\n",
+           structs[i].name,structs[i].name,structs[i].name);
+  }
+
+  APPEND("struct MemoryHeader {\n");
+  for (size_t i = 0; i < structs_count; i++) {
+    APPEND("\t%ss *p%ss;\n", structs[i].name,structs[i].name);
+  }
+  APPEND("};\n\n");
+/*
+\tShaders *shaders;\n"
+  "\tECSQuery query;\n"
+  "\tWorld world;\n"
+  "\tsize_t total_size;\n"
+  */
+
+  for (size_t i = 0; i < structs_count; i++) {
     APPEND("bool add_component(struct MemoryHeader *h, size_t entity_id, %s "
            "component);\n",
            structs[i].name);
@@ -180,7 +201,35 @@ void serializer_source(struct_input *structs, size_t structs_count,
                        char *output, size_t *o, size_t size) {
 
   for (size_t i = 0; i < structs_count; i++) {
-    // APPEND(
+     APPEND(
+    "bool get_component(MemoryHeader *h, size_t entity_id, %s *component) {\n"
+    "\tif (!check_entity_component(h, entity_id, %sComponent)) {\n"
+    "\t\treturn false\n"
+    "\t}\n"
+    "\tfor (size_t i = 0; i < h->p%ss->count; i++) {\n"
+    "\t\tif (h->p%ss->entity_ids[i] == entity_id) {\n"
+    "\t\t\t*component = h->p%ss->components[i];\n"
+    "\t\t\treturn true;\n"
+    "\t\t}\n"
+    "\t}\n"
+    "\treturn false;\n"
+    "}\n\n", structs[i].name, structs[i].name, structs[i].name, structs[i].name, structs[i].name);
+  }
+
+  for (size_t i = 0; i < structs_count; i++) {
+     APPEND(
+    "bool set_component(MemoryHeader *h, size_t entity_id, %s component) {\n"
+    "\tif (!check_entity_component(h, entity_id, %sComponent)) {\n"
+    "\t\treturn false\n"
+    "\t}\n"
+    "\tfor (size_t i = 0; i < h->p%ss->count; i++) {\n"
+    "\t\tif (h->p%ss->entity_ids[i] == entity_id) {\n"
+    "\t\t\th->p%ss->components[i] = component;\n"
+    "\t\t\treturn true;\n"
+    "\t\t}\n"
+    "\t}\n"
+    "\treturn false;\n"
+    "}\n\n", structs[i].name, structs[i].name, structs[i].name, structs[i].name, structs[i].name);
   }
 
   APPEND(
@@ -202,9 +251,9 @@ void serializer_source(struct_input *structs, size_t structs_count,
     char lowerName[name_len];
     strcpy_s(lowerName, name_len, structs[i].name);
     lowerName[0] = tolower(lowerName[0]);
-    APPEND("\t%s %s;\n", structs[i].name, lowerName);
-    APPEND("\tif (get_component(h, entity_id, &%s)) {\n", lowerName);
-    APPEND("\t\tfprintf(fp,\"%s = { ", lowerName);
+    APPEND("\t\t%s %s;\n", structs[i].name, lowerName);
+    APPEND("\t\tif (get_component(h, entity_id, &%s)) {\n", lowerName);
+    APPEND("\t\t\tfprintf(fp,\"%s = { ", lowerName);
     for (size_t j = 0; j < structs[i].field_count; j++) {
       char *separator = (j == structs[i].field_count - 1) ? "" : ",";
       char *type_serializer;
@@ -226,12 +275,12 @@ void serializer_source(struct_input *structs, size_t structs_count,
 
       APPEND(" %s.%s%s", lowerName, structs[i].fields[j].name, separator);
     }
-    APPEND(");\n\t}\n}\n");
+    APPEND(");\n\t\t}\n\t}\n");
   }
 
-  APPEND("fprintf(fp, \"\\n\");\n"
-         "}\n"
-         "fclose(fp);\n"
-         "printf(\"World saved to %%s\\n\", saveFilePath);\n"
+  APPEND("\tfprintf(fp, \"\\n\");\n"
+         "\t}\n"
+         "\tfclose(fp);\n"
+         "\tprintf(\"World saved to %%s\\n\", saveFilePath);\n"
          "}\n");
 }
