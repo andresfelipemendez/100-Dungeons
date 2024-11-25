@@ -125,15 +125,21 @@ size_t generate_struct_data_structure(toml_table_t *conf, Arena *structs_arena,
 
 void gen_struct_definitions(struct_input *structs, size_t structs_count,
                             char *output, size_t *o, size_t size) {
+  APPEND("enum ComponentType {\n");
   for (size_t i = 0; i < structs_count; i++) {
-    APPEND("#define %sType\n", structs[i].name);
+    APPEND("\t%sType,\n", structs[i].name);
   }
-  APPEND("\n");
+  APPEND("\tUNKNOWN_TYPE\n"
+         "};\n\n");
+
   APPEND("enum ComponentBitmask {\n");
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("\t%sComponent = (1 << %zu),\n", structs[i].name, i);
   }
   APPEND("};\n");
+  APPEND("\n");
+  APPEND("extern const char *component_names[];\n"
+         "extern size_t component_count;\n");
   APPEND("\n");
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("struct %s {\n", structs[i].name);
@@ -157,35 +163,31 @@ void gen_struct_definitions(struct_input *structs, size_t structs_count,
            "\tsize_t *entity_ids;\n"
            "\t%s *components;\n"
            "} %ss;\n\n",
-           structs[i].name,structs[i].name,structs[i].name);
+           structs[i].name, structs[i].name, structs[i].name);
   }
 
-  APPEND("struct MemoryHeader {\n");
+  APPEND("struct Components {\n");
   for (size_t i = 0; i < structs_count; i++) {
-    APPEND("\t%ss *p%ss;\n", structs[i].name,structs[i].name);
+    APPEND("\t%ss *p%ss;\n", structs[i].name, structs[i].name);
   }
   APPEND("};\n\n");
-/*
-\tShaders *shaders;\n"
-  "\tECSQuery query;\n"
-  "\tWorld world;\n"
-  "\tsize_t total_size;\n"
-  */
+
+  APPEND("ComponentType mapStringToComponentType(const char * type_key);\n");
 
   for (size_t i = 0; i < structs_count; i++) {
-    APPEND("bool add_component(struct MemoryHeader *h, size_t entity_id, %s "
+    APPEND("bool add_component(Components *h, size_t entity_id, %s "
            "component);\n",
            structs[i].name);
   }
   APPEND("\n");
   for (size_t i = 0; i < structs_count; i++) {
-    APPEND("bool get_component(struct MemoryHeader *h, size_t entity_id, %s "
+    APPEND("bool get_component(Components *h, size_t entity_id, %s "
            "*component);\n",
            structs[i].name);
   }
   APPEND("\n");
   for (size_t i = 0; i < structs_count; i++) {
-    APPEND("bool set_component(struct MemoryHeader *h, size_t entity_id, %s "
+    APPEND("bool set_component(Components *h, size_t entity_id, %s "
            "*component);\n",
            structs[i].name);
   }
@@ -194,66 +196,119 @@ void gen_struct_definitions(struct_input *structs, size_t structs_count,
 void serializer_include(struct_input *, size_t, char *output, size_t *o,
                         size_t size) {
   APPEND("#include \"components.gen.h\"\n"
+         "#include <toml.h>\n"
          "#include \"ecs.h\"\n\n");
+  APPEND("#ifdef _WIN32\n"
+         "#define strcasecmp _stricmp\n"
+         "#endif\n\n");
 }
 
 void serializer_source(struct_input *structs, size_t structs_count,
                        char *output, size_t *o, size_t size) {
 
+  APPEND("extern size_t component_count;\n"
+         "size_t component_count = %zu;\n\n",
+         structs_count);
+
+  APPEND("const char *component_names[] = {\n");
   for (size_t i = 0; i < structs_count; i++) {
-     APPEND(
-    "bool get_component(MemoryHeader *h, size_t entity_id, %s *component) {\n"
-    "\tif (!check_entity_component(h, entity_id, %sComponent)) {\n"
-    "\t\treturn false\n"
-    "\t}\n"
-    "\tfor (size_t i = 0; i < h->p%ss->count; i++) {\n"
-    "\t\tif (h->p%ss->entity_ids[i] == entity_id) {\n"
-    "\t\t\t*component = h->p%ss->components[i];\n"
-    "\t\t\treturn true;\n"
-    "\t\t}\n"
-    "\t}\n"
-    "\treturn false;\n"
-    "}\n\n", structs[i].name, structs[i].name, structs[i].name, structs[i].name, structs[i].name);
+    APPEND("\t\"%s\",\n", structs[i].name);
+  }
+  APPEND("};\n\n");
+
+  APPEND("ComponentType mapStringToComponentType(const char * type_key){\n");
+  for (size_t i = 0; i < structs_count; i++) {
+    APPEND("\tif(strcasecmp(type_key, \"%s\") == 0) return %sType;\n",
+           structs[i].name, structs[i].name);
+  }
+  APPEND("}\n");
+
+  for (size_t i = 0; i < structs_count; i++) {
+    APPEND("bool add_component(Memory *m, size_t entity_id, %s "
+           "component) {\n"
+           "\tsize_t i = m->components->p%ss->count;\n"
+           "\tm->components->p%ss->entity_ids[i] = entity_id;\n"
+           "\tm->components->p%ss->components[i] = component;\n"
+           "\tm->components->p%ss->count++;\n"
+           "\tm->world.component_masks[entity_id] |= %sComponent;\n"
+           "}\n\n",
+           structs[i].name, structs[i].name, structs[i].name, structs[i].name,
+           structs[i].name, structs[i].name);
   }
 
   for (size_t i = 0; i < structs_count; i++) {
-     APPEND(
-    "bool set_component(MemoryHeader *h, size_t entity_id, %s component) {\n"
-    "\tif (!check_entity_component(h, entity_id, %sComponent)) {\n"
-    "\t\treturn false\n"
-    "\t}\n"
-    "\tfor (size_t i = 0; i < h->p%ss->count; i++) {\n"
-    "\t\tif (h->p%ss->entity_ids[i] == entity_id) {\n"
-    "\t\t\th->p%ss->components[i] = component;\n"
-    "\t\t\treturn true;\n"
-    "\t\t}\n"
-    "\t}\n"
-    "\treturn false;\n"
-    "}\n\n", structs[i].name, structs[i].name, structs[i].name, structs[i].name, structs[i].name);
+    APPEND("bool get_component(Memory *m, size_t entity_id, %s "
+           "*component) {\n"
+           "\tif (!check_entity_component(m, entity_id, %sComponent)) {\n"
+           "\t\treturn false;\n"
+           "\t}\n"
+           "\tfor (size_t i = 0; i < m->components->p%ss->count; i++) {\n"
+           "\t\tif (m->components->p%ss->entity_ids[i] == entity_id) {\n"
+           "\t\t\t*component = m->components->p%ss->components[i];\n"
+           "\t\t\treturn true;\n"
+           "\t\t}\n"
+           "\t}\n"
+           "\treturn false;\n"
+           "}\n\n",
+           structs[i].name, structs[i].name, structs[i].name, structs[i].name,
+           structs[i].name);
   }
+
+  for (size_t i = 0; i < structs_count; i++) {
+    APPEND("bool set_component(Memory *m, size_t entity_id, %s "
+           "component) {\n"
+           "\tif (!check_entity_component(m, entity_id, %sComponent)) {\n"
+           "\t\treturn false;\n"
+           "\t}\n"
+           "\tfor (size_t i = 0; i < m->components->p%ss->count; i++) {\n"
+           "\t\tif (m->components->p%ss->entity_ids[i] == entity_id) {\n"
+           "\t\t\tm->components->p%ss->components[i] = component;\n"
+           "\t\t\treturn true;\n"
+           "\t\t}\n"
+           "\t}\n"
+           "\treturn false;\n"
+           "}\n\n",
+           structs[i].name, structs[i].name, structs[i].name, structs[i].name,
+           structs[i].name);
+  }
+  APPEND(
+      "void ecs_load_level(game *g, const char *sceneFilePath) {\n"
+      "\tFILE *fp;\n"
+      "\tchar errbuf[200];\n"
+      "\n"
+      "\tfopen_s(&fp,sceneFilePath, \"r\");\n"
+      "\tif (!fp) {\n"
+      "\tstrerror_s(errbuf, sizeof(errbuf), errno);\n"
+      "\tprintf(\"Cannot open %%s - %%s\\n\", sceneFilePath, errbuf);\n"
+      "\treturn;\n"
+      "\t}\n"
+      "\ttoml_table_t *level = toml_parse_file(fp, errbuf, sizeof(errbuf));\n"
+      "\tfclose(fp);\n"
+      "}\n");
 
   APPEND(
-      "void save_level(MemoryHeader *h, const char *saveFilePath) {\n"
-      "\tFILE *fp = fopen(saveFilePath, \"w\");\n"
+      "void save_level(Memory *m, const char *saveFilePath) {\n"
+      "\tFILE *fp;\n"
+      "\tfopen_s(&fp,saveFilePath, \"w\");\n"
       "\tif (!fp) {\n"
       "\t\tprintf(\"Failed to open file %%s for writing.\\n\", saveFilePath);\n"
       "\t\treturn;\n"
       "\t}\n"
       "\n"
-      "\tWorld *w = &h->world;\n"
+      "\tWorld *w = &m->world;\n"
       "\tfor (size_t i = 0; i < w->entity_count; ++i) {\n"
-      "\tsize_t entity_id = w->entity_ids[i];\n"
-      "\tuint32_t mask = w->component_masks[entity_id];\n");
+      "\t\tsize_t entity_id = w->entity_ids[i];\n"
+      "\t\tuint32_t mask = w->component_masks[entity_id];\n");
 
   for (size_t i = 0; i < structs_count; i++) {
-    APPEND("\tif(mask & %sComponent) {\n", structs[i].name);
+    APPEND("\t\tif(mask & %sComponent) {\n", structs[i].name);
     size_t name_len = strlen(structs[i].name) + 1;
     char lowerName[name_len];
     strcpy_s(lowerName, name_len, structs[i].name);
     lowerName[0] = tolower(lowerName[0]);
-    APPEND("\t\t%s %s;\n", structs[i].name, lowerName);
-    APPEND("\t\tif (get_component(h, entity_id, &%s)) {\n", lowerName);
-    APPEND("\t\t\tfprintf(fp,\"%s = { ", lowerName);
+    APPEND("\t\t\t%s %s;\n", structs[i].name, lowerName);
+    APPEND("\t\t\tif (get_component(m, entity_id, &%s)) {\n", lowerName);
+    APPEND("\t\t\t\tfprintf(fp,\"%s = { ", lowerName);
     for (size_t j = 0; j < structs[i].field_count; j++) {
       char *separator = (j == structs[i].field_count - 1) ? "" : ",";
       char *type_serializer;
@@ -275,11 +330,15 @@ void serializer_source(struct_input *structs, size_t structs_count,
 
       APPEND(" %s.%s%s", lowerName, structs[i].fields[j].name, separator);
     }
-    APPEND(");\n\t\t}\n\t}\n");
+    APPEND(");\n"
+           "\t\t\t}\n"
+           //"\t\t}\n"
+           "\t\t}\n");
   }
 
-  APPEND("\tfprintf(fp, \"\\n\");\n"
+  APPEND("\t\tfprintf(fp, \"\\n\");\n"
          "\t}\n"
+         //"\tfwrite(fp);\n"
          "\tfclose(fp);\n"
          "\tprintf(\"World saved to %%s\\n\", saveFilePath);\n"
          "}\n");

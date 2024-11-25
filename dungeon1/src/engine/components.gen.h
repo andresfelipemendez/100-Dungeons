@@ -1,17 +1,20 @@
-#define PositionType
-#define RotationType
-#define ColorType
-#define CameraType
-#define ModelType
-#define MaterialType
-#define InputType
-#define VelocityType
-#define ForceAccumulatorType
-#define RigidBodyType
-#define ColliderType
-#define TextureType
-#define MassType
-#define GravityType
+enum ComponentType {
+	PositionType,
+	RotationType,
+	ColorType,
+	CameraType,
+	ModelType,
+	MaterialType,
+	InputType,
+	VelocityType,
+	ForceAccumulatorType,
+	RigidBodyType,
+	ColliderType,
+	TextureType,
+	MassType,
+	GravityType,
+	UNKNOWN_TYPE
+};
 
 enum ComponentBitmask {
 	PositionComponent = (1 << 0),
@@ -29,6 +32,9 @@ enum ComponentBitmask {
 	MassComponent = (1 << 12),
 	GravityComponent = (1 << 13),
 };
+
+extern const char *component_names[];
+extern size_t component_count;
 
 struct Position {
 	float x;
@@ -198,7 +204,7 @@ typedef struct Gravitys {
 	Gravity *components;
 } Gravitys;
 
-struct MemoryHeader {
+struct Components {
 	Positions *pPositions;
 	Rotations *pRotations;
 	Colors *pColors;
@@ -215,47 +221,48 @@ struct MemoryHeader {
 	Gravitys *pGravitys;
 };
 
-bool add_component(struct MemoryHeader *h, size_t entity_id, Position component);
-bool add_component(struct MemoryHeader *h, size_t entity_id, Rotation component);
-bool add_component(struct MemoryHeader *h, size_t entity_id, Color component);
-bool add_component(struct MemoryHeader *h, size_t entity_id, Camera component);
-bool add_component(struct MemoryHeader *h, size_t entity_id, Model component);
-bool add_component(struct MemoryHeader *h, size_t entity_id, Material component);
-bool add_component(struct MemoryHeader *h, size_t entity_id, Input component);
-bool add_component(struct MemoryHeader *h, size_t entity_id, Velocity component);
-bool add_component(struct MemoryHeader *h, size_t entity_id, ForceAccumulator component);
-bool add_component(struct MemoryHeader *h, size_t entity_id, RigidBody component);
-bool add_component(struct MemoryHeader *h, size_t entity_id, Collider component);
-bool add_component(struct MemoryHeader *h, size_t entity_id, Texture component);
-bool add_component(struct MemoryHeader *h, size_t entity_id, Mass component);
-bool add_component(struct MemoryHeader *h, size_t entity_id, Gravity component);
+ComponentType mapStringToComponentType(const char * type_key);
+bool add_component(Components *h, size_t entity_id, Position component);
+bool add_component(Components *h, size_t entity_id, Rotation component);
+bool add_component(Components *h, size_t entity_id, Color component);
+bool add_component(Components *h, size_t entity_id, Camera component);
+bool add_component(Components *h, size_t entity_id, Model component);
+bool add_component(Components *h, size_t entity_id, Material component);
+bool add_component(Components *h, size_t entity_id, Input component);
+bool add_component(Components *h, size_t entity_id, Velocity component);
+bool add_component(Components *h, size_t entity_id, ForceAccumulator component);
+bool add_component(Components *h, size_t entity_id, RigidBody component);
+bool add_component(Components *h, size_t entity_id, Collider component);
+bool add_component(Components *h, size_t entity_id, Texture component);
+bool add_component(Components *h, size_t entity_id, Mass component);
+bool add_component(Components *h, size_t entity_id, Gravity component);
 
-bool get_component(struct MemoryHeader *h, size_t entity_id, Position *component);
-bool get_component(struct MemoryHeader *h, size_t entity_id, Rotation *component);
-bool get_component(struct MemoryHeader *h, size_t entity_id, Color *component);
-bool get_component(struct MemoryHeader *h, size_t entity_id, Camera *component);
-bool get_component(struct MemoryHeader *h, size_t entity_id, Model *component);
-bool get_component(struct MemoryHeader *h, size_t entity_id, Material *component);
-bool get_component(struct MemoryHeader *h, size_t entity_id, Input *component);
-bool get_component(struct MemoryHeader *h, size_t entity_id, Velocity *component);
-bool get_component(struct MemoryHeader *h, size_t entity_id, ForceAccumulator *component);
-bool get_component(struct MemoryHeader *h, size_t entity_id, RigidBody *component);
-bool get_component(struct MemoryHeader *h, size_t entity_id, Collider *component);
-bool get_component(struct MemoryHeader *h, size_t entity_id, Texture *component);
-bool get_component(struct MemoryHeader *h, size_t entity_id, Mass *component);
-bool get_component(struct MemoryHeader *h, size_t entity_id, Gravity *component);
+bool get_component(Components *h, size_t entity_id, Position *component);
+bool get_component(Components *h, size_t entity_id, Rotation *component);
+bool get_component(Components *h, size_t entity_id, Color *component);
+bool get_component(Components *h, size_t entity_id, Camera *component);
+bool get_component(Components *h, size_t entity_id, Model *component);
+bool get_component(Components *h, size_t entity_id, Material *component);
+bool get_component(Components *h, size_t entity_id, Input *component);
+bool get_component(Components *h, size_t entity_id, Velocity *component);
+bool get_component(Components *h, size_t entity_id, ForceAccumulator *component);
+bool get_component(Components *h, size_t entity_id, RigidBody *component);
+bool get_component(Components *h, size_t entity_id, Collider *component);
+bool get_component(Components *h, size_t entity_id, Texture *component);
+bool get_component(Components *h, size_t entity_id, Mass *component);
+bool get_component(Components *h, size_t entity_id, Gravity *component);
 
-bool set_component(struct MemoryHeader *h, size_t entity_id, Position *component);
-bool set_component(struct MemoryHeader *h, size_t entity_id, Rotation *component);
-bool set_component(struct MemoryHeader *h, size_t entity_id, Color *component);
-bool set_component(struct MemoryHeader *h, size_t entity_id, Camera *component);
-bool set_component(struct MemoryHeader *h, size_t entity_id, Model *component);
-bool set_component(struct MemoryHeader *h, size_t entity_id, Material *component);
-bool set_component(struct MemoryHeader *h, size_t entity_id, Input *component);
-bool set_component(struct MemoryHeader *h, size_t entity_id, Velocity *component);
-bool set_component(struct MemoryHeader *h, size_t entity_id, ForceAccumulator *component);
-bool set_component(struct MemoryHeader *h, size_t entity_id, RigidBody *component);
-bool set_component(struct MemoryHeader *h, size_t entity_id, Collider *component);
-bool set_component(struct MemoryHeader *h, size_t entity_id, Texture *component);
-bool set_component(struct MemoryHeader *h, size_t entity_id, Mass *component);
-bool set_component(struct MemoryHeader *h, size_t entity_id, Gravity *component);
+bool set_component(Components *h, size_t entity_id, Position *component);
+bool set_component(Components *h, size_t entity_id, Rotation *component);
+bool set_component(Components *h, size_t entity_id, Color *component);
+bool set_component(Components *h, size_t entity_id, Camera *component);
+bool set_component(Components *h, size_t entity_id, Model *component);
+bool set_component(Components *h, size_t entity_id, Material *component);
+bool set_component(Components *h, size_t entity_id, Input *component);
+bool set_component(Components *h, size_t entity_id, Velocity *component);
+bool set_component(Components *h, size_t entity_id, ForceAccumulator *component);
+bool set_component(Components *h, size_t entity_id, RigidBody *component);
+bool set_component(Components *h, size_t entity_id, Collider *component);
+bool set_component(Components *h, size_t entity_id, Texture *component);
+bool set_component(Components *h, size_t entity_id, Mass *component);
+bool set_component(Components *h, size_t entity_id, Gravity *component);

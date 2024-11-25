@@ -9,11 +9,6 @@
 
 #define ENTITY_NAME_LENGTH 16
 
-mapStringToSubkeyType(const char *type_key);
-
-extern const char *component_names[];
-extern size_t component_count;
-
 struct Gravity {
   float value;
 };
@@ -36,12 +31,6 @@ struct RigidBody {
 struct ForceAccumulator {
   glm::vec3 force;
   glm::vec3 torque;
-};
-
-struct Position {
-  float x;
-  float y;
-  float z;
 };
 
 struct Rotation {
@@ -157,6 +146,14 @@ struct ECSQuery {
   size_t *entities;
 };
 
+typedef struct Memory {
+  struct Components *components;
+  Shaders *shaders;
+  ECSQuery query;
+  World world;
+  size_t total_size;
+} Memory;
+
 void ecs_load_level(struct game *g, const char *saveFilePath);
 void save_level(struct MemoryHeader *h, const char *saveFilePath);
 
@@ -169,8 +166,7 @@ bool get_entities(struct MemoryHeader *h, uint32_t component_mask);
 
 void set_entity_name(World *w, size_t entity, const char *friendly_name);
 
-bool check_entity_component(struct MemoryHeader *h, size_t entity,
-                            uint32_t component_mask);
+bool check_entity_component(Memory *m, size_t entity, uint32_t component_mask);
 bool get_entity_name(World *w, size_t entity, char *name);
 
 bool add_shader(struct MemoryHeader *h, char *name, GLuint programID);
