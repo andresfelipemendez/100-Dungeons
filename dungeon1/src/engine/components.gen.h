@@ -1,3 +1,5 @@
+#include <glm.hpp>
+#include <glad.h>
 enum ComponentType {
 	PositionType,
 	RotationType,
@@ -46,6 +48,7 @@ struct Rotation {
 	float x;
 	float y;
 	float z;
+	float w;
 };
 
 struct Color {
@@ -55,21 +58,17 @@ struct Color {
 };
 
 struct Camera {
-	float x;
-	float y;
-	float z;
+	float fov;
+	float near;
+	float far;
 };
 
 struct Model {
-	float x;
-	float y;
-	float z;
+	float submesh_count;
 };
 
 struct Material {
-	float x;
-	float y;
-	float z;
+	GLuint shader_id;
 };
 
 struct Input {
@@ -79,15 +78,13 @@ struct Input {
 };
 
 struct Velocity {
-	float x;
-	float y;
-	float z;
+	glm::vec3 linear;
+	glm::vec3 angular;
 };
 
 struct ForceAccumulator {
-	float x;
-	float y;
-	float z;
+	glm::vec3 force;
+	glm::vec3 torque;
 };
 
 struct RigidBody {
@@ -109,15 +106,11 @@ struct Texture {
 };
 
 struct Mass {
-	float x;
-	float y;
-	float z;
+	float inv;
 };
 
 struct Gravity {
-	float x;
-	float y;
-	float z;
+	float value;
 };
 
 typedef struct Positions {
@@ -222,20 +215,20 @@ struct Components {
 };
 
 ComponentType mapStringToComponentType(const char * type_key);
-bool add_component(Components *h, size_t entity_id, Position component);
-bool add_component(Components *h, size_t entity_id, Rotation component);
-bool add_component(Components *h, size_t entity_id, Color component);
-bool add_component(Components *h, size_t entity_id, Camera component);
-bool add_component(Components *h, size_t entity_id, Model component);
-bool add_component(Components *h, size_t entity_id, Material component);
-bool add_component(Components *h, size_t entity_id, Input component);
-bool add_component(Components *h, size_t entity_id, Velocity component);
-bool add_component(Components *h, size_t entity_id, ForceAccumulator component);
-bool add_component(Components *h, size_t entity_id, RigidBody component);
-bool add_component(Components *h, size_t entity_id, Collider component);
-bool add_component(Components *h, size_t entity_id, Texture component);
-bool add_component(Components *h, size_t entity_id, Mass component);
-bool add_component(Components *h, size_t entity_id, Gravity component);
+void add_component(Components *h, size_t entity_id, Position component);
+void add_component(Components *h, size_t entity_id, Rotation component);
+void add_component(Components *h, size_t entity_id, Color component);
+void add_component(Components *h, size_t entity_id, Camera component);
+void add_component(Components *h, size_t entity_id, Model component);
+void add_component(Components *h, size_t entity_id, Material component);
+void add_component(Components *h, size_t entity_id, Input component);
+void add_component(Components *h, size_t entity_id, Velocity component);
+void add_component(Components *h, size_t entity_id, ForceAccumulator component);
+void add_component(Components *h, size_t entity_id, RigidBody component);
+void add_component(Components *h, size_t entity_id, Collider component);
+void add_component(Components *h, size_t entity_id, Texture component);
+void add_component(Components *h, size_t entity_id, Mass component);
+void add_component(Components *h, size_t entity_id, Gravity component);
 
 bool get_component(Components *h, size_t entity_id, Position *component);
 bool get_component(Components *h, size_t entity_id, Rotation *component);

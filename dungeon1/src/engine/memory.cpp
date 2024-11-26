@@ -13,15 +13,15 @@ const size_t initialEntityCount = 100;
 #define ALIGN_OFFSET(type)                                                     \
   offset = (offset + alignof(type) - 1) & ~(alignof(type) - 1)
 
-void reset_memory(MemoryHeader *h) {
+void reset_memory(Memory *h) {
   if (h == NULL)
     return;
 
-#define DEFINE_ASSIGN_MEMORY(name) h->p##name##s->count = 0;
+    // #define DEFINE_ASSIGN_MEMORY(name) h->p##name##s->count = 0;
 
-#define X(name) DEFINE_ASSIGN_MEMORY(name)
-  SUBKEY_TYPES
-#undef X
+    // #define X(name) DEFINE_ASSIGN_MEMORY(name)
+    //   SUBKEY_TYPES
+    // #undef X
 
 #undef DEFINE_ASSIGN_MEMORY
 
@@ -29,9 +29,9 @@ void reset_memory(MemoryHeader *h) {
     h->shaders->count = 0;
   }
 
-  for (size_t i = 0; i < initialEntityCount; ++i) {
-    h->pModels->components[i].submesh_count = 0;
-  }
+  // for (size_t i = 0; i < initialEntityCount; ++i) {
+  //   h->pModels->components[i].submesh_count = 0;
+  // }
 
   h->query.count = 0;
   h->world.entity_count = 0;
@@ -44,10 +44,10 @@ void init_engine_memory(game *g) {
 
   const size_t initialSubMeshCount = 10;
 
-  MemoryHeader *header = (MemoryHeader *)((char *)g->buffer + g->buffer_size -
-                                          sizeof(MemoryHeader));
+  Memory *header =
+      (Memory *)((char *)g->buffer + g->buffer_size - sizeof(Memory));
 
-  size_t down_offset = g->buffer_size - sizeof(MemoryHeader);
+  size_t down_offset = g->buffer_size - sizeof(Memory);
 
   size_t offset = 0;
 
@@ -75,27 +75,27 @@ void init_engine_memory(game *g) {
       (char(*)[ENTITY_NAME_LENGTH])((char *)g->buffer + offset);
   offset += ENTITY_NAME_LENGTH * initialEntityCount;
 
-#define DEFINE_ASSIGN_MEMORY(name)                                             \
-  header->p##name##s = (name##s *)((char *)g->buffer + offset);                \
-  offset += sizeof(name##s);                                                   \
-  header->p##name##s->entity_ids = (size_t *)((char *)g->buffer + offset);     \
-  offset += sizeof(size_t) * initialEntityCount;                               \
-  header->p##name##s->components = (name *)((char *)g->buffer + offset);       \
-  offset += sizeof(name) * initialEntityCount;
+  // #define DEFINE_ASSIGN_MEMORY(name)                                             \
+//   header->p##name##s = (name##s *)((char *)g->buffer + offset);                \
+//   offset += sizeof(name##s);                                                   \
+//   header->p##name##s->entity_ids = (size_t *)((char *)g->buffer + offset);     \
+//   offset += sizeof(size_t) * initialEntityCount;                               \
+//   header->p##name##s->components = (name *)((char *)g->buffer + offset);       \
+//   offset += sizeof(name) * initialEntityCount;
 
-#define X(name) DEFINE_ASSIGN_MEMORY(name)
-  SUBKEY_TYPES
-#undef X
+  // #define X(name) DEFINE_ASSIGN_MEMORY(name)
+  //   SUBKEY_TYPES
+  // #undef X
 
-#undef DEFINE_ASSIGN_MEMORY
+  // #undef DEFINE_ASSIGN_MEMORY
 
-  for (size_t i = 0; i < initialEntityCount; ++i) {
-    header->pModels->components[i].submeshes =
-        (SubMesh *)((char *)g->buffer + offset);
-    offset += sizeof(SubMesh) * initialSubMeshCount;
-  }
+  // for (size_t i = 0; i < initialEntityCount; ++i) {
+  //   header->pModels->components[i].submeshes =
+  //       (SubMesh *)((char *)g->buffer + offset);
+  //   offset += sizeof(SubMesh) * initialSubMeshCount;
+  // }
 
-  down_offset = g->buffer_size - sizeof(MemoryHeader);
+  down_offset = g->buffer_size - sizeof(Memory);
   header->total_size = down_offset - offset;
 }
 
@@ -104,6 +104,6 @@ Memory *get_header(game *g) {
 }
 
 World *get_world(game *g) {
-  // MemoryHeader *header = get_header(g);
+  // Memory *header = get_header(g);
   return &get_header(g)->world;
 }

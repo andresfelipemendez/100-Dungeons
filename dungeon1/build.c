@@ -9,6 +9,10 @@ int watchMode = 0;
  * dll when rebuilding set the shared memory to notify the engine to reload the
  * dll
  */
+
+// id like to add the log functionality too
+// .\build.exe --engine 2>&1 | Out-File -FilePath build.log -Encoding utf8
+
 int main(int argc, char *argv[]) {
   if (argc < 2) {
     const char *usage =

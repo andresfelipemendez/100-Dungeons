@@ -1,0 +1,363 @@
+﻿.\build.exe : C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\componets.gen.cpp:45:1: warning: non-void function does not return a value in all control paths [-Wreturn-type]
+発生場所 行:1 文字:1
++ .\build.exe --engine 2>&1 | Out-File -FilePath build.log -Encoding ut ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\andres...[-Wreturn-type]:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   45 | }
+      | ^
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\componets.gen.cpp:601:20: error: type 'float' cannot be narrowed to 'GLuint' (aka 'unsigned int') in initializer list [-Wc++11-narrowing]
+  601 |                                          .shader_id = static_cast<float>(toml_double_in(nt, "shader_id").u.d),
+      |                                                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\componets.gen.cpp:601:20: note: insert an explicit cast to silence this issue
+  601 |                                          .shader_id = static_cast<float>(toml_double_in(nt, "shader_id").u.d),
+      |                                                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                                       static_cast<GLuint>(                                   )
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\componets.gen.cpp:617:17: error: no viable conversion from 'float' to 'glm::vec3' (aka 'vec<3, float, defaultp>')
+  617 |                                          .linear = static_cast<float>(toml_double_in(nt, "linear").u.d),
+      |                                                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:103:41: note: candidate constructor not viable: no known conversion from 'float' to 'const vec<3, float> &' for 1st argument
+  103 |                 GLM_DEFAULTED_FUNC_DECL GLM_CONSTEXPR vec(vec const& v) GLM_DEFAULT;
+      |                                                       ^   ~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:105:17: note: candidate template ignored: could not match 'vec<3, float, P>' against 'float'
+  105 |                 GLM_CTOR_DECL vec(vec<3, T, P> const& v);
+      |                               ^
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:151:30: note: candidate template ignored: could not match 'vec<4, U, P>' against 'float'
+  151 |                 GLM_CTOR_DECL GLM_EXPLICIT vec(vec<4, U, P> const& v);
+      |                                            ^
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:155:30: note: candidate template ignored: could not match 'vec<3, U, P>' against 'float'
+  155 |                 GLM_CTOR_DECL GLM_EXPLICIT vec(vec<3, U, P> const& v);
+      |                                            ^
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:109:26: note: explicit constructor is not a candidate
+  109 |                 GLM_CTOR_DECL explicit vec(T scalar);
+      |                                        ^
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:115:26: note: explicit constructor is not a candidate
+  115 |                 GLM_CTOR_DECL explicit vec(vec<1, U, P> const& v);
+      |                                        ^
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\componets.gen.cpp:618:18: error: no viable conversion from 'float' to 'glm::vec3' (aka 'vec<3, float, defaultp>')
+  618 |                                          .angular = static_cast<float>(toml_double_in(nt, "angular").u.d),
+      |                                                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:103:41: note: candidate constructor not viable: no known conversion from 'float' to 'const vec<3, float> &' for 1st argument
+  103 |                 GLM_DEFAULTED_FUNC_DECL GLM_CONSTEXPR vec(vec const& v) GLM_DEFAULT;
+      |                                                       ^   ~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:105:17: note: candidate template ignored: could not match 'vec<3, float, P>' against 'float'
+  105 |                 GLM_CTOR_DECL vec(vec<3, T, P> const& v);
+      |                               ^
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:151:30: note: candidate template ignored: could not match 'vec<4, U, P>' against 'float'
+  151 |                 GLM_CTOR_DECL GLM_EXPLICIT vec(vec<4, U, P> const& v);
+      |                                            ^
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:155:30: note: candidate template ignored: could not match 'vec<3, U, P>' against 'float'
+  155 |                 GLM_CTOR_DECL GLM_EXPLICIT vec(vec<3, U, P> const& v);
+      |                                            ^
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:109:26: note: explicit constructor is not a candidate
+  109 |                 GLM_CTOR_DECL explicit vec(T scalar);
+      |                                        ^
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:115:26: note: explicit constructor is not a candidate
+  115 |                 GLM_CTOR_DECL explicit vec(vec<1, U, P> const& v);
+      |                                        ^
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\componets.gen.cpp:625:16: error: no viable conversion from 'float' to 'glm::vec3' (aka 'vec<3, float, defaultp>')
+  625 |                                          .force = static_cast<float>(toml_double_in(nt, "force").u.d),
+      |                                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:103:41: note: candidate constructor not viable: no known conversion from 'float' to 'const vec<3, float> &' for 1st argument
+  103 |                 GLM_DEFAULTED_FUNC_DECL GLM_CONSTEXPR vec(vec const& v) GLM_DEFAULT;
+      |                                                       ^   ~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:105:17: note: candidate template ignored: could not match 'vec<3, float, P>' against 'float'
+  105 |                 GLM_CTOR_DECL vec(vec<3, T, P> const& v);
+      |                               ^
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:151:30: note: candidate template ignored: could not match 'vec<4, U, P>' against 'float'
+  151 |                 GLM_CTOR_DECL GLM_EXPLICIT vec(vec<4, U, P> const& v);
+      |                                            ^
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:155:30: note: candidate template ignored: could not match 'vec<3, U, P>' against 'float'
+  155 |                 GLM_CTOR_DECL GLM_EXPLICIT vec(vec<3, U, P> const& v);
+      |                                            ^
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:109:26: note: explicit constructor is not a candidate
+  109 |                 GLM_CTOR_DECL explicit vec(T scalar);
+      |                                        ^
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:115:26: note: explicit constructor is not a candidate
+  115 |                 GLM_CTOR_DECL explicit vec(vec<1, U, P> const& v);
+      |                                        ^
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\componets.gen.cpp:626:17: error: no viable conversion from 'float' to 'glm::vec3' (aka 'vec<3, float, defaultp>')
+  626 |                                          .torque = static_cast<float>(toml_double_in(nt, "torque").u.d),
+      |                                                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:103:41: note: candidate constructor not viable: no known conversion from 'float' to 'const vec<3, float> &' for 1st argument
+  103 |                 GLM_DEFAULTED_FUNC_DECL GLM_CONSTEXPR vec(vec const& v) GLM_DEFAULT;
+      |                                                       ^   ~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:105:17: note: candidate template ignored: could not match 'vec<3, float, P>' against 'float'
+  105 |                 GLM_CTOR_DECL vec(vec<3, T, P> const& v);
+      |                               ^
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:151:30: note: candidate template ignored: could not match 'vec<4, U, P>' against 'float'
+  151 |                 GLM_CTOR_DECL GLM_EXPLICIT vec(vec<4, U, P> const& v);
+      |                                            ^
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:155:30: note: candidate template ignored: could not match 'vec<3, U, P>' against 'float'
+  155 |                 GLM_CTOR_DECL GLM_EXPLICIT vec(vec<3, U, P> const& v);
+      |                                            ^
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:109:26: note: explicit constructor is not a candidate
+  109 |                 GLM_CTOR_DECL explicit vec(T scalar);
+      |                                        ^
+C:\Users\andres\development\100-Dungeons\dungeon1\lib\glm\./ext\../detail/type_vec3.hpp:115:26: note: explicit constructor is not a candidate
+  115 |                 GLM_CTOR_DECL explicit vec(vec<1, U, P> const& v);
+      |                                        ^
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\componets.gen.cpp:725:51: warning: format specifies type 'double' but the argument has type 'GLuint' (aka 'unsigned int') [-Wformat]
+  725 |                                 fprintf(fp,"material = { shader_id = %.2f }", material.shader_id);
+      |                                                                      ~~~~     ^~~~~~~~~~~~~~~~~~
+      |                                                                      %.2u
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\componets.gen.cpp:737:73: warning: format specifies type 'double' but the argument has type 'glm::vec3' (aka 'vec<3, float, defaultp>') [-Wformat]
+  737 |                                 fprintf(fp,"velocity = { linear = %.2f, angular = %.2f }", velocity.linear, velocity.angular);
+      |                                                                   ~~~~                              ^~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\componets.gen.cpp:737:90: warning: format specifies type 'double' but the argument has type 'glm::vec3' (aka 'vec<3, float, defaultp>') [-Wformat]
+  737 |                                 fprintf(fp,"velocity = { linear = %.2f, angular = %.2f }", velocity.linear, velocity.angular);
+      |                                                                                   ~~~~                               ^~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\componets.gen.cpp:743:87: warning: format specifies type 'double' but the argument has type 'glm::vec3' (aka 'vec<3, float, defaultp>') [-Wformat]
+  743 |                                 fprintf(fp,"forceAccumulator = { force = %.2f, torque = %.2f }", forceAccumulator.force, forceAccumulator.torque);
+      |                                                                          ~~~~                                     ^~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\componets.gen.cpp:743:111: warning: format specifies type 'double' but the argument has type 'glm::vec3' (aka 'vec<3, float, defaultp>') [-Wformat]
+  743 |                                 fprintf(fp,"forceAccumulator = { force = %.2f, torque = %.2f }", forceAccumulator.force, forceAccumulator.torque);
+      |                                                                                         ~~~~                                              ^~~~~~
+6 warnings and 5 errors generated.
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\physics.cpp:68:31: error: no member named 'linearDamping' in 'RigidBody'
+   68 |     velocity.linear *= pow(rb.linearDamping, (float)g->deltaTime);
+      |                            ~~ ^
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\physics.cpp:75:32: error: no member named 'angularDamping' in 'RigidBody'
+   75 |     velocity.angular *= pow(rb.angularDamping, g->deltaTime);
+      |                             ~~ ^
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\physics.cpp:81:5: error: no matching function for call to 'set_component'
+   81 |     set_component(h->components, entity, pos);
+      |     ^~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:250:6: note: candidate function not viable: no known conversion from 'Position' to 'Position *' for 3rd argument; take the address of the argument with &
+  250 | bool set_component(Components *h, size_t entity_id, Position *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:251:6: note: candidate function not viable: no known conversion from 'Position' to 'Rotation *' for 3rd argument
+  251 | bool set_component(Components *h, size_t entity_id, Rotation *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:252:6: note: candidate function not viable: no known conversion from 'Position' to 'Color *' for 3rd argument
+  252 | bool set_component(Components *h, size_t entity_id, Color *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:253:6: note: candidate function not viable: no known conversion from 'Position' to 'Camera *' for 3rd argument
+  253 | bool set_component(Components *h, size_t entity_id, Camera *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:254:6: note: candidate function not viable: no known conversion from 'Position' to 'Model *' for 3rd argument
+  254 | bool set_component(Components *h, size_t entity_id, Model *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:255:6: note: candidate function not viable: no known conversion from 'Position' to 'Material *' for 3rd argument
+  255 | bool set_component(Components *h, size_t entity_id, Material *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:256:6: note: candidate function not viable: no known conversion from 'Position' to 'Input *' for 3rd argument
+  256 | bool set_component(Components *h, size_t entity_id, Input *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:257:6: note: candidate function not viable: no known conversion from 'Position' to 'Velocity *' for 3rd argument
+  257 | bool set_component(Components *h, size_t entity_id, Velocity *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:258:6: note: candidate function not viable: no known conversion from 'Position' to 'ForceAccumulator *' for 3rd argument
+  258 | bool set_component(Components *h, size_t entity_id, ForceAccumulator *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:259:6: note: candidate function not viable: no known conversion from 'Position' to 'RigidBody *' for 3rd argument
+  259 | bool set_component(Components *h, size_t entity_id, RigidBody *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:260:6: note: candidate function not viable: no known conversion from 'Position' to 'Collider *' for 3rd argument
+  260 | bool set_component(Components *h, size_t entity_id, Collider *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:261:6: note: candidate function not viable: no known conversion from 'Position' to 'Texture *' for 3rd argument
+  261 | bool set_component(Components *h, size_t entity_id, Texture *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:262:6: note: candidate function not viable: no known conversion from 'Position' to 'Mass *' for 3rd argument
+  262 | bool set_component(Components *h, size_t entity_id, Mass *component);
+      |      ^                                              ~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:263:6: note: candidate function not viable: no known conversion from 'Position' to 'Gravity *' for 3rd argument
+  263 | bool set_component(Components *h, size_t entity_id, Gravity *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\physics.cpp:97:5: error: no matching function for call to 'set_component'
+   97 |     set_component(h->components, entity, rot);
+      |     ^~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:251:6: note: candidate function not viable: no known conversion from 'Rotation' to 'Rotation *' for 3rd argument; take the address of the argument with &
+  251 | bool set_component(Components *h, size_t entity_id, Rotation *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:250:6: note: candidate function not viable: no known conversion from 'Rotation' to 'Position *' for 3rd argument
+  250 | bool set_component(Components *h, size_t entity_id, Position *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:252:6: note: candidate function not viable: no known conversion from 'Rotation' to 'Color *' for 3rd argument
+  252 | bool set_component(Components *h, size_t entity_id, Color *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:253:6: note: candidate function not viable: no known conversion from 'Rotation' to 'Camera *' for 3rd argument
+  253 | bool set_component(Components *h, size_t entity_id, Camera *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:254:6: note: candidate function not viable: no known conversion from 'Rotation' to 'Model *' for 3rd argument
+  254 | bool set_component(Components *h, size_t entity_id, Model *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:255:6: note: candidate function not viable: no known conversion from 'Rotation' to 'Material *' for 3rd argument
+  255 | bool set_component(Components *h, size_t entity_id, Material *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:256:6: note: candidate function not viable: no known conversion from 'Rotation' to 'Input *' for 3rd argument
+  256 | bool set_component(Components *h, size_t entity_id, Input *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:257:6: note: candidate function not viable: no known conversion from 'Rotation' to 'Velocity *' for 3rd argument
+  257 | bool set_component(Components *h, size_t entity_id, Velocity *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:258:6: note: candidate function not viable: no known conversion from 'Rotation' to 'ForceAccumulator *' for 3rd argument
+  258 | bool set_component(Components *h, size_t entity_id, ForceAccumulator *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:259:6: note: candidate function not viable: no known conversion from 'Rotation' to 'RigidBody *' for 3rd argument
+  259 | bool set_component(Components *h, size_t entity_id, RigidBody *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:260:6: note: candidate function not viable: no known conversion from 'Rotation' to 'Collider *' for 3rd argument
+  260 | bool set_component(Components *h, size_t entity_id, Collider *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:261:6: note: candidate function not viable: no known conversion from 'Rotation' to 'Texture *' for 3rd argument
+  261 | bool set_component(Components *h, size_t entity_id, Texture *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:262:6: note: candidate function not viable: no known conversion from 'Rotation' to 'Mass *' for 3rd argument
+  262 | bool set_component(Components *h, size_t entity_id, Mass *component);
+      |      ^                                              ~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:263:6: note: candidate function not viable: no known conversion from 'Rotation' to 'Gravity *' for 3rd argument
+  263 | bool set_component(Components *h, size_t entity_id, Gravity *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\physics.cpp:104:5: error: no matching function for call to 'set_component'
+  104 |     set_component(h->components, entity, accumulator);
+      |     ^~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:258:6: note: candidate function not viable: no known conversion from 'ForceAccumulator' to 'ForceAccumulator *' for 3rd argument; take the address of the argument with &
+  258 | bool set_component(Components *h, size_t entity_id, ForceAccumulator *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:250:6: note: candidate function not viable: no known conversion from 'ForceAccumulator' to 'Position *' for 3rd argument
+  250 | bool set_component(Components *h, size_t entity_id, Position *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:251:6: note: candidate function not viable: no known conversion from 'ForceAccumulator' to 'Rotation *' for 3rd argument
+  251 | bool set_component(Components *h, size_t entity_id, Rotation *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:252:6: note: candidate function not viable: no known conversion from 'ForceAccumulator' to 'Color *' for 3rd argument
+  252 | bool set_component(Components *h, size_t entity_id, Color *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:253:6: note: candidate function not viable: no known conversion from 'ForceAccumulator' to 'Camera *' for 3rd argument
+  253 | bool set_component(Components *h, size_t entity_id, Camera *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:254:6: note: candidate function not viable: no known conversion from 'ForceAccumulator' to 'Model *' for 3rd argument
+  254 | bool set_component(Components *h, size_t entity_id, Model *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:255:6: note: candidate function not viable: no known conversion from 'ForceAccumulator' to 'Material *' for 3rd argument
+  255 | bool set_component(Components *h, size_t entity_id, Material *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:256:6: note: candidate function not viable: no known conversion from 'ForceAccumulator' to 'Input *' for 3rd argument
+  256 | bool set_component(Components *h, size_t entity_id, Input *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:257:6: note: candidate function not viable: no known conversion from 'ForceAccumulator' to 'Velocity *' for 3rd argument
+  257 | bool set_component(Components *h, size_t entity_id, Velocity *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:259:6: note: candidate function not viable: no known conversion from 'ForceAccumulator' to 'RigidBody *' for 3rd argument
+  259 | bool set_component(Components *h, size_t entity_id, RigidBody *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:260:6: note: candidate function not viable: no known conversion from 'ForceAccumulator' to 'Collider *' for 3rd argument
+  260 | bool set_component(Components *h, size_t entity_id, Collider *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:261:6: note: candidate function not viable: no known conversion from 'ForceAccumulator' to 'Texture *' for 3rd argument
+  261 | bool set_component(Components *h, size_t entity_id, Texture *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:262:6: note: candidate function not viable: no known conversion from 'ForceAccumulator' to 'Mass *' for 3rd argument
+  262 | bool set_component(Components *h, size_t entity_id, Mass *component);
+      |      ^                                              ~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:263:6: note: candidate function not viable: no known conversion from 'ForceAccumulator' to 'Gravity *' for 3rd argument
+  263 | bool set_component(Components *h, size_t entity_id, Gravity *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\physics.cpp:105:5: error: no matching function for call to 'set_component'
+  105 |     set_component(h->components, entity, velocity);
+      |     ^~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:257:6: note: candidate function not viable: no known conversion from 'Velocity' to 'Velocity *' for 3rd argument; take the address of the argument with &
+  257 | bool set_component(Components *h, size_t entity_id, Velocity *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:250:6: note: candidate function not viable: no known conversion from 'Velocity' to 'Position *' for 3rd argument
+  250 | bool set_component(Components *h, size_t entity_id, Position *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:251:6: note: candidate function not viable: no known conversion from 'Velocity' to 'Rotation *' for 3rd argument
+  251 | bool set_component(Components *h, size_t entity_id, Rotation *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:252:6: note: candidate function not viable: no known conversion from 'Velocity' to 'Color *' for 3rd argument
+  252 | bool set_component(Components *h, size_t entity_id, Color *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:253:6: note: candidate function not viable: no known conversion from 'Velocity' to 'Camera *' for 3rd argument
+  253 | bool set_component(Components *h, size_t entity_id, Camera *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:254:6: note: candidate function not viable: no known conversion from 'Velocity' to 'Model *' for 3rd argument
+  254 | bool set_component(Components *h, size_t entity_id, Model *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:255:6: note: candidate function not viable: no known conversion from 'Velocity' to 'Material *' for 3rd argument
+  255 | bool set_component(Components *h, size_t entity_id, Material *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:256:6: note: candidate function not viable: no known conversion from 'Velocity' to 'Input *' for 3rd argument
+  256 | bool set_component(Components *h, size_t entity_id, Input *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:258:6: note: candidate function not viable: no known conversion from 'Velocity' to 'ForceAccumulator *' for 3rd argument
+  258 | bool set_component(Components *h, size_t entity_id, ForceAccumulator *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:259:6: note: candidate function not viable: no known conversion from 'Velocity' to 'RigidBody *' for 3rd argument
+  259 | bool set_component(Components *h, size_t entity_id, RigidBody *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:260:6: note: candidate function not viable: no known conversion from 'Velocity' to 'Collider *' for 3rd argument
+  260 | bool set_component(Components *h, size_t entity_id, Collider *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:261:6: note: candidate function not viable: no known conversion from 'Velocity' to 'Texture *' for 3rd argument
+  261 | bool set_component(Components *h, size_t entity_id, Texture *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:262:6: note: candidate function not viable: no known conversion from 'Velocity' to 'Mass *' for 3rd argument
+  262 | bool set_component(Components *h, size_t entity_id, Mass *component);
+      |      ^                                              ~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:263:6: note: candidate function not viable: no known conversion from 'Velocity' to 'Gravity *' for 3rd argument
+  263 | bool set_component(Components *h, size_t entity_id, Gravity *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\physics.cpp:106:5: error: no matching function for call to 'set_component'
+  106 |     set_component(h->components, entity, rb);
+      |     ^~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:259:6: note: candidate function not viable: no known conversion from 'RigidBody' to 'RigidBody *' for 3rd argument; take the address of the argument with &
+  259 | bool set_component(Components *h, size_t entity_id, RigidBody *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:250:6: note: candidate function not viable: no known conversion from 'RigidBody' to 'Position *' for 3rd argument
+  250 | bool set_component(Components *h, size_t entity_id, Position *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:251:6: note: candidate function not viable: no known conversion from 'RigidBody' to 'Rotation *' for 3rd argument
+  251 | bool set_component(Components *h, size_t entity_id, Rotation *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:252:6: note: candidate function not viable: no known conversion from 'RigidBody' to 'Color *' for 3rd argument
+  252 | bool set_component(Components *h, size_t entity_id, Color *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:253:6: note: candidate function not viable: no known conversion from 'RigidBody' to 'Camera *' for 3rd argument
+  253 | bool set_component(Components *h, size_t entity_id, Camera *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:254:6: note: candidate function not viable: no known conversion from 'RigidBody' to 'Model *' for 3rd argument
+  254 | bool set_component(Components *h, size_t entity_id, Model *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:255:6: note: candidate function not viable: no known conversion from 'RigidBody' to 'Material *' for 3rd argument
+  255 | bool set_component(Components *h, size_t entity_id, Material *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:256:6: note: candidate function not viable: no known conversion from 'RigidBody' to 'Input *' for 3rd argument
+  256 | bool set_component(Components *h, size_t entity_id, Input *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:257:6: note: candidate function not viable: no known conversion from 'RigidBody' to 'Velocity *' for 3rd argument
+  257 | bool set_component(Components *h, size_t entity_id, Velocity *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:258:6: note: candidate function not viable: no known conversion from 'RigidBody' to 'ForceAccumulator *' for 3rd argument
+  258 | bool set_component(Components *h, size_t entity_id, ForceAccumulator *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:260:6: note: candidate function not viable: no known conversion from 'RigidBody' to 'Collider *' for 3rd argument
+  260 | bool set_component(Components *h, size_t entity_id, Collider *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:261:6: note: candidate function not viable: no known conversion from 'RigidBody' to 'Texture *' for 3rd argument
+  261 | bool set_component(Components *h, size_t entity_id, Texture *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:262:6: note: candidate function not viable: no known conversion from 'RigidBody' to 'Mass *' for 3rd argument
+  262 | bool set_component(Components *h, size_t entity_id, Mass *component);
+      |      ^                                              ~~~~~~~~~~~~~~~
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:263:6: note: candidate function not viable: no known conversion from 'RigidBody' to 'Gravity *' for 3rd argument
+  263 | bool set_component(Components *h, size_t entity_id, Gravity *component);
+      |      ^                                              ~~~~~~~~~~~~~~~~~~
+7 errors generated.
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\systems.cpp:149:47: error: no member named 'drawsBuffer' in 'Model'
+  149 |       glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m.drawsBuffer);
+      |                                             ~ ^
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\systems.cpp:150:31: error: no member named 'submesh_count' in 'Model'
+  150 |       for (auto i = 0U; i < m.submesh_count; ++i) {
+      |                             ~ ^
+C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\systems.cpp:151:27: error: no member named 'submeshes' in 'Model'
+  151 |         auto &submesh = m.submeshes[i];
+      |                         ~ ^
+3 errors generated.
+Setsockopt failed: No error
+current working directory: C:\Users\andres\development\100-Dungeons\dungeon1
+compilation error
+Builder server is starting on port 8080...

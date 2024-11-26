@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
   fileContent[fileSize] = '\0';
   fclose(inputFile);
 
-  size_t outputSize = 1024 * 30;
+  size_t outputSize = 1024 * 50;
   char *outputHeader = (char *)malloc(outputSize);
   if (!outputHeader) {
     perror("Failed to allocate memory for the output header buffer");
@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
 
   if (generate_code_from_buffers(fileContent, outputHeader, outputSource,
                                  outputSize)) {
-    char outputSourceFilePath[1024 * 30];
+    char outputSourceFilePath[1024 * 50];
     snprintf(outputSourceFilePath, sizeof(outputSourceFilePath),
              "%s\\componets.gen.cpp", outputDir);
 
@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
     fwrite(outputSource, 1, strlen(outputSource), outputSourceFile);
     fclose(outputSourceFile);
 
-    char outputHeaderFilePath[1024 * 30];
+    char outputHeaderFilePath[1024 * 50];
     snprintf(outputHeaderFilePath, sizeof(outputHeaderFilePath),
              "%s\\components.gen.h", outputDir);
     FILE *outputHeaderFile = NULL;

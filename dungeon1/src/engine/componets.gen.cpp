@@ -43,7 +43,7 @@ ComponentType mapStringToComponentType(const char * type_key){
 	if(strcasecmp(type_key, "Mass") == 0) return MassType;
 	if(strcasecmp(type_key, "Gravity") == 0) return GravityType;
 }
-bool add_component(Memory *m, size_t entity_id, Position component) {
+void add_component(Memory *m, size_t entity_id, Position component) {
 	size_t i = m->components->pPositions->count;
 	m->components->pPositions->entity_ids[i] = entity_id;
 	m->components->pPositions->components[i] = component;
@@ -51,7 +51,7 @@ bool add_component(Memory *m, size_t entity_id, Position component) {
 	m->world.component_masks[entity_id] |= PositionComponent;
 }
 
-bool add_component(Memory *m, size_t entity_id, Rotation component) {
+void add_component(Memory *m, size_t entity_id, Rotation component) {
 	size_t i = m->components->pRotations->count;
 	m->components->pRotations->entity_ids[i] = entity_id;
 	m->components->pRotations->components[i] = component;
@@ -59,7 +59,7 @@ bool add_component(Memory *m, size_t entity_id, Rotation component) {
 	m->world.component_masks[entity_id] |= RotationComponent;
 }
 
-bool add_component(Memory *m, size_t entity_id, Color component) {
+void add_component(Memory *m, size_t entity_id, Color component) {
 	size_t i = m->components->pColors->count;
 	m->components->pColors->entity_ids[i] = entity_id;
 	m->components->pColors->components[i] = component;
@@ -67,7 +67,7 @@ bool add_component(Memory *m, size_t entity_id, Color component) {
 	m->world.component_masks[entity_id] |= ColorComponent;
 }
 
-bool add_component(Memory *m, size_t entity_id, Camera component) {
+void add_component(Memory *m, size_t entity_id, Camera component) {
 	size_t i = m->components->pCameras->count;
 	m->components->pCameras->entity_ids[i] = entity_id;
 	m->components->pCameras->components[i] = component;
@@ -75,7 +75,7 @@ bool add_component(Memory *m, size_t entity_id, Camera component) {
 	m->world.component_masks[entity_id] |= CameraComponent;
 }
 
-bool add_component(Memory *m, size_t entity_id, Model component) {
+void add_component(Memory *m, size_t entity_id, Model component) {
 	size_t i = m->components->pModels->count;
 	m->components->pModels->entity_ids[i] = entity_id;
 	m->components->pModels->components[i] = component;
@@ -83,7 +83,7 @@ bool add_component(Memory *m, size_t entity_id, Model component) {
 	m->world.component_masks[entity_id] |= ModelComponent;
 }
 
-bool add_component(Memory *m, size_t entity_id, Material component) {
+void add_component(Memory *m, size_t entity_id, Material component) {
 	size_t i = m->components->pMaterials->count;
 	m->components->pMaterials->entity_ids[i] = entity_id;
 	m->components->pMaterials->components[i] = component;
@@ -91,7 +91,7 @@ bool add_component(Memory *m, size_t entity_id, Material component) {
 	m->world.component_masks[entity_id] |= MaterialComponent;
 }
 
-bool add_component(Memory *m, size_t entity_id, Input component) {
+void add_component(Memory *m, size_t entity_id, Input component) {
 	size_t i = m->components->pInputs->count;
 	m->components->pInputs->entity_ids[i] = entity_id;
 	m->components->pInputs->components[i] = component;
@@ -99,7 +99,7 @@ bool add_component(Memory *m, size_t entity_id, Input component) {
 	m->world.component_masks[entity_id] |= InputComponent;
 }
 
-bool add_component(Memory *m, size_t entity_id, Velocity component) {
+void add_component(Memory *m, size_t entity_id, Velocity component) {
 	size_t i = m->components->pVelocitys->count;
 	m->components->pVelocitys->entity_ids[i] = entity_id;
 	m->components->pVelocitys->components[i] = component;
@@ -107,7 +107,7 @@ bool add_component(Memory *m, size_t entity_id, Velocity component) {
 	m->world.component_masks[entity_id] |= VelocityComponent;
 }
 
-bool add_component(Memory *m, size_t entity_id, ForceAccumulator component) {
+void add_component(Memory *m, size_t entity_id, ForceAccumulator component) {
 	size_t i = m->components->pForceAccumulators->count;
 	m->components->pForceAccumulators->entity_ids[i] = entity_id;
 	m->components->pForceAccumulators->components[i] = component;
@@ -115,7 +115,7 @@ bool add_component(Memory *m, size_t entity_id, ForceAccumulator component) {
 	m->world.component_masks[entity_id] |= ForceAccumulatorComponent;
 }
 
-bool add_component(Memory *m, size_t entity_id, RigidBody component) {
+void add_component(Memory *m, size_t entity_id, RigidBody component) {
 	size_t i = m->components->pRigidBodys->count;
 	m->components->pRigidBodys->entity_ids[i] = entity_id;
 	m->components->pRigidBodys->components[i] = component;
@@ -123,7 +123,7 @@ bool add_component(Memory *m, size_t entity_id, RigidBody component) {
 	m->world.component_masks[entity_id] |= RigidBodyComponent;
 }
 
-bool add_component(Memory *m, size_t entity_id, Collider component) {
+void add_component(Memory *m, size_t entity_id, Collider component) {
 	size_t i = m->components->pColliders->count;
 	m->components->pColliders->entity_ids[i] = entity_id;
 	m->components->pColliders->components[i] = component;
@@ -131,7 +131,7 @@ bool add_component(Memory *m, size_t entity_id, Collider component) {
 	m->world.component_masks[entity_id] |= ColliderComponent;
 }
 
-bool add_component(Memory *m, size_t entity_id, Texture component) {
+void add_component(Memory *m, size_t entity_id, Texture component) {
 	size_t i = m->components->pTextures->count;
 	m->components->pTextures->entity_ids[i] = entity_id;
 	m->components->pTextures->components[i] = component;
@@ -139,7 +139,7 @@ bool add_component(Memory *m, size_t entity_id, Texture component) {
 	m->world.component_masks[entity_id] |= TextureComponent;
 }
 
-bool add_component(Memory *m, size_t entity_id, Mass component) {
+void add_component(Memory *m, size_t entity_id, Mass component) {
 	size_t i = m->components->pMasss->count;
 	m->components->pMasss->entity_ids[i] = entity_id;
 	m->components->pMasss->components[i] = component;
@@ -147,7 +147,7 @@ bool add_component(Memory *m, size_t entity_id, Mass component) {
 	m->world.component_masks[entity_id] |= MassComponent;
 }
 
-bool add_component(Memory *m, size_t entity_id, Gravity component) {
+void add_component(Memory *m, size_t entity_id, Gravity component) {
 	size_t i = m->components->pGravitys->count;
 	m->components->pGravitys->entity_ids[i] = entity_id;
 	m->components->pGravitys->components[i] = component;
@@ -564,6 +564,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
 					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
 					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+					 .w = static_cast<float>(toml_double_in(nt, "w").u.d),
 				};
 				add_component(m,entity,c);
 				break;
@@ -579,27 +580,23 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 			}
 			case CameraType: {
 				Camera c {
-					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
-					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
-					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+					 .fov = static_cast<float>(toml_double_in(nt, "fov").u.d),
+					 .near = static_cast<float>(toml_double_in(nt, "near").u.d),
+					 .far = static_cast<float>(toml_double_in(nt, "far").u.d),
 				};
 				add_component(m,entity,c);
 				break;
 			}
 			case ModelType: {
 				Model c {
-					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
-					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
-					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+					 .submesh_count = static_cast<float>(toml_double_in(nt, "submesh_count").u.d),
 				};
 				add_component(m,entity,c);
 				break;
 			}
 			case MaterialType: {
 				Material c {
-					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
-					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
-					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+					 .shader_id = static_cast<GLuint>(toml_int_in(nt, "shader_id").u.i),
 				};
 				add_component(m,entity,c);
 				break;
@@ -614,19 +611,33 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 				break;
 			}
 			case VelocityType: {
+					 toml_table_t* vec_linear = toml_table_in(nt,"linear");
+					 toml_table_t* vec_angular = toml_table_in(nt,"angular");
 				Velocity c {
-					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
-					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
-					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+					 .linear = glm::vec3(
+							static_cast<float>(toml_double_in(vec_linear,"x").u.d),
+							static_cast<float>(toml_double_in(vec_linear,"y").u.d),
+							static_cast<float>(toml_double_in(vec_linear,"z").u.d)),
+					 .angular = glm::vec3(
+							static_cast<float>(toml_double_in(vec_angular,"x").u.d),
+							static_cast<float>(toml_double_in(vec_angular,"y").u.d),
+							static_cast<float>(toml_double_in(vec_angular,"z").u.d)),
 				};
 				add_component(m,entity,c);
 				break;
 			}
 			case ForceAccumulatorType: {
+					 toml_table_t* vec_force = toml_table_in(nt,"force");
+					 toml_table_t* vec_torque = toml_table_in(nt,"torque");
 				ForceAccumulator c {
-					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
-					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
-					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+					 .force = glm::vec3(
+							static_cast<float>(toml_double_in(vec_force,"x").u.d),
+							static_cast<float>(toml_double_in(vec_force,"y").u.d),
+							static_cast<float>(toml_double_in(vec_force,"z").u.d)),
+					 .torque = glm::vec3(
+							static_cast<float>(toml_double_in(vec_torque,"x").u.d),
+							static_cast<float>(toml_double_in(vec_torque,"y").u.d),
+							static_cast<float>(toml_double_in(vec_torque,"z").u.d)),
 				};
 				add_component(m,entity,c);
 				break;
@@ -660,18 +671,14 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 			}
 			case MassType: {
 				Mass c {
-					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
-					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
-					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+					 .inv = static_cast<float>(toml_double_in(nt, "inv").u.d),
 				};
 				add_component(m,entity,c);
 				break;
 			}
 			case GravityType: {
 				Gravity c {
-					 .x = static_cast<float>(toml_double_in(nt, "x").u.d),
-					 .y = static_cast<float>(toml_double_in(nt, "y").u.d),
-					 .z = static_cast<float>(toml_double_in(nt, "z").u.d),
+					 .value = static_cast<float>(toml_double_in(nt, "value").u.d),
 				};
 				add_component(m,entity,c);
 				break;
@@ -705,7 +712,7 @@ void save_level(Memory *m, const char *saveFilePath) {
 		if(mask & RotationComponent) {
 			Rotation rotation;
 			if (get_component(m, entity_id, &rotation)) {
-				fprintf(fp,"rotation = { x = %.2f, y = %.2f, z = %.2f }", rotation.x, rotation.y, rotation.z);
+				fprintf(fp,"rotation = { x = %.2f, y = %.2f, z = %.2f, w = %.2f }", rotation.x, rotation.y, rotation.z, rotation.w);
 			}
 		}
 		if(mask & ColorComponent) {
@@ -717,19 +724,19 @@ void save_level(Memory *m, const char *saveFilePath) {
 		if(mask & CameraComponent) {
 			Camera camera;
 			if (get_component(m, entity_id, &camera)) {
-				fprintf(fp,"camera = { x = %.2f, y = %.2f, z = %.2f }", camera.x, camera.y, camera.z);
+				fprintf(fp,"camera = { fov = %.2f, near = %.2f, far = %.2f }", camera.fov, camera.near, camera.far);
 			}
 		}
 		if(mask & ModelComponent) {
 			Model model;
 			if (get_component(m, entity_id, &model)) {
-				fprintf(fp,"model = { x = %.2f, y = %.2f, z = %.2f }", model.x, model.y, model.z);
+				fprintf(fp,"model = { submesh_count = %.2f }", model.submesh_count);
 			}
 		}
 		if(mask & MaterialComponent) {
 			Material material;
 			if (get_component(m, entity_id, &material)) {
-				fprintf(fp,"material = { x = %.2f, y = %.2f, z = %.2f }", material.x, material.y, material.z);
+				fprintf(fp,"material = { }", material.shader_id);
 			}
 		}
 		if(mask & InputComponent) {
@@ -741,13 +748,13 @@ void save_level(Memory *m, const char *saveFilePath) {
 		if(mask & VelocityComponent) {
 			Velocity velocity;
 			if (get_component(m, entity_id, &velocity)) {
-				fprintf(fp,"velocity = { x = %.2f, y = %.2f, z = %.2f }", velocity.x, velocity.y, velocity.z);
+				fprintf(fp,"velocity = { linear = { x = %.2f,} \nangular = { x = %.2f} \n}", velocity.linear, velocity.angular);
 			}
 		}
 		if(mask & ForceAccumulatorComponent) {
 			ForceAccumulator forceAccumulator;
 			if (get_component(m, entity_id, &forceAccumulator)) {
-				fprintf(fp,"forceAccumulator = { x = %.2f, y = %.2f, z = %.2f }", forceAccumulator.x, forceAccumulator.y, forceAccumulator.z);
+				fprintf(fp,"forceAccumulator = { force = { x = %.2f,} \ntorque = { x = %.2f} \n}", forceAccumulator.force, forceAccumulator.torque);
 			}
 		}
 		if(mask & RigidBodyComponent) {
@@ -771,13 +778,13 @@ void save_level(Memory *m, const char *saveFilePath) {
 		if(mask & MassComponent) {
 			Mass mass;
 			if (get_component(m, entity_id, &mass)) {
-				fprintf(fp,"mass = { x = %.2f, y = %.2f, z = %.2f }", mass.x, mass.y, mass.z);
+				fprintf(fp,"mass = { inv = %.2f }", mass.inv);
 			}
 		}
 		if(mask & GravityComponent) {
 			Gravity gravity;
 			if (get_component(m, entity_id, &gravity)) {
-				fprintf(fp,"gravity = { x = %.2f, y = %.2f, z = %.2f }", gravity.x, gravity.y, gravity.z);
+				fprintf(fp,"gravity = { value = %.2f }", gravity.value);
 			}
 		}
 		fprintf(fp, "\n");

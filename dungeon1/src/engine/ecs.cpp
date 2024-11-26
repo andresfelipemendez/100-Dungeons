@@ -96,8 +96,7 @@ void set_entity_name(World *w, size_t entity, const char *friendly_name) {
   w->entity_names[entity][name_length] = '\0';
 }
 
-bool add_shader(MemoryHeader *h, char *name, GLuint programID) {
-
+bool add_shader(Memory *m, char *name, GLuint programID) {
   size_t name_length = strlen(name);
   if (name_length > ENTITY_NAME_LENGTH) {
     printf("shader name should be less than %i, name: %s \n",
@@ -108,21 +107,21 @@ bool add_shader(MemoryHeader *h, char *name, GLuint programID) {
     name[i] = tolower((unsigned char)name[i]);
   }
 
-  errno_t err = strncpy_s(h->shaders->shader_names[h->shaders->count],
+  errno_t err = strncpy_s(m->shaders->shader_names[m->shaders->count],
                           ENTITY_NAME_LENGTH, name, name_length);
   if (err != 0) {
     printf("error copying shader name %s\n", name);
     return false;
   }
 
-  h->shaders->shader_names[h->shaders->count][name_length] = '\0';
-  h->shaders->program_ids[h->shaders->count] = programID;
-  h->shaders->count++;
+  m->shaders->shader_names[m->shaders->count][name_length] = '\0';
+  m->shaders->program_ids[m->shaders->count] = programID;
+  m->shaders->count++;
 
   return true;
 }
 
-bool get_shader_by_name_caseinsenstive(MemoryHeader *h, const char *name,
+bool get_shader_by_name_caseinsenstive(Memory *m, const char *name,
                                        GLuint *programID) {
   size_t shader_name_length = strlen(name);
   if (shader_name_length >= ENTITY_NAME_LENGTH) {
@@ -136,9 +135,9 @@ bool get_shader_by_name_caseinsenstive(MemoryHeader *h, const char *name,
     material_name[i] = tolower((unsigned char)material_name[i]);
   }
 
-  for (size_t i = 0; i < h->shaders->count; ++i) {
-    if (strcmp(material_name, h->shaders->shader_names[i]) == 0) {
-      *programID = h->shaders->program_ids[i];
+  for (size_t i = 0; i < m->shaders->count; ++i) {
+    if (strcmp(material_name, m->shaders->shader_names[i]) == 0) {
+      *programID = m->shaders->program_ids[i];
       return true;
     }
   }
@@ -146,17 +145,16 @@ bool get_shader_by_name_caseinsenstive(MemoryHeader *h, const char *name,
 }
 
 void load_material(Memory *m, size_t entity, const char *material_name) {
-
   GLuint shader_id;
-  if (!get_shader_by_name_caseinsenstive(h, material_name, &shader_id)) {
+  if (!get_shader_by_name_caseinsenstive(m, material_name, &shader_id)) {
     printf("can't find shader by case insensitive name %s\n", material_name);
   }
-  Material m{.shader_id = shader_id};
-  add_component(h->components, entity, m);
+  //Material c{.shader_id = shader_id};
+//  add_component(m->components, entity, c);
 }
 
-void load_collider(MemoryHeader *h, size_t entity, toml_datum_t *collider) {}
-
+void load_collider(Memory *h, size_t entity, toml_datum_t *collider) {}
+/*
 void ecs_load_level(game *g, const char *sceneFilePath) {
   FILE *fp;
   char errbuf[200];
@@ -171,7 +169,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
   fclose(fp);
 
   World *w = get_world(g);
-  MemoryHeader *h = get_header(g);
+  Memory *h = get_header(g);
 
   for (int i = 0;; i++) {
     const char *friendly_name = toml_key_in(level, i);
@@ -203,7 +201,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 
             printf("%s = { x = %.2f, y = %.2f, z = %.2f}\n", type_key, x, y, z);
             Position p{x, y, z};
-            add_component(h, entity, p);
+            add_component(h->components, entity, p);
           }
           break;
         }
@@ -222,7 +220,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 
             Rotation rot{.x = q.x, .y = q.y, .z = q.z, .w = q.w};
 
-            add_component(h, entity, rot);
+            add_component(h->components, entity, rot);
 
             printf("  %s = { p = %.2f, y = %.2f, r = %.2f }\n", type_key, p, y,
                    r);
@@ -256,7 +254,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
                    fov, near, far);
 
             Camera camera{fov, near, far};
-            add_component(h, entity, camera);
+            add_component(h->components, entity, camera);
           }
           break;
         }
@@ -267,7 +265,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
             printf("  model = \"%s\"\n", model.u.s);
             Model *m = &h->pModels->components[h->pModels->count];
             g->load_mesh(g, model.u.s);
-            add_component(h, entity, *m);
+            add_component(h->components, entity, *m);
             free(model.u.s);
           }
           break;
@@ -309,3 +307,4 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 
   toml_free(level);
 }
+*/

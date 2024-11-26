@@ -107,6 +107,12 @@ size_t generate_struct_data_structure(toml_table_t *conf, Arena *structs_arena,
       if (strcmp(field_type_name.u.s, "float") == 0) {
         current_struct->fields[current_struct->field_count].type = float_type;
       }
+      if (strcmp(field_type_name.u.s, "glm::vec3") == 0) {
+        current_struct->fields[current_struct->field_count].type = glmv3_type;
+      }
+      if (strcmp(field_type_name.u.s, "GLuint") == 0) {
+        current_struct->fields[current_struct->field_count].type = gluint_type;
+      }
       current_struct->field_count++;
       free(field_type_name.u.s);
     }
@@ -125,6 +131,9 @@ size_t generate_struct_data_structure(toml_table_t *conf, Arena *structs_arena,
 
 void gen_struct_definitions(struct_input *structs, size_t structs_count,
                             char *output, size_t *o, size_t size) {
+  APPEND("#include <glm.hpp>\n");
+  APPEND("#include <glad.h>\n");
+
   APPEND("enum ComponentType {\n");
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("\t%sType,\n", structs[i].name);
@@ -146,8 +155,18 @@ void gen_struct_definitions(struct_input *structs, size_t structs_count,
     for (size_t j = 0; j < structs[i].field_count; j++) {
       char *field_type_name = NULL;
       switch (structs[i].fields[j].type) {
-      case float_type:
+      case float_type: {
         field_type_name = "float";
+        break;
+      }
+      case glmv3_type: {
+        field_type_name = "glm::vec3";
+        break;
+      }
+      case gluint_type: {
+        field_type_name = "GLuint";
+        break;
+      }
       }
       if (field_type_name == NULL) {
         error("type not found", NULL);
@@ -175,7 +194,7 @@ void gen_struct_definitions(struct_input *structs, size_t structs_count,
   APPEND("ComponentType mapStringToComponentType(const char * type_key);\n");
 
   for (size_t i = 0; i < structs_count; i++) {
-    APPEND("bool add_component(Components *h, size_t entity_id, %s "
+    APPEND("void add_component(Components *h, size_t entity_id, %s "
            "component);\n",
            structs[i].name);
   }
@@ -225,7 +244,7 @@ void serializer_source(struct_input *structs, size_t structs_count,
   APPEND("}\n");
 
   for (size_t i = 0; i < structs_count; i++) {
-    APPEND("bool add_component(Memory *m, size_t entity_id, %s "
+    APPEND("void add_component(Memory *m, size_t entity_id, %s "
            "component) {\n"
            "\tsize_t i = m->components->p%ss->count;\n"
            "\tm->components->p%ss->entity_ids[i] = entity_id;\n"
@@ -309,6 +328,19 @@ void serializer_source(struct_input *structs, size_t structs_count,
   // APPEND();
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("\t\t\tcase %sType: {\n", structs[i].name);
+
+    for (size_t j = 0; j < structs[i].field_count; j++) {
+      switch (structs[i].fields[j].type) {
+      case glmv3_type:
+       APPEND("\t\t\t\t\t toml_table_t* vec_%s = toml_table_in(nt,\"%s\");\n",
+               structs[i].fields[j].name,structs[i].fields[j].name);
+      break;
+      default:
+      // no need to reload table
+      break;
+      }
+    }
+
     APPEND("\t\t\t\t%s c {\n", structs[i].name);
     for (size_t j = 0; j < structs[i].field_count; j++) {
       char *separator = (j == structs[i].field_count - 1) ? "" : ",";
@@ -320,6 +352,18 @@ void serializer_source(struct_input *structs, size_t structs_count,
                "\"%s\").u.d),\n",
                structs[i].fields[j].name, structs[i].fields[j].name);
 
+        break;
+      case glmv3_type:
+        APPEND("\t\t\t\t\t .%s = glm::vec3(\n"
+        "\t\t\t\t\t\t\tstatic_cast<float>(toml_double_in(vec_%s,\"x\").u.d),\n"
+        "\t\t\t\t\t\t\tstatic_cast<float>(toml_double_in(vec_%s,\"y\").u.d),\n"
+        "\t\t\t\t\t\t\tstatic_cast<float>(toml_double_in(vec_%s,\"z\").u.d)),\n",
+               structs[i].fields[j].name,structs[i].fields[j].name,structs[i].fields[j].name,structs[i].fields[j].name);
+        break;
+      case gluint_type:
+        APPEND("\t\t\t\t\t .%s = static_cast<GLuint>(toml_int_in(nt, "
+               "\"%s\").u.i),\n",
+               structs[i].fields[j].name, structs[i].fields[j].name);
         break;
       default:
         type_serializer = "";
@@ -371,14 +415,20 @@ void serializer_source(struct_input *structs, size_t structs_count,
       switch (structs[i].fields[j].type) {
       case float_type:
         type_serializer = "%.2f";
+        APPEND("%s = %%.2f%s ", structs[i].fields[j].name, separator);
+        break;
+      case glmv3_type:
+        APPEND("%s = { x = %%.2f%s} \\n", structs[i].fields[j].name, separator);  
+        break;
+      case gluint_type:
+
         break;
       default:
         type_serializer = "";
         error("Unsupported field type: ", structs[i].fields[j].name);
         break;
       }
-      APPEND("%s = %s%s ", structs[i].fields[j].name, type_serializer,
-             separator);
+      
     }
     APPEND("}\",");
     for (size_t j = 0; j < structs[i].field_count; j++) {

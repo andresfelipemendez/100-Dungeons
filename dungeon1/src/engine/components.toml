@@ -7,6 +7,7 @@ z = "float"
 x = "float"
 y = "float"
 z = "float"
+w = "float"
 
 [Color]
 x = "float"
@@ -14,19 +15,15 @@ y = "float"
 z = "float"
 
 [Camera]
-x = "float"
-y = "float"
-z = "float"
+fov = "float"
+near = "float"
+far = "float"
 
 [Model]
-x = "float"
-y = "float"
-z = "float"
+submesh_count = "size_t"
 
 [Material]
-x = "float"
-y = "float"
-z = "float"
+shader_id = "GLuint"
 
 [Input]
 x = "float"
@@ -34,14 +31,12 @@ y = "float"
 z = "float"
 
 [Velocity]
-x = "float"
-y = "float"
-z = "float"
+linear = "glm::vec3"
+angular = "glm::vec3"
 
 [ForceAccumulator]
-x = "float"
-y = "float"
-z = "float"
+force = "glm::vec3"
+torque = "glm::vec3"
 
 [RigidBody]
 x = "float"
@@ -59,11 +54,7 @@ y = "float"
 z = "float"
 
 [Mass]
-x = "float"
-y = "float"
-z = "float"
+inv = "float"
 
 [Gravity]
-x = "float"
-y = "float"
-z = "float"
+value = "float"

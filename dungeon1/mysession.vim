@@ -19,13 +19,19 @@ badd +113 src/generator/test_codegenerator.c
 badd +168 src/generator/codegenerator.c
 badd +41 build_engine.bat
 badd +98 src/generator/componentserializer.c
-badd +2 build.c
-badd +31 build.h
+badd +42 build.c
+badd +30 build.h
 badd +24 ~/bin/connectsoundbar.bat
 badd +640 ~/AppData/Local/nvim/init.lua
+badd +1 build.log
+badd +1 \+\ CategoryInfo\ \ \ \ \ \ \ \ \ \ :\ NotSpecified:\ (In\ file\ include...nets.gen.cpp
+badd +122 src/engine/ecs.h
+badd +69 src/engine/components.gen.h
+badd +52 src/engine//engine.cpp
+badd +0 src/engine/memory.h
 argglobal
 %argdel
-edit build.h
+edit src/engine/memory.h
 let s:save_splitbelow = &splitbelow
 let s:save_splitright = &splitright
 set splitbelow splitright
@@ -49,7 +55,7 @@ exe 'vert 1resize ' . ((&columns * 159 + 240) / 480)
 exe 'vert 2resize ' . ((&columns * 160 + 240) / 480)
 exe 'vert 3resize ' . ((&columns * 159 + 240) / 480)
 argglobal
-balt build.c
+balt src/engine//engine.cpp
 setlocal fdm=manual
 setlocal fde=0
 setlocal fmr={{{,}}}
@@ -60,12 +66,12 @@ setlocal fdn=20
 setlocal fen
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 32 - ((31 * winheight(0) + 38) / 76)
+let s:l = 6 - ((5 * winheight(0) + 38) / 76)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 32
-normal! 0
+keepjumps 6
+normal! 034|
 wincmd w
 argglobal
 if bufexists(fnamemodify("build.c", ":p")) | buffer build.c | else | edit build.c | endif
@@ -83,19 +89,16 @@ setlocal fdn=20
 setlocal fen
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 2 - ((1 * winheight(0) + 38) / 76)
+let s:l = 42 - ((41 * winheight(0) + 38) / 76)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 2
-normal! 0
+keepjumps 42
+normal! 05|
 wincmd w
 argglobal
-if bufexists(fnamemodify("~/AppData/Local/nvim/init.lua", ":p")) | buffer ~/AppData/Local/nvim/init.lua | else | edit ~/AppData/Local/nvim/init.lua | endif
-if &buftype ==# 'terminal'
-  silent file ~/AppData/Local/nvim/init.lua
-endif
-balt build_engine.bat
+enew
+balt ~/AppData/Local/nvim/init.lua
 setlocal fdm=manual
 setlocal fde=0
 setlocal fmr={{{,}}}
@@ -104,16 +107,7 @@ setlocal fdl=0
 setlocal fml=1
 setlocal fdn=20
 setlocal fen
-silent! normal! zE
-let &fdl = &fdl
-let s:l = 640 - ((24 * winheight(0) + 38) / 76)
-if s:l < 1 | let s:l = 1 | endif
-keepjumps exe s:l
-normal! zt
-keepjumps 640
-normal! 052|
 wincmd w
-2wincmd w
 exe 'vert 1resize ' . ((&columns * 159 + 240) / 480)
 exe 'vert 2resize ' . ((&columns * 160 + 240) / 480)
 exe 'vert 3resize ' . ((&columns * 159 + 240) / 480)
