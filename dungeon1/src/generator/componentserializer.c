@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
                                  outputSize)) {
     char outputSourceFilePath[1024 * 50];
     snprintf(outputSourceFilePath, sizeof(outputSourceFilePath),
-             "%s\\componets.gen.cpp", outputDir);
+             "%s\\componets.cpp", outputDir);
 
     FILE *outputSourceFile = NULL;
     if (fopen_s(&outputSourceFile, outputSourceFilePath, "w") != 0 ||
@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
 
     char outputHeaderFilePath[1024 * 50];
     snprintf(outputHeaderFilePath, sizeof(outputHeaderFilePath),
-             "%s\\components.gen.h", outputDir);
+             "%s\\components.h", outputDir);
     FILE *outputHeaderFile = NULL;
     if (fopen_s(&outputHeaderFile, outputHeaderFilePath, "w") != 0 ||
         outputSourceFile == NULL) {

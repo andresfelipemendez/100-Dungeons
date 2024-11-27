@@ -14,7 +14,7 @@
 
 #include <GLFW/glfw3.h>
 
-#include "components.gen.h"
+#include "components.h"
 #include "physics.h"
 #include <game.h>
 
@@ -43,7 +43,7 @@ void input_system(game *g, Memory *h) {
           v = glm::normalize(v);
           p.x += v.x * speed * g->deltaTime;
           p.z += v.y * speed * g->deltaTime;
-          set_component(h->components, entity, &p);
+          set_component(h->components, entity, p);
         }
       }
     }
@@ -76,7 +76,7 @@ void camera_follow_system(game *g, Memory *h) {
       .y = player_position.y + 10,
       .z = player_position.z + 10,
   };
-  set_component(h->components, camera_entity, &camera_position);
+  set_component(h->components, camera_entity, camera_position);
 }
 
 glm::vec4 cc(0.45f, 0.55f, 0.60f, 1.00f);

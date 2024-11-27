@@ -20,7 +20,7 @@
 #include <GLFW/glfw3.h>
 #include <glad.h>
 
-#include "components.gen.h"
+#include "components.h"
 #include "memory.h"
 #include <glm.hpp>
 #include <gtc/constants.hpp>
@@ -191,16 +191,16 @@ EXPORT void draw_editor(game *g) {
         position.x = modelMatrix[3][0];
         position.y = modelMatrix[3][1];
         position.z = modelMatrix[3][2];
-        set_component(h->components, selected_entity, &position);
+        set_component(h->components, selected_entity, position);
 
         if (ImGui::InputFloat3("Position", (float *)&position)) {
-          set_component(h->components, selected_entity, &position);
+          set_component(h->components, selected_entity, position);
           modelMatrix = glm::translate(
               glm::mat4(1.0f), glm::vec3(position.x, position.y, position.z));
         }
       } else {
         if (ImGui::InputFloat3("Camera Position", (float *)&position)) {
-          set_component(h->components, selected_entity, &position);
+          set_component(h->components, selected_entity, position);
         }
       }
     }

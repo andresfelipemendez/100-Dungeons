@@ -11,14 +11,18 @@
 #include <string.h>
 #include <toml.h>
 
-#include "asset_loader.h"
+//#include "asset_loader.h"
 
 #include <glm.hpp>
 #include <gtc/constants.hpp>
 #include <gtc/matrix_transform.hpp>
 #include <gtc/quaternion.hpp>
 
-#include "components.gen.h"
+#include "components.h"
+
+void load_shader(struct Memory *h, size_t entity, struct Model* m){
+
+}
 
 bool get_entity_name(World *w, size_t entity, char *name) {
   for (size_t i = 0; i < w->entity_count; ++i) {

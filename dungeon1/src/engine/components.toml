@@ -20,7 +20,11 @@ near = "float"
 far = "float"
 
 [Model]
+shader = "path"
+submeshes = "SubMesh*"
 submesh_count = "size_t"
+drawsBuffer = "GLuint"
+
 
 [Material]
 shader_id = "GLuint"
@@ -39,9 +43,8 @@ force = "glm::vec3"
 torque = "glm::vec3"
 
 [RigidBody]
-x = "float"
-y = "float"
-z = "float"
+linearDamping = "float"
+angularDamping = "float"
 
 [Collider]
 x = "float"

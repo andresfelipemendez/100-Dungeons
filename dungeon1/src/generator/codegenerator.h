@@ -6,6 +6,9 @@ enum c_type {
   float_type,
   glmv3_type,
   gluint_type,
+  size_t_type,
+  submeshp_type,
+  path_type,
 };
 
 typedef struct field {

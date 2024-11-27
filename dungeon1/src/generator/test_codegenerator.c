@@ -106,7 +106,7 @@ UTEST(code_generator, serializer_include) {
   size_t o = 0;
   serializer_include(NULL, 0, output_buffer, &o, output_size);
   printf("output: %s\n",output_buffer);
-  const char *expected_output = "#include \"components.gen.h\"\n";
+  const char *expected_output = "#include \"components.h\"\n";
   ASSERT_STREQ(expected_output, output_buffer);
 }
 

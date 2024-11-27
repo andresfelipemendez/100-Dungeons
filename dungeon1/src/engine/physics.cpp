@@ -1,6 +1,6 @@
 #include "physics.h"
-#include "components.gen.h"
 #include "ecs.h"
+#include "components.h"
 #include "fwd.hpp"
 #include <ext/matrix_transform.hpp>
 #include <game.h>
@@ -29,7 +29,7 @@ void physics_system(game *g, Memory *h) {
     if (mass.inv > 0.0f) {
       // accumulator.force +=
       //     glm::vec3(0.0f, -gravity.value * (1.0f / mass.inv), 0.0f);
-      set_component(h->components, entity, &accumulator);
+      set_component(h->components, entity, accumulator);
     }
   }
 
