@@ -1,6 +1,6 @@
 #include "physics.h"
-#include "ecs.h"
 #include "components.h"
+#include "ecs.h"
 #include "fwd.hpp"
 #include <ext/matrix_transform.hpp>
 #include <game.h>
@@ -9,56 +9,56 @@
 #include <gtc/matrix_transform.hpp>
 #include <gtc/quaternion.hpp>
 
-void physics_system(game *g, Memory *h) {
+void physics_system(game *g, Memory *m) {
   // Apply gravity force generator
-  if (!get_entities(h, ForceAccumulatorComponent | GravityComponent)) {
+  if (!get_entities(m, ForceAccumulatorComponent | GravityComponent)) {
     return;
   }
-  for (size_t i = 0; i < h->query.count; ++i) {
-    size_t entity = h->query.entities[i];
+  for (size_t i = 0; i < m->query.count; ++i) {
+    size_t entity = m->query.entities[i];
     Gravity gravity;
-    get_component(h->components, entity, &gravity);
+    get_component(m, entity, &gravity);
 
     ForceAccumulator accumulator;
-    get_component(h->components, entity, &accumulator);
+    get_component(m, entity, &accumulator);
 
     Mass mass;
-    get_component(h->components, entity, &mass);
+    get_component(m, entity, &mass);
 
     // Apply gravity force if the object is not static (invMass > 0)
     if (mass.inv > 0.0f) {
       // accumulator.force +=
       //     glm::vec3(0.0f, -gravity.value * (1.0f / mass.inv), 0.0f);
-      set_component(h->components, entity, accumulator);
+      set_component(m, entity, accumulator);
     }
   }
 
   // Integrate forces for dynamic entities
-  if (!get_entities(h, MassComponent | RigidBodyComponent | PositionComponent |
+  if (!get_entities(m, MassComponent | RigidBodyComponent | PositionComponent |
                            ForceAccumulatorComponent | VelocityComponent)) {
     return;
   }
 
-  for (size_t i = 0; i < h->query.count; ++i) {
-    size_t entity = h->query.entities[i];
+  for (size_t i = 0; i < m->query.count; ++i) {
+    size_t entity = m->query.entities[i];
 
     RigidBody rb;
-    get_component(h->components, entity, &rb);
+    get_component(m, entity, &rb);
 
     Mass mass;
-    get_component(h->components, entity, &mass);
+    get_component(m, entity, &mass);
     if (mass.inv <= 0.0f) {
       continue;
     }
 
     ForceAccumulator accumulator;
-    get_component(h->components, entity, &accumulator);
+    get_component(m, entity, &accumulator);
 
     Velocity velocity;
-    get_component(h->components, entity, &velocity);
+    get_component(m, entity, &velocity);
 
     Position pos;
-    get_component(h->components, entity, &pos);
+    get_component(m, entity, &pos);
 
     // Step 1: Integrate forces to update velocity
     glm::vec3 acceleration = accumulator.force * mass.inv;
@@ -78,11 +78,11 @@ void physics_system(game *g, Memory *h) {
     pos.x += velocity.linear.x * g->deltaTime;
     pos.y += velocity.linear.y * g->deltaTime;
     pos.z += velocity.linear.z * g->deltaTime;
-    set_component(h->components, entity, pos);
+    set_component(m, entity, pos);
 
     // Step 3: Update rotation based on angular velocity
     Rotation rot;
-    get_component(h->components, entity, &rot);
+    get_component(m, entity, &rot);
     glm::quat orientation = glm::quat(rot.w, rot.x, rot.y, rot.z);
     glm::vec3 angularVelocity = velocity.angular * (float)g->deltaTime;
     glm::quat deltaRotation =
@@ -94,15 +94,15 @@ void physics_system(game *g, Memory *h) {
     rot.x = orientation.x;
     rot.y = orientation.y;
     rot.z = orientation.z;
-    set_component(h->components, entity, rot);
+    set_component(m, entity, rot);
 
     // Clear force accumulators for the next frame
     accumulator.force = glm::vec3(0.0f);
     accumulator.torque = glm::vec3(0.0f);
 
     // Update components after modifications
-    set_component(h->components, entity, accumulator);
-    set_component(h->components, entity, velocity);
-    set_component(h->components, entity, rb);
+    set_component(m, entity, accumulator);
+    set_component(m, entity, velocity);
+    set_component(m, entity, rb);
   }
 }

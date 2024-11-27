@@ -226,7 +226,7 @@ void build_engine_dll() {
         strcmp(findFileData.cFileName, "..") != 0) {
       strcat_s(source_files, sizeof(source_files), cwd);
       strcat_s(source_files, sizeof(source_files), ENGINE_DIR);
-      strcat_s(source_files, sizeof(source_files), separator);
+      strcat_s(source_files, sizeof(source_files), "\\");
       strcat_s(source_files, sizeof(source_files), findFileData.cFileName);
       strcat_s(source_files, sizeof(source_files), " ");
     }
@@ -265,12 +265,24 @@ void build_engine_dll() {
   strcat_s(command, command_len, libs);
   strcat_s(command, command_len, compile_options);
 
-  // puts(command);
+  puts(command);
 
   int res = system(command);
-  if (res != 0) {
+  
+HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+CONSOLE_SCREEN_BUFFER_INFO consoleInfo;
+GetConsoleScreenBufferInfo(hConsole, &consoleInfo);  // Save current attributes
+
+if (res != 0) {
+    // Red background with white text for error
+    SetConsoleTextAttribute(hConsole, BACKGROUND_RED | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
     puts("compilation error");
-  } else {
+} else {
+    // Green text for success
+    SetConsoleTextAttribute(hConsole, FOREGROUND_GREEN);
     puts("compilation success");
-  }
+}
+
+// Restore original console colors
+SetConsoleTextAttribute(hConsole, consoleInfo.wAttributes);
 }

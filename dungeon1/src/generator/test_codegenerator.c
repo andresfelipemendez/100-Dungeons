@@ -93,7 +93,7 @@ UTEST(code_generator, serializer) {
   const char *expected_output =
       "if(mask & PositionComponent) {\n"
       "\tPosition position;\n"
-      "\tif (get_component(h->components, entity_id, &position)) {\n"
+      "\tif (get_component(m, entity_id, &position)) {\n"
       "\t\tfprintf(fp,\"position = { x = %.2f, y = %.2f, z = %.2f }\", "
       "position.x, position.y, position.z);\n"
       "\t}\n"

@@ -1,4 +1,3 @@
-#include "ecs.h"
 #include "components.h"
 #include <toml.h>
 #include "memory.h"

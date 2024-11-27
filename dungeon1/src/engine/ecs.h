@@ -10,7 +10,6 @@
 
 #define ENTITY_NAME_LENGTH 16
 
-
 typedef struct IndirectDrawCommand {
   uint32_t count;
   uint32_t instanceCount;
@@ -62,7 +61,6 @@ typedef struct Shaders {
   char (*shader_names)[ENTITY_NAME_LENGTH];
 } Shaders;
 
-
 typedef struct World {
   size_t entity_count;
   size_t *entity_ids;
@@ -84,21 +82,22 @@ typedef struct Memory {
 } Memory;
 
 void ecs_load_level(struct game *g, const char *saveFilePath);
-void save_level(struct Memory *h, const char *saveFilePath);
+void save_level(struct Memory *m, const char *saveFilePath);
 
 size_t create_entity(World *w);
 
-bool get_entity(struct Memory *h, uint32_t component_mask,
+bool get_entity(struct Memory *m, uint32_t component_mask,
                 size_t &out_entity_id);
 
-bool get_entities(struct Memory *h, uint32_t component_mask);
+bool get_entities(struct Memory *m, uint32_t component_mask);
 
 void set_entity_name(World *w, size_t entity, const char *friendly_name);
 
 bool check_entity_component(Memory *m, size_t entity, uint32_t component_mask);
 bool get_entity_name(World *w, size_t entity, char *name);
 
-bool add_shader(struct Memory *h, char *name, GLuint programID);
+bool add_shader(struct Memory *m, char *name, GLuint programID);
 
-// function to hand craft the loading of assets, might move to a renderer system or similar
-void load_shader(struct Memory *h, size_t entity, struct Model* m);
+// function to hand craft the loading of assets, might move to a renderer system
+// or similar
+void load_shader(struct Memory *m, size_t entity, struct Model *model);

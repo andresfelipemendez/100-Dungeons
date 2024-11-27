@@ -18,16 +18,16 @@
 #include "physics.h"
 #include <game.h>
 
-void input_system(game *g, Memory *h) {
-  if (!get_entities(h, InputComponent | PositionComponent)) {
+void input_system(game *g, Memory *m) {
+  if (!get_entities(m, InputComponent | PositionComponent)) {
     return;
   }
 
-  for (size_t i = 0; i < h->query.count; ++i) {
-    size_t entity = h->query.entities[i];
+  for (size_t i = 0; i < m->query.count; ++i) {
+    size_t entity = m->query.entities[i];
 
     Position p;
-    if (!get_component(h->components, entity, &p)) {
+    if (!get_component(m, entity, &p)) {
       continue;
     }
 
@@ -43,31 +43,31 @@ void input_system(game *g, Memory *h) {
           v = glm::normalize(v);
           p.x += v.x * speed * g->deltaTime;
           p.z += v.y * speed * g->deltaTime;
-          set_component(h->components, entity, p);
+          set_component(m, entity, p);
         }
       }
     }
   }
 }
 
-void camera_follow_system(game *g, Memory *h) {
+void camera_follow_system(game *g, Memory *m) {
   size_t camera_entity;
-  if (!get_entity(h, CameraComponent, camera_entity)) {
+  if (!get_entity(m, CameraComponent, camera_entity)) {
     return;
   }
 
   size_t player_entity;
-  if (!get_entity(h, InputComponent, player_entity)) {
+  if (!get_entity(m, InputComponent, player_entity)) {
     return;
   }
 
   Position camera_position;
-  if (!get_component(h->components, camera_entity, &camera_position)) {
+  if (!get_component(m, camera_entity, &camera_position)) {
     return;
   }
 
   Position player_position;
-  if (!get_component(h->components, player_entity, &player_position)) {
+  if (!get_component(m, player_entity, &player_position)) {
     return;
   }
 
@@ -76,11 +76,11 @@ void camera_follow_system(game *g, Memory *h) {
       .y = player_position.y + 10,
       .z = player_position.z + 10,
   };
-  set_component(h->components, camera_entity, camera_position);
+  set_component(m, camera_entity, camera_position);
 }
 
 glm::vec4 cc(0.45f, 0.55f, 0.60f, 1.00f);
-void rendering_system(Memory *h) {
+void rendering_system(Memory *m) {
   glClearColor(cc.x * cc.a, cc.y * cc.a, cc.z * cc.a, cc.a);
 
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -88,17 +88,17 @@ void rendering_system(Memory *h) {
   glDisable(GL_BLEND);
 
   size_t camera_entity;
-  if (!get_entity(h, CameraComponent, camera_entity)) {
+  if (!get_entity(m, CameraComponent, camera_entity)) {
     printf("couldn't find camera entity\n");
   }
 
   Position p;
-  if (!get_component(h->components, camera_entity, &p)) {
+  if (!get_component(m, camera_entity, &p)) {
     return;
   }
 
   Rotation r;
-  if (!get_component(h->components, camera_entity, &r)) {
+  if (!get_component(m, camera_entity, &r)) {
     return;
   }
 
@@ -115,27 +115,27 @@ void rendering_system(Memory *h) {
   float aspectRatio = 16.0f / 9.0f;
 
   Camera c;
-  if (!get_component(h->components, camera_entity, &c)) {
+  if (!get_component(m, camera_entity, &c)) {
     printf("couldn't find camera entity\n");
   }
   glm::mat4 projection =
       glm::perspective(glm::radians(c.fov), aspectRatio, c.near, c.far);
   glm::mat4 viewProj = projection * view;
 
-  if (!get_entities(h,
+  if (!get_entities(m,
                     MaterialComponent | ModelComponent | PositionComponent)) {
     return;
   }
 
-  for (size_t i = 0; i < h->query.count; ++i) {
+  for (size_t i = 0; i < m->query.count; ++i) {
     Material material;
-    if (get_component(h->components, h->query.entities[i], &material)) {
+    if (get_component(m, m->query.entities[i], &material)) {
       glUseProgram(material.shader_id);
     }
     glm::mat4 worldTransform = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f));
 
     Position p;
-    if (get_component(h->components, h->query.entities[i], &p)) {
+    if (get_component(m, m->query.entities[i], &p)) {
       GLuint view_loc = glGetUniformLocation(material.shader_id, "uViewProj");
       glUniformMatrix4fv(view_loc, 1, GL_TRUE, &viewProj[0][0]);
 
@@ -144,11 +144,11 @@ void rendering_system(Memory *h) {
       glUniformMatrix4fv(loc, 1, GL_TRUE, &worldTransform[0][0]);
     }
 
-    Model m;
-    if (get_component(h->components, h->query.entities[i], &m)) {
-      glBindBuffer(GL_DRAW_INDIRECT_BUFFER, m.drawsBuffer);
-      for (auto i = 0U; i < m.submesh_count; ++i) {
-        auto &submesh = m.submeshes[i];
+    Model model;
+    if (get_component(m, m->query.entities[i], &model)) {
+      glBindBuffer(GL_DRAW_INDIRECT_BUFFER, model.drawsBuffer);
+      for (auto i = 0U; i < model.submesh_count; ++i) {
+        auto &submesh = model.submeshes[i];
         glBindVertexArray(submesh.vertexArray);
         glDrawElementsIndirect(
             GL_TRIANGLES, submesh.indexType,
@@ -162,14 +162,14 @@ void rendering_system(Memory *h) {
   }
 
   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-  if (get_entities(h, ColliderComponent | PositionComponent)) {
+  if (get_entities(m, ColliderComponent | PositionComponent)) {
   }
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }
 
-void systems(game *g, Memory *h) {
-  input_system(g, h);
-  physics_system(g, h);
-  camera_follow_system(g, h);
-  rendering_system(h);
+void systems(game *g, Memory *m) {
+  input_system(g, m);
+  physics_system(g, m);
+  camera_follow_system(g, m);
+  rendering_system(m);
 }

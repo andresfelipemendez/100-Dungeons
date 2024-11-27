@@ -161,12 +161,12 @@ EXPORT void load_mesh(game *g, const char *meshFilePath) {
 		return;
 	}
 
-	Model *outMesh = &h->pModels->components[h->pModels->count];
+	Model *outMesh = &m->pModels->components[m->pModels->count];
 	for (auto &mesh : asset.get().meshes) {
 		for (auto it = mesh.primitives.begin(); it != mesh.primitives.end();
 			 ++it) {
 
-			outMesh->submesh_count++;
+			outMesm->submesh_count++;
 
 			if (it->type != fastgltf::PrimitiveType::Triangles) {
 				print_log(COLOR_RED, "submesh type it's not GL_TRIANGLES\n");
@@ -180,21 +180,21 @@ EXPORT void load_mesh(game *g, const char *meshFilePath) {
 			auto *positionIt = it->findAttribute("POSITION");
 			auto index = std::distance(mesh.primitives.begin(), it);
 
-			SubMesh *subMesh = &outMesh->submeshes[index];
-			subMesh->vertexArray = vao;
+			SubMesh *subMesh = &outMesm->submeshes[index];
+			subMesm->vertexArray = vao;
 			auto &positionAccessor =
 				asset.get().accessors[positionIt->accessorIndex];
 			if (!positionAccessor.bufferViewIndex.has_value())
 				continue;
 
-			glCreateBuffers(1, &subMesh->vertexBuffer);
+			glCreateBuffers(1, &subMesm->vertexBuffer);
 
-			glNamedBufferData(subMesh->vertexBuffer,
+			glNamedBufferData(subMesm->vertexBuffer,
 							  positionAccessor.count * sizeof(Vertex), nullptr,
 							  GL_STATIC_DRAW);
 
 			auto *vertices = static_cast<Vertex *>(
-				glMapNamedBuffer(subMesh->vertexBuffer, GL_WRITE_ONLY));
+				glMapNamedBuffer(subMesm->vertexBuffer, GL_WRITE_ONLY));
 
 			// Load Position
 			fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(
@@ -235,11 +235,11 @@ EXPORT void load_mesh(game *g, const char *meshFilePath) {
 				}
 			}
 
-			glUnmapNamedBuffer(subMesh->vertexBuffer);
+			glUnmapNamedBuffer(subMesm->vertexBuffer);
 
 			// Bind Position Attribute to VAO
-			glBindVertexArray(subMesh->vertexArray);
-			glBindBuffer(GL_ARRAY_BUFFER, subMesh->vertexBuffer);
+			glBindVertexArray(subMesm->vertexArray);
+			glBindBuffer(GL_ARRAY_BUFFER, subMesm->vertexBuffer);
 
 			glEnableVertexAttribArray(0);
 			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
@@ -255,10 +255,10 @@ EXPORT void load_mesh(game *g, const char *meshFilePath) {
 			glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
 								  (void *)offsetof(Vertex, uv));
 
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, subMesh->indexBuffer);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, subMesm->indexBuffer);
 			glBindVertexArray(0);
 
-			auto &draw = subMesh->draw;
+			auto &draw = subMesm->draw;
 			draw.instanceCount = 1;
 			draw.baseInstance = 0;
 			draw.baseVertex = 0;
@@ -269,44 +269,44 @@ EXPORT void load_mesh(game *g, const char *meshFilePath) {
 			if (!indexAccessor.bufferViewIndex.has_value())
 				return;
 			draw.count = static_cast<uint32_t>(indexAccessor.count);
-			glCreateBuffers(1, &subMesh->indexBuffer);
+			glCreateBuffers(1, &subMesm->indexBuffer);
 
 			if (indexAccessor.componentType ==
 					fastgltf::ComponentType::UnsignedByte ||
 				indexAccessor.componentType ==
 					fastgltf::ComponentType::UnsignedShort) {
-				subMesh->indexType = GL_UNSIGNED_SHORT;
+				subMesm->indexType = GL_UNSIGNED_SHORT;
 				glNamedBufferData(
-					subMesh->indexBuffer,
+					subMesm->indexBuffer,
 					static_cast<GLsizeiptr>(indexAccessor.count *
 											sizeof(std::uint16_t)),
 					nullptr, GL_STATIC_DRAW);
 				auto *indices = static_cast<std::uint16_t *>(
-					glMapNamedBuffer(subMesh->indexBuffer, GL_WRITE_ONLY));
+					glMapNamedBuffer(subMesm->indexBuffer, GL_WRITE_ONLY));
 				fastgltf::copyFromAccessor<std::uint16_t>(
 					asset.get(), indexAccessor, indices);
-				glUnmapNamedBuffer(subMesh->indexBuffer);
+				glUnmapNamedBuffer(subMesm->indexBuffer);
 			} else {
-				subMesh->indexType = GL_UNSIGNED_INT;
+				subMesm->indexType = GL_UNSIGNED_INT;
 				glNamedBufferData(
-					subMesh->indexBuffer,
+					subMesm->indexBuffer,
 					static_cast<GLsizeiptr>(indexAccessor.count *
 											sizeof(std::uint32_t)),
 					nullptr, GL_STATIC_DRAW);
 				auto *indices = static_cast<std::uint32_t *>(
-					glMapNamedBuffer(subMesh->indexBuffer, GL_WRITE_ONLY));
+					glMapNamedBuffer(subMesm->indexBuffer, GL_WRITE_ONLY));
 				fastgltf::copyFromAccessor<std::uint32_t>(
 					asset.get(), indexAccessor, indices);
-				glUnmapNamedBuffer(subMesh->indexBuffer);
+				glUnmapNamedBuffer(subMesm->indexBuffer);
 			}
 
-			glVertexArrayElementBuffer(vao, subMesh->indexBuffer);
-			glCreateBuffers(1, &outMesh->drawsBuffer);
+			glVertexArrayElementBuffer(vao, subMesm->indexBuffer);
+			glCreateBuffers(1, &outMesm->drawsBuffer);
 
-			glNamedBufferData(outMesh->drawsBuffer,
-							  static_cast<GLsizeiptr>(outMesh->submesh_count *
+			glNamedBufferData(outMesm->drawsBuffer,
+							  static_cast<GLsizeiptr>(outMesm->submesh_count *
 													  sizeof(SubMesh)),
-							  outMesh->submeshes, GL_STATIC_DRAW);
+							  outMesm->submeshes, GL_STATIC_DRAW);
 		}
 	}
 }

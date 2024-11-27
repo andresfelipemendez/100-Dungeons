@@ -33,6 +33,6 @@ struct hv3 {
 	}
 };
 
-void physics_system(struct game *g, struct Memory *h);
+void physics_system(struct game *g, struct Memory *m);
 
 #endif // PHYSICS_H

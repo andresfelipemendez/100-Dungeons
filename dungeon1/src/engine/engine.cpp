@@ -86,8 +86,8 @@ EXPORT void begin_frame(game *g) {
 }
 
 EXPORT void update(game *g) {
-  Memory *h = get_header(g);
-  systems(g, h);
+  Memory *m = get_header(g);
+  systems(g, m);
 }
 
 void EditTransform(float *cameraView, float *cameraProjection, float *matrix,
@@ -116,14 +116,14 @@ EXPORT void draw_editor(game *g) {
                     viewportSize.y);
 
   World *w = get_world(g);
-  Memory *h = get_header(g);
+  Memory *m = get_header(g);
   size_t count = w->entity_count;
 
   static size_t selected_entity = SIZE_MAX;
 
   if (ImGui::Button("Save World")) {
     const char *saveFilePath = "scene.toml";
-    save_level(h, saveFilePath);
+    save_level(m, saveFilePath);
     ImGui::Text("World saved to %s", saveFilePath);
   }
 
@@ -146,23 +146,23 @@ EXPORT void draw_editor(game *g) {
     if (w->component_masks[selected_entity] & PositionComponent) {
 
       Position position;
-      get_component(h->components, selected_entity, &position);
+      get_component(m, selected_entity, &position);
 
       size_t camera_entity;
-      if (!get_entity(h, CameraComponent, camera_entity)) {
+      if (!get_entity(m, CameraComponent, camera_entity)) {
         printf("couldn't find camera entity\n");
       }
 
       Position p;
-      if (!get_component(h->components, camera_entity, &p)) {
+      if (!get_component(m, camera_entity, &p)) {
         return;
       }
       Rotation r;
-      if (!get_component(h->components, camera_entity, &r)) {
+      if (!get_component(m, camera_entity, &r)) {
         return;
       }
       Camera c;
-      if (!get_component(h->components, camera_entity, &c)) {
+      if (!get_component(m, camera_entity, &c)) {
         printf("couldn't find camera entity\n");
       }
       if (selected_entity != camera_entity) {
@@ -191,16 +191,16 @@ EXPORT void draw_editor(game *g) {
         position.x = modelMatrix[3][0];
         position.y = modelMatrix[3][1];
         position.z = modelMatrix[3][2];
-        set_component(h->components, selected_entity, position);
+        set_component(m, selected_entity, position);
 
         if (ImGui::InputFloat3("Position", (float *)&position)) {
-          set_component(h->components, selected_entity, position);
+          set_component(m, selected_entity, position);
           modelMatrix = glm::translate(
               glm::mat4(1.0f), glm::vec3(position.x, position.y, position.z));
         }
       } else {
         if (ImGui::InputFloat3("Camera Position", (float *)&position)) {
-          set_component(h->components, selected_entity, position);
+          set_component(m, selected_entity, position);
         }
       }
     }

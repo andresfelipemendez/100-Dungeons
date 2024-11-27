@@ -18,8 +18,7 @@
 #include <minwinbase.h>
 #include <winnt.h>
 
-bool LoadGLTFMeshes(MemoryHeader *h, const char *meshFilePath, Model *outMesh) {
-
+bool LoadGLTFMeshes(Memory *m, const char *meshFilePath, Model *outMesh) {
   return true;
 }
 
@@ -108,7 +107,7 @@ void load_shaders(struct game *g) {
     return;
   }
 
-  Memory *h = get_header(g);
+  Memory *m = get_header(g);
   do {
     const char *vertFileName = findFileData.cFileName;
 
@@ -131,7 +130,7 @@ void load_shaders(struct game *g) {
       free(vertexSource);
       free(fragmentSource);
       printf("shader %s program id is: %i\n", shaderName, shaderProgram);
-      add_shader(h, shaderName, shaderProgram);
+      add_shader(m, shaderName, shaderProgram);
     }
 
   } while (FindNextFile(hFind, &findFileData) != 0);

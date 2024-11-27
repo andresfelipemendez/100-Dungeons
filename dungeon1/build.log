@@ -16,7 +16,7 @@ C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\physics.cpp:75:32:
    75 |     velocity.angular *= pow(rb.angularDamping, g->deltaTime);
       |                             ~~ ^
 C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\physics.cpp:81:5: error: no matching function for call to 'set_component'
-   81 |     set_component(h->components, entity, pos);
+   81 |     set_component(m, entity, pos);
       |     ^~~~~~~~~~~~~
 C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:248:6: note: candidate function not viable: no known conver
 sion from 'Position' to 'Position *' for 3rd argument; take the address of the argument with &
@@ -75,7 +75,7 @@ sion from 'Position' to 'Gravity *' for 3rd argument
   261 | bool set_component(Components *h, size_t entity_id, Gravity *component);
       |      ^                                              ~~~~~~~~~~~~~~~~~~
 C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\physics.cpp:97:5: error: no matching function for call to 'set_component'
-   97 |     set_component(h->components, entity, rot);
+   97 |     set_component(m, entity, rot);
       |     ^~~~~~~~~~~~~
 C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:249:6: note: candidate function not viable: no known conver
 sion from 'Rotation' to 'Rotation *' for 3rd argument; take the address of the argument with &
@@ -134,7 +134,7 @@ sion from 'Rotation' to 'Gravity *' for 3rd argument
   261 | bool set_component(Components *h, size_t entity_id, Gravity *component);
       |      ^                                              ~~~~~~~~~~~~~~~~~~
 C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\physics.cpp:104:5: error: no matching function for call to 'set_component'
-  104 |     set_component(h->components, entity, accumulator);
+  104 |     set_component(m, entity, accumulator);
       |     ^~~~~~~~~~~~~
 C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:256:6: note: candidate function not viable: no known conver
 sion from 'ForceAccumulator' to 'ForceAccumulator *' for 3rd argument; take the address of the argument with &
@@ -193,7 +193,7 @@ sion from 'ForceAccumulator' to 'Gravity *' for 3rd argument
   261 | bool set_component(Components *h, size_t entity_id, Gravity *component);
       |      ^                                              ~~~~~~~~~~~~~~~~~~
 C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\physics.cpp:105:5: error: no matching function for call to 'set_component'
-  105 |     set_component(h->components, entity, velocity);
+  105 |     set_component(m, entity, velocity);
       |     ^~~~~~~~~~~~~
 C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:255:6: note: candidate function not viable: no known conver
 sion from 'Velocity' to 'Velocity *' for 3rd argument; take the address of the argument with &
@@ -252,7 +252,7 @@ sion from 'Velocity' to 'Gravity *' for 3rd argument
   261 | bool set_component(Components *h, size_t entity_id, Gravity *component);
       |      ^                                              ~~~~~~~~~~~~~~~~~~
 C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\\physics.cpp:106:5: error: no matching function for call to 'set_component'
-  106 |     set_component(h->components, entity, rb);
+  106 |     set_component(m, entity, rb);
       |     ^~~~~~~~~~~~~
 C:\Users\andres\development\100-Dungeons\dungeon1\src\engine\components.gen.h:257:6: note: candidate function not viable: no known conver
 sion from 'RigidBody' to 'RigidBody *' for 3rd argument; take the address of the argument with &

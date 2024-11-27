@@ -142,8 +142,9 @@ size_t generate_struct_data_structure(toml_table_t *conf, Arena *structs_arena,
 
 void gen_struct_definitions(struct_input *structs, size_t structs_count,
                             char *output, size_t *o, size_t size) {
-  APPEND("#include <glm.hpp>\n");
-  APPEND("#include <glad.h>\n");
+  APPEND("#include \"ecs.h\"\n"
+         "#include <glm.hpp>\n"
+         "#include <glad.h>\n");
 
   APPEND("enum ComponentType {\n");
   for (size_t i = 0; i < structs_count; i++) {
@@ -217,19 +218,19 @@ void gen_struct_definitions(struct_input *structs, size_t structs_count,
   APPEND("ComponentType mapStringToComponentType(const char * type_key);\n");
 
   for (size_t i = 0; i < structs_count; i++) {
-    APPEND("void add_component(Components *h, size_t entity_id, %s "
+    APPEND("void add_component(Memory *m, size_t entity_id, %s "
            "component);\n",
            structs[i].name);
   }
   APPEND("\n");
   for (size_t i = 0; i < structs_count; i++) {
-    APPEND("bool get_component(Components *h, size_t entity_id, %s "
+    APPEND("bool get_component(Memory *m, size_t entity_id, %s "
            "*component);\n",
            structs[i].name);
   }
   APPEND("\n");
   for (size_t i = 0; i < structs_count; i++) {
-    APPEND("bool set_component(Components *h, size_t entity_id, %s "
+    APPEND("bool set_component(Memory *m, size_t entity_id, %s "
            "component);\n",
            structs[i].name);
   }
@@ -237,8 +238,7 @@ void gen_struct_definitions(struct_input *structs, size_t structs_count,
 
 void serializer_include(struct_input *, size_t, char *output, size_t *o,
                         size_t size) {
-  APPEND("#include \"ecs.h\"\n"
-         "#include \"components.h\"\n"
+  APPEND("#include \"components.h\"\n"
          "#include <toml.h>\n"
          "#include \"memory.h\"\n"
          "\n");

@@ -1,3 +1,4 @@
+#include "ecs.h"
 #include <glm.hpp>
 #include <glad.h>
 enum ComponentType {
@@ -217,47 +218,47 @@ struct Components {
 };
 
 ComponentType mapStringToComponentType(const char * type_key);
-void add_component(Components *h, size_t entity_id, Position component);
-void add_component(Components *h, size_t entity_id, Rotation component);
-void add_component(Components *h, size_t entity_id, Color component);
-void add_component(Components *h, size_t entity_id, Camera component);
-void add_component(Components *h, size_t entity_id, Model component);
-void add_component(Components *h, size_t entity_id, Material component);
-void add_component(Components *h, size_t entity_id, Input component);
-void add_component(Components *h, size_t entity_id, Velocity component);
-void add_component(Components *h, size_t entity_id, ForceAccumulator component);
-void add_component(Components *h, size_t entity_id, RigidBody component);
-void add_component(Components *h, size_t entity_id, Collider component);
-void add_component(Components *h, size_t entity_id, Texture component);
-void add_component(Components *h, size_t entity_id, Mass component);
-void add_component(Components *h, size_t entity_id, Gravity component);
+void add_component(Memory *m, size_t entity_id, Position component);
+void add_component(Memory *m, size_t entity_id, Rotation component);
+void add_component(Memory *m, size_t entity_id, Color component);
+void add_component(Memory *m, size_t entity_id, Camera component);
+void add_component(Memory *m, size_t entity_id, Model component);
+void add_component(Memory *m, size_t entity_id, Material component);
+void add_component(Memory *m, size_t entity_id, Input component);
+void add_component(Memory *m, size_t entity_id, Velocity component);
+void add_component(Memory *m, size_t entity_id, ForceAccumulator component);
+void add_component(Memory *m, size_t entity_id, RigidBody component);
+void add_component(Memory *m, size_t entity_id, Collider component);
+void add_component(Memory *m, size_t entity_id, Texture component);
+void add_component(Memory *m, size_t entity_id, Mass component);
+void add_component(Memory *m, size_t entity_id, Gravity component);
 
-bool get_component(Components *h, size_t entity_id, Position *component);
-bool get_component(Components *h, size_t entity_id, Rotation *component);
-bool get_component(Components *h, size_t entity_id, Color *component);
-bool get_component(Components *h, size_t entity_id, Camera *component);
-bool get_component(Components *h, size_t entity_id, Model *component);
-bool get_component(Components *h, size_t entity_id, Material *component);
-bool get_component(Components *h, size_t entity_id, Input *component);
-bool get_component(Components *h, size_t entity_id, Velocity *component);
-bool get_component(Components *h, size_t entity_id, ForceAccumulator *component);
-bool get_component(Components *h, size_t entity_id, RigidBody *component);
-bool get_component(Components *h, size_t entity_id, Collider *component);
-bool get_component(Components *h, size_t entity_id, Texture *component);
-bool get_component(Components *h, size_t entity_id, Mass *component);
-bool get_component(Components *h, size_t entity_id, Gravity *component);
+bool get_component(Memory *m, size_t entity_id, Position *component);
+bool get_component(Memory *m, size_t entity_id, Rotation *component);
+bool get_component(Memory *m, size_t entity_id, Color *component);
+bool get_component(Memory *m, size_t entity_id, Camera *component);
+bool get_component(Memory *m, size_t entity_id, Model *component);
+bool get_component(Memory *m, size_t entity_id, Material *component);
+bool get_component(Memory *m, size_t entity_id, Input *component);
+bool get_component(Memory *m, size_t entity_id, Velocity *component);
+bool get_component(Memory *m, size_t entity_id, ForceAccumulator *component);
+bool get_component(Memory *m, size_t entity_id, RigidBody *component);
+bool get_component(Memory *m, size_t entity_id, Collider *component);
+bool get_component(Memory *m, size_t entity_id, Texture *component);
+bool get_component(Memory *m, size_t entity_id, Mass *component);
+bool get_component(Memory *m, size_t entity_id, Gravity *component);
 
-bool set_component(Components *h, size_t entity_id, Position component);
-bool set_component(Components *h, size_t entity_id, Rotation component);
-bool set_component(Components *h, size_t entity_id, Color component);
-bool set_component(Components *h, size_t entity_id, Camera component);
-bool set_component(Components *h, size_t entity_id, Model component);
-bool set_component(Components *h, size_t entity_id, Material component);
-bool set_component(Components *h, size_t entity_id, Input component);
-bool set_component(Components *h, size_t entity_id, Velocity component);
-bool set_component(Components *h, size_t entity_id, ForceAccumulator component);
-bool set_component(Components *h, size_t entity_id, RigidBody component);
-bool set_component(Components *h, size_t entity_id, Collider component);
-bool set_component(Components *h, size_t entity_id, Texture component);
-bool set_component(Components *h, size_t entity_id, Mass component);
-bool set_component(Components *h, size_t entity_id, Gravity component);
+bool set_component(Memory *m, size_t entity_id, Position component);
+bool set_component(Memory *m, size_t entity_id, Rotation component);
+bool set_component(Memory *m, size_t entity_id, Color component);
+bool set_component(Memory *m, size_t entity_id, Camera component);
+bool set_component(Memory *m, size_t entity_id, Model component);
+bool set_component(Memory *m, size_t entity_id, Material component);
+bool set_component(Memory *m, size_t entity_id, Input component);
+bool set_component(Memory *m, size_t entity_id, Velocity component);
+bool set_component(Memory *m, size_t entity_id, ForceAccumulator component);
+bool set_component(Memory *m, size_t entity_id, RigidBody component);
+bool set_component(Memory *m, size_t entity_id, Collider component);
+bool set_component(Memory *m, size_t entity_id, Texture component);
+bool set_component(Memory *m, size_t entity_id, Mass component);
+bool set_component(Memory *m, size_t entity_id, Gravity component);
