@@ -1,5 +1,6 @@
 #include "components.h"
 #include <toml.h>
+#include <game.h>
 #include "memory.h"
 
 #ifdef _WIN32
@@ -43,6 +44,95 @@ ComponentType mapStringToComponentType(const char * type_key){
 	if(strcasecmp(type_key, "Gravity") == 0) return GravityType;
 	return UNKNOWN_TYPE;
 }
+void assign_components_memory(Memory *m, game* g, size_t* offset) {
+	m->components = (Components *)((char *)g->buffer + *offset);
+	*offset += sizeof(Components);
+	m->components->pPositions = (Positions *)((char *)g->buffer + *offset);
+	*offset += sizeof(Positions);
+	m->components->pPositions->entity_ids = (size_t *)((char *)g->buffer + *offset);
+	*offset += sizeof(size_t) * initialEntityCount;
+	m->components->pPositions->components = (Position *)((char *)g->buffer + *offset);
+	*offset += sizeof(Position) * initialEntityCount;
+	m->components->pRotations = (Rotations *)((char *)g->buffer + *offset);
+	*offset += sizeof(Rotations);
+	m->components->pRotations->entity_ids = (size_t *)((char *)g->buffer + *offset);
+	*offset += sizeof(size_t) * initialEntityCount;
+	m->components->pRotations->components = (Rotation *)((char *)g->buffer + *offset);
+	*offset += sizeof(Rotation) * initialEntityCount;
+	m->components->pColors = (Colors *)((char *)g->buffer + *offset);
+	*offset += sizeof(Colors);
+	m->components->pColors->entity_ids = (size_t *)((char *)g->buffer + *offset);
+	*offset += sizeof(size_t) * initialEntityCount;
+	m->components->pColors->components = (Color *)((char *)g->buffer + *offset);
+	*offset += sizeof(Color) * initialEntityCount;
+	m->components->pCameras = (Cameras *)((char *)g->buffer + *offset);
+	*offset += sizeof(Cameras);
+	m->components->pCameras->entity_ids = (size_t *)((char *)g->buffer + *offset);
+	*offset += sizeof(size_t) * initialEntityCount;
+	m->components->pCameras->components = (Camera *)((char *)g->buffer + *offset);
+	*offset += sizeof(Camera) * initialEntityCount;
+	m->components->pModels = (Models *)((char *)g->buffer + *offset);
+	*offset += sizeof(Models);
+	m->components->pModels->entity_ids = (size_t *)((char *)g->buffer + *offset);
+	*offset += sizeof(size_t) * initialEntityCount;
+	m->components->pModels->components = (Model *)((char *)g->buffer + *offset);
+	*offset += sizeof(Model) * initialEntityCount;
+	m->components->pMaterials = (Materials *)((char *)g->buffer + *offset);
+	*offset += sizeof(Materials);
+	m->components->pMaterials->entity_ids = (size_t *)((char *)g->buffer + *offset);
+	*offset += sizeof(size_t) * initialEntityCount;
+	m->components->pMaterials->components = (Material *)((char *)g->buffer + *offset);
+	*offset += sizeof(Material) * initialEntityCount;
+	m->components->pInputs = (Inputs *)((char *)g->buffer + *offset);
+	*offset += sizeof(Inputs);
+	m->components->pInputs->entity_ids = (size_t *)((char *)g->buffer + *offset);
+	*offset += sizeof(size_t) * initialEntityCount;
+	m->components->pInputs->components = (Input *)((char *)g->buffer + *offset);
+	*offset += sizeof(Input) * initialEntityCount;
+	m->components->pVelocitys = (Velocitys *)((char *)g->buffer + *offset);
+	*offset += sizeof(Velocitys);
+	m->components->pVelocitys->entity_ids = (size_t *)((char *)g->buffer + *offset);
+	*offset += sizeof(size_t) * initialEntityCount;
+	m->components->pVelocitys->components = (Velocity *)((char *)g->buffer + *offset);
+	*offset += sizeof(Velocity) * initialEntityCount;
+	m->components->pForceAccumulators = (ForceAccumulators *)((char *)g->buffer + *offset);
+	*offset += sizeof(ForceAccumulators);
+	m->components->pForceAccumulators->entity_ids = (size_t *)((char *)g->buffer + *offset);
+	*offset += sizeof(size_t) * initialEntityCount;
+	m->components->pForceAccumulators->components = (ForceAccumulator *)((char *)g->buffer + *offset);
+	*offset += sizeof(ForceAccumulator) * initialEntityCount;
+	m->components->pRigidBodys = (RigidBodys *)((char *)g->buffer + *offset);
+	*offset += sizeof(RigidBodys);
+	m->components->pRigidBodys->entity_ids = (size_t *)((char *)g->buffer + *offset);
+	*offset += sizeof(size_t) * initialEntityCount;
+	m->components->pRigidBodys->components = (RigidBody *)((char *)g->buffer + *offset);
+	*offset += sizeof(RigidBody) * initialEntityCount;
+	m->components->pColliders = (Colliders *)((char *)g->buffer + *offset);
+	*offset += sizeof(Colliders);
+	m->components->pColliders->entity_ids = (size_t *)((char *)g->buffer + *offset);
+	*offset += sizeof(size_t) * initialEntityCount;
+	m->components->pColliders->components = (Collider *)((char *)g->buffer + *offset);
+	*offset += sizeof(Collider) * initialEntityCount;
+	m->components->pTextures = (Textures *)((char *)g->buffer + *offset);
+	*offset += sizeof(Textures);
+	m->components->pTextures->entity_ids = (size_t *)((char *)g->buffer + *offset);
+	*offset += sizeof(size_t) * initialEntityCount;
+	m->components->pTextures->components = (Texture *)((char *)g->buffer + *offset);
+	*offset += sizeof(Texture) * initialEntityCount;
+	m->components->pMasss = (Masss *)((char *)g->buffer + *offset);
+	*offset += sizeof(Masss);
+	m->components->pMasss->entity_ids = (size_t *)((char *)g->buffer + *offset);
+	*offset += sizeof(size_t) * initialEntityCount;
+	m->components->pMasss->components = (Mass *)((char *)g->buffer + *offset);
+	*offset += sizeof(Mass) * initialEntityCount;
+	m->components->pGravitys = (Gravitys *)((char *)g->buffer + *offset);
+	*offset += sizeof(Gravitys);
+	m->components->pGravitys->entity_ids = (size_t *)((char *)g->buffer + *offset);
+	*offset += sizeof(size_t) * initialEntityCount;
+	m->components->pGravitys->components = (Gravity *)((char *)g->buffer + *offset);
+	*offset += sizeof(Gravity) * initialEntityCount;
+}
+
 void add_component(Memory *m, size_t entity_id, Position component) {
 	size_t i = m->components->pPositions->count;
 	m->components->pPositions->entity_ids[i] = entity_id;

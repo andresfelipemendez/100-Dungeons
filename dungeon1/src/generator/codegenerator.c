@@ -217,6 +217,8 @@ void gen_struct_definitions(struct_input *structs, size_t structs_count,
 
   APPEND("ComponentType mapStringToComponentType(const char * type_key);\n");
 
+  APPEND("void assign_components_memory(Memory *m,struct game* g, size_t* "
+         "offset);\n");
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("void add_component(Memory *m, size_t entity_id, %s "
            "component);\n",
@@ -240,6 +242,7 @@ void serializer_include(struct_input *, size_t, char *output, size_t *o,
                         size_t size) {
   APPEND("#include \"components.h\"\n"
          "#include <toml.h>\n"
+         "#include <game.h>\n"
          "#include \"memory.h\"\n"
          "\n");
   APPEND("#ifdef _WIN32\n"
@@ -388,6 +391,7 @@ void load_level_source(struct_input *structs, size_t structs_count,
 
 void save_level_source(struct_input *structs, size_t structs_count,
                        char *output, size_t *o, size_t size) {
+
   APPEND("void save_level(Memory *m, const char *saveFilePath) {\n"
          "\tFILE *fp;\n"
          "\tfopen_s(&fp,saveFilePath, \"w\");\n"
@@ -523,6 +527,24 @@ void serializer_source(struct_input *structs, size_t structs_count,
   }
   APPEND("\treturn UNKNOWN_TYPE;\n");
   APPEND("}\n");
+
+  APPEND(
+      "void assign_components_memory(Memory *m, game* g, size_t* offset) {\n");
+  APPEND("\tm->components = (Components *)((char *)g->buffer + *offset);\n"
+         "\t*offset += sizeof(Components);\n");
+  for (size_t i = 0; i < structs_count; i++) {
+    APPEND("\tm->components->p%ss = (%ss *)((char *)g->buffer + *offset);\n"
+           "\t*offset += sizeof(%ss);\n"
+           "\tm->components->p%ss->entity_ids = (size_t *)((char *)g->buffer + "
+           "*offset);\n"
+           "\t*offset += sizeof(size_t) * initialEntityCount;\n"
+           "\tm->components->p%ss->components = (%s *)((char *)g->buffer + "
+           "*offset);\n"
+           "\t*offset += sizeof(%s) * initialEntityCount;\n",
+           structs[i].name, structs[i].name, structs[i].name, structs[i].name,
+           structs[i].name, structs[i].name, structs[i].name);
+  }
+  APPEND("}\n\n");
 
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("void add_component(Memory *m, size_t entity_id, %s "

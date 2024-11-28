@@ -2,13 +2,12 @@
 #include "core.h"
 #include "ecs.h"
 
+#include "components.h"
 #include <cstddef>
 #include <game.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
-const size_t initialEntityCount = 100;
 
 #define ALIGN_OFFSET(type)                                                     \
   offset = (offset + alignof(type) - 1) & ~(alignof(type) - 1)
@@ -41,8 +40,6 @@ void reset_memory(Memory *m) {
 }
 
 void init_engine_memory(game *g) {
-
-  const size_t initialSubMeshCount = 10;
 
   Memory *m = (Memory *)((char *)g->buffer + g->buffer_size - sizeof(Memory));
 
@@ -81,6 +78,7 @@ void init_engine_memory(game *g) {
 //   offset += sizeof(size_t) * initialEntityCount;                               \
 //   m->p##name##s->components = (name *)((char *)g->buffer + offset);       \
 //   offset += sizeof(name) * initialEntityCount;
+  assign_components_memory(m, g, &offset);
 
   // #define X(name) DEFINE_ASSIGN_MEMORY(name)
   //   SUBKEY_TYPES

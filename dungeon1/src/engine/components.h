@@ -218,6 +218,7 @@ struct Components {
 };
 
 ComponentType mapStringToComponentType(const char * type_key);
+void assign_components_memory(Memory *m,struct game* g, size_t* offset);
 void add_component(Memory *m, size_t entity_id, Position component);
 void add_component(Memory *m, size_t entity_id, Rotation component);
 void add_component(Memory *m, size_t entity_id, Color component);
