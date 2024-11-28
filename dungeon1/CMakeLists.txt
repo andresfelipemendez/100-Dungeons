@@ -99,6 +99,7 @@ target_include_directories(
 		"${TOML_INCLUDE_DIR}"
 		"${GLAD_INCLUDE_DIR}"
 		"${GLM_INCLUDE_DIR}"
+		"${FASTGLTF_INCLUDE_DIR}"
 	)
 
 target_link_libraries(externals PRIVATE ${OPENGL_LIBRARIES} ${GLFW_LIB_PATH} toml glad)
