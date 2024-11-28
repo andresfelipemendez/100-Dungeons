@@ -39,6 +39,17 @@ void reset_memory(Memory *m) {
   printf("reset_memory\n");
 }
 
+char *arena_strdup(StringsArena *strings, char *str) {
+  size_t len = strlen(str) + 1;
+  if (strings->used + len > strings->size) {
+    return NULL; // Arena full
+  }
+  char *dest = strings->buffer + strings->used;
+  strcpy_s(dest, strings->size - strings->used, str);
+  strings->used += len;
+  return dest;
+}
+
 void init_engine_memory(game *g) {
 
   Memory *m = (Memory *)((char *)g->buffer + g->buffer_size - sizeof(Memory));
@@ -71,26 +82,7 @@ void init_engine_memory(game *g) {
       (char(*)[ENTITY_NAME_LENGTH])((char *)g->buffer + offset);
   offset += ENTITY_NAME_LENGTH * initialEntityCount;
 
-  // #define DEFINE_ASSIGN_MEMORY(name)                                             \
-//   m->p##name##s = (name##s *)((char *)g->buffer + offset);                \
-//   offset += sizeof(name##s);                                                   \
-//   m->p##name##s->entity_ids = (size_t *)((char *)g->buffer + offset);     \
-//   offset += sizeof(size_t) * initialEntityCount;                               \
-//   m->p##name##s->components = (name *)((char *)g->buffer + offset);       \
-//   offset += sizeof(name) * initialEntityCount;
   assign_components_memory(m, g, &offset);
-
-  // #define X(name) DEFINE_ASSIGN_MEMORY(name)
-  //   SUBKEY_TYPES
-  // #undef X
-
-  // #undef DEFINE_ASSIGN_MEMORY
-
-  // for (size_t i = 0; i < initialEntityCount; ++i) {
-  //   m->pModels->components[i].submeshes =
-  //       (SubMesh *)((char *)g->buffer + offset);
-  //   offset += sizeof(SubMesh) * initialSubMeshCount;
-  // }
 
   down_offset = g->buffer_size - sizeof(Memory);
   m->total_size = down_offset - offset;
@@ -100,7 +92,4 @@ Memory *get_header(game *g) {
   return (Memory *)((char *)g->buffer + g->buffer_size - sizeof(Memory));
 }
 
-World *get_world(game *g) {
-  // Memory *meader = get_header(g);
-  return &get_header(g)->world;
-}
+World *get_world(game *g) { return &get_header(g)->world; }

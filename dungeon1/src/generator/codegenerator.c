@@ -143,6 +143,7 @@ size_t generate_struct_data_structure(toml_table_t *conf, Arena *structs_arena,
 void gen_struct_definitions(struct_input *structs, size_t structs_count,
                             char *output, size_t *o, size_t size) {
   APPEND("#include \"ecs.h\"\n"
+         "#include \"memory.h\"\n"
          "#include <glm.hpp>\n"
          "#include <glad.h>\n");
 
@@ -304,14 +305,26 @@ void load_level_source(struct_input *structs, size_t structs_count,
 
     // If we have a path field, only load that and skip other fields
     if (has_path) {
-      APPEND("\t\t\t\t%s c {\n", structs[i].name);
-      APPEND("\t\t\t\t\t .%s = toml_string_in(nt, \"%s\").u.s\n",
-             structs[i].fields[0].name, structs[i].fields[0].name);
-      APPEND("\t\t\t\t};\n");
-      APPEND("\t\t\t\tload_%s(m,entity,&c);\n"
+      APPEND("\t\t\t\t\ttoml_datum_t path_str = toml_string_in(nt, \"%s\");\n"
+             "\t\t\t\t\tif (path_str.ok) {\n"
+             "\t\t\t\t\t\tchar* stored_str = arena_strdup(m->strings, "
+             "path_str.u.s);\n"
+             "\t\t\t\t\t\tif (!stored_str) {\n"
+             "\t\t\t\t\t\t\tprintf(\"String arena full\\n\");\n"
+             "\t\t\t\t\t\t\tfree(path_str.u.s);\n"
+             "\t\t\t\t\t\t\treturn;\n"
+             "\t\t\t\t\t\t}\n"
+             "\t\t\t\t\t\t%s c {\n"
+             "\t\t\t\t\t\t\t.%s = stored_str\n"
+             "\t\t\t\t\t\t};\n"
+             "\t\t\t\t\t\tload_%s(g,entity,&c);\n"
+             "\t\t\t\t\t\tfree(path_str.u.s);\n"
+             "\t\t\t\t\t}\n"
+
              "\t\t\t\tbreak;\n"
              "\t\t\t}\n",
-             structs[i].fields[0].name);
+             structs[i].fields[0].name, structs[i].name,
+             structs[i].fields[0].name, structs[i].fields[0].name);
       continue;
     }
 
@@ -333,9 +346,7 @@ void load_level_source(struct_input *structs, size_t structs_count,
       char *type_serializer;
       switch (structs[i].fields[j].type) {
       case path_type:
-        APPEND("\t\t\t\t\t .%s = static_cast<load string>(toml_string(nt, "
-               "\"%s\").u.d),\n",
-               structs[i].fields[j].name, structs[i].fields[j].name);
+
         break;
       case float_type:
 
@@ -528,9 +539,15 @@ void serializer_source(struct_input *structs, size_t structs_count,
   APPEND("\treturn UNKNOWN_TYPE;\n");
   APPEND("}\n");
 
-  APPEND(
-      "void assign_components_memory(Memory *m, game* g, size_t* offset) {\n");
-  APPEND("\tm->components = (Components *)((char *)g->buffer + *offset);\n"
+  APPEND("void assign_components_memory(Memory *m, game* g, size_t* offset) {\n"
+         "\tm->strings = (StringsArena *)((char *)g->buffer + *offset);\n"
+         "\t*offset += sizeof(StringsArena);\n"
+         "\tm->strings = (StringsArena *)((char *)g->buffer + *offset);\n"
+         "\t*offset += sizeof(StringsArena);\n"
+         "\tm->strings->buffer = (char*)g->buffer + *offset;\n"
+         "\tm->strings->size = STRING_ARENA_SIZE;\n"
+         "\t*offset += STRING_ARENA_SIZE;\n"
+         "\tm->components = (Components *)((char *)g->buffer + *offset);\n"
          "\t*offset += sizeof(Components);\n");
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("\tm->components->p%ss = (%ss *)((char *)g->buffer + *offset);\n"

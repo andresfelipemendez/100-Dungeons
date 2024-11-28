@@ -73,7 +73,14 @@ struct ECSQuery {
   size_t *entities;
 };
 
+struct StringsArena {
+  char *buffer;
+  size_t size;
+  size_t used;
+};
+
 typedef struct Memory {
+  StringsArena *strings;
   struct Components *components;
   Shaders *shaders;
   ECSQuery query;
@@ -100,4 +107,5 @@ bool add_shader(struct Memory *m, char *name, GLuint programID);
 
 // function to hand craft the loading of assets, might move to a renderer system
 // or similar
-void load_shader(struct Memory *m, size_t entity, struct Model *model);
+void load_shader(struct game *m, size_t entity, struct Material *model);
+void load_model(struct game *m, size_t entity, struct Model *model);

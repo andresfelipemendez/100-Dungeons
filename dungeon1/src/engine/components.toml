@@ -20,13 +20,14 @@ near = "float"
 far = "float"
 
 [Model]
-shader = "path"
+model = "path"
 submeshes = "SubMesh*"
 submesh_count = "size_t"
 drawsBuffer = "GLuint"
 
 
 [Material]
+shader = "path"
 shader_id = "GLuint"
 
 [Input]

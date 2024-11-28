@@ -11,7 +11,7 @@
 #include <string.h>
 #include <toml.h>
 
-// #include "asset_loader.h"
+#include "asset_loader.h"
 
 #include <glm.hpp>
 #include <gtc/constants.hpp>
@@ -20,7 +20,13 @@
 
 #include "components.h"
 
-void load_shader(struct Memory *m, size_t entity, struct Model *model) {}
+void load_shader(game *m, size_t entity, struct Material *model) {
+  
+}
+
+void load_model(game *m, size_t entity, struct Model *model){
+GLuint shader_id;
+}
 
 bool get_entity_name(World *w, size_t entity, char *name) {
   for (size_t i = 0; i < w->entity_count; ++i) {

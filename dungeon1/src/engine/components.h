@@ -1,4 +1,5 @@
 #include "ecs.h"
+#include "memory.h"
 #include <glm.hpp>
 #include <glad.h>
 enum ComponentType {
@@ -65,13 +66,14 @@ struct Camera {
 };
 
 struct Model {
-	char* shader;
+	char* model;
 	SubMesh* submeshes;
 	size_t submesh_count;
 	GLuint drawsBuffer;
 };
 
 struct Material {
+	char* shader;
 	GLuint shader_id;
 };
 

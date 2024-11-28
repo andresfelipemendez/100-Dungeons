@@ -45,6 +45,13 @@ ComponentType mapStringToComponentType(const char * type_key){
 	return UNKNOWN_TYPE;
 }
 void assign_components_memory(Memory *m, game* g, size_t* offset) {
+	m->strings = (StringsArena *)((char *)g->buffer + *offset);
+	*offset += sizeof(StringsArena);
+	m->strings = (StringsArena *)((char *)g->buffer + *offset);
+	*offset += sizeof(StringsArena);
+	m->strings->buffer = (char*)g->buffer + *offset;
+	m->strings->size = STRING_ARENA_SIZE;
+	*offset += STRING_ARENA_SIZE;
 	m->components = (Components *)((char *)g->buffer + *offset);
 	*offset += sizeof(Components);
 	m->components->pPositions = (Positions *)((char *)g->buffer + *offset);
@@ -678,17 +685,37 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 				break;
 			}
 			case ModelType: {
-				Model c {
-					 .shader = toml_string_in(nt, "shader").u.s
-				};
-				load_shader(m,entity,&c);
+					toml_datum_t path_str = toml_string_in(nt, "model");
+					if (path_str.ok) {
+						char* stored_str = arena_strdup(m->strings, path_str.u.s);
+						if (!stored_str) {
+							printf("String arena full\n");
+							free(path_str.u.s);
+							return;
+						}
+						Model c {
+							.model = stored_str
+						};
+						load_model(g,entity,&c);
+						free(path_str.u.s);
+					}
 				break;
 			}
 			case MaterialType: {
-				Material c {
-					 .shader_id = static_cast<GLuint>(toml_int_in(nt, "shader_id").u.i),
-				};
-				add_component(m,entity,c);
+					toml_datum_t path_str = toml_string_in(nt, "shader");
+					if (path_str.ok) {
+						char* stored_str = arena_strdup(m->strings, path_str.u.s);
+						if (!stored_str) {
+							printf("String arena full\n");
+							free(path_str.u.s);
+							return;
+						}
+						Material c {
+							.shader = stored_str
+						};
+						load_shader(g,entity,&c);
+						free(path_str.u.s);
+					}
 				break;
 			}
 			case InputType: {
@@ -819,13 +846,13 @@ void save_level(Memory *m, const char *saveFilePath) {
 		if(mask & ModelComponent) {
 			Model model;
 			if (get_component(m, entity_id, &model)) {
-				fprintf(fp,"model = { shader = %s }\n", model.shader);
+				fprintf(fp,"model = { model = %s }\n", model.model);
 			}
 		}
 		if(mask & MaterialComponent) {
 			Material material;
 			if (get_component(m, entity_id, &material)) {
-				fprintf(fp,"material = { shader_id = %u }", material.shader_id);
+				fprintf(fp,"material = { shader = %s }\n", material.shader);
 			}
 		}
 		if(mask & InputComponent) {
