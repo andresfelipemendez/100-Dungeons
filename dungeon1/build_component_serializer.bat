@@ -1,5 +1,4 @@
 @echo off
-cls
 call "%~dp0env_vars.bat" 
 
 clang -std=c23 -Wall -Wextra -pedantic -g -I"%TOML_INCLUDE_DIR%" ^

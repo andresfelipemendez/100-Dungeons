@@ -119,7 +119,10 @@ size_t generate_struct_data_structure(toml_table_t *conf, Arena *structs_arena,
       if (strcmp(field_type_name.u.s, "path") == 0) {
         current_struct->fields[current_struct->field_count].type = path_type;
       }
-
+      if (strcmp(field_type_name.u.s, "shader_name") == 0) {
+        current_struct->fields[current_struct->field_count].type =
+            shader_name_type;
+      }
       if (strcmp(field_type_name.u.s, "SubMesh*") == 0) {
         current_struct->fields[current_struct->field_count].type =
             submeshp_type;
@@ -189,6 +192,10 @@ void gen_struct_definitions(struct_input *structs, size_t structs_count,
         break;
       }
       case path_type: {
+        field_type_name = "char*";
+        break;
+      }
+      case shader_name_type: {
         field_type_name = "char*";
         break;
       }
@@ -286,25 +293,64 @@ void load_level_source(struct_input *structs, size_t structs_count,
       "\t\t\t\treturn;\n"
       "\t\t\tswitch (mapStringToComponentType(type_key)) {\n");
 
-  for (size_t i = 0; i < structs_count; i++) {
-    APPEND("\t\t\tcase %sType: {\n", structs[i].name);
 
+  for (size_t i = 0; i < structs_count; i++) {
     bool has_path = false;
-    size_t path_index = 0;
+    bool has_shader_name = false;
+    APPEND("\t\t\tcase %sType: {\n", structs[i].name);
+    
     for (size_t j = 0; j < structs[i].field_count; j++) {
       if (structs[i].fields[j].type == path_type) {
         has_path = true;
-        path_index = j;
         if (j != 0) {
           error("Path field must be first in component", structs[i].name);
           return;
         }
         break;
       }
+      if (structs[i].fields[j].type == shader_name_type) {
+        has_shader_name = true;
+        if (j != 0) {
+          error("Path field must be first in component", structs[i].name);
+          return;
+        }  
+        break;
+      }
     }
 
     // If we have a path field, only load that and skip other fields
     if (has_path) {
+      size_t name_len = strlen(structs[i].name) + 1;
+      char lowerName[name_len];
+      strcpy_s(lowerName, name_len, structs[i].name);
+      lowerName[0] = tolower(lowerName[0]);
+      APPEND("\t\t\t\t\ttoml_datum_t path_str = toml_string_in(nt, \"path\");\n"
+             "\t\t\t\t\tif (path_str.ok) {\n"
+             "\t\t\t\t\t\tchar* stored_str = arena_strdup(m->strings, "
+             "path_str.u.s);\n"
+             "\t\t\t\t\t\tif (!stored_str) {\n"
+             "\t\t\t\t\t\t\tprintf(\"String arena full\\n\");\n"
+             "\t\t\t\t\t\t\tfree(path_str.u.s);\n"
+             "\t\t\t\t\t\t\treturn;\n"
+             "\t\t\t\t\t\t}\n"
+             "\t\t\t\t\t\t%s c {\n"
+             "\t\t\t\t\t\t\t.%s = stored_str\n"
+             "\t\t\t\t\t\t};\n"
+             "\t\t\t\t\t\tload_%s(g,entity,&c);\n"
+             "\t\t\t\t\t\tfree(path_str.u.s);\n"
+             "\t\t\t\t\t}\n"
+             "\t\t\t\tbreak;\n"
+             "\t\t\t}\n",
+              structs[i].name,
+             structs[i].fields[0].name, lowerName);
+      continue;
+    }
+
+    if (has_shader_name) {
+      size_t name_len = strlen(structs[i].name) + 1;
+      char lowerName[name_len];
+      strcpy_s(lowerName, name_len, structs[i].name);
+      lowerName[0] = tolower(lowerName[0]);
       APPEND("\t\t\t\t\ttoml_datum_t path_str = toml_string_in(nt, \"%s\");\n"
              "\t\t\t\t\tif (path_str.ok) {\n"
              "\t\t\t\t\t\tchar* stored_str = arena_strdup(m->strings, "
@@ -320,11 +366,10 @@ void load_level_source(struct_input *structs, size_t structs_count,
              "\t\t\t\t\t\tload_%s(g,entity,&c);\n"
              "\t\t\t\t\t\tfree(path_str.u.s);\n"
              "\t\t\t\t\t}\n"
-
              "\t\t\t\tbreak;\n"
              "\t\t\t}\n",
              structs[i].fields[0].name, structs[i].name,
-             structs[i].fields[0].name, structs[i].fields[0].name);
+             structs[i].fields[0].name, lowerName);
       continue;
     }
 
@@ -342,8 +387,6 @@ void load_level_source(struct_input *structs, size_t structs_count,
 
     APPEND("\t\t\t\t%s c {\n", structs[i].name);
     for (size_t j = 0; j < structs[i].field_count; j++) {
-      char *separator = (j == structs[i].field_count - 1) ? "" : ",";
-      char *type_serializer;
       switch (structs[i].fields[j].type) {
       case path_type:
 
@@ -379,7 +422,6 @@ void load_level_source(struct_input *structs, size_t structs_count,
       case submeshp_type:
         break;
       default:
-        type_serializer = "";
         error("Unsupported field type: ", structs[i].fields[j].name);
         break;
       }
@@ -427,11 +469,9 @@ void save_level_source(struct_input *structs, size_t structs_count,
     APPEND("\t\t\tif (get_component(m, entity_id, &%s)) {\n", lowerName);
 
     bool has_path = false;
-    size_t path_index = 0;
     for (size_t j = 0; j < structs[i].field_count; j++) {
       if (structs[i].fields[j].type == path_type) {
         has_path = true;
-        path_index = j;
         if (j != 0) {
           error("Path field must be first in component", structs[i].name);
           return;
@@ -450,10 +490,8 @@ void save_level_source(struct_input *structs, size_t structs_count,
     APPEND("\t\t\t\tfprintf(fp,\"%s = { ", lowerName);
     for (size_t j = 0; j < structs[i].field_count; j++) {
       char *separator = (j == structs[i].field_count - 1) ? "" : ",";
-      char *type_serializer;
       switch (structs[i].fields[j].type) {
       case float_type:
-        type_serializer = "%.2f";
         APPEND("%s = %%.2f%s ", structs[i].fields[j].name, separator);
         break;
       case glmv3_type:
@@ -468,8 +506,13 @@ void save_level_source(struct_input *structs, size_t structs_count,
         break;
       case submeshp_type:
         break;
+      case shader_name_type:
+        APPEND("%s = %%s%s ", structs[i].fields[j].name, separator);
+        break;
+      case path_type:
+        APPEND("%s = %%s%s ", structs[i].fields[j].name, separator);
+        break;  
       default:
-        type_serializer = "";
         error("Unsupported field type: ", structs[i].fields[j].name);
         break;
       }
@@ -549,10 +592,12 @@ void serializer_source(struct_input *structs, size_t structs_count,
          "\t*offset += STRING_ARENA_SIZE;\n"
          "\tm->components = (Components *)((char *)g->buffer + *offset);\n"
          "\t*offset += sizeof(Components);\n");
+
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("\tm->components->p%ss = (%ss *)((char *)g->buffer + *offset);\n"
            "\t*offset += sizeof(%ss);\n"
-           "\tm->components->p%ss->entity_ids = (size_t *)((char *)g->buffer + "
+           "\tm->components->p%ss->entity_ids = (size_t *)((char "
+           "*)g->buffer + "
            "*offset);\n"
            "\t*offset += sizeof(size_t) * initialEntityCount;\n"
            "\tm->components->p%ss->components = (%s *)((char *)g->buffer + "
@@ -560,7 +605,11 @@ void serializer_source(struct_input *structs, size_t structs_count,
            "\t*offset += sizeof(%s) * initialEntityCount;\n",
            structs[i].name, structs[i].name, structs[i].name, structs[i].name,
            structs[i].name, structs[i].name, structs[i].name);
-  }
+      } APPEND("\tfor (size_t i = 0; i < initialEntityCount; ++i) {\n"
+        "\t\tm->components->pModels->components[i].submeshes = (SubMesh "
+        "*)((char *)g->buffer + *offset);\n"
+        "\t\t*offset += sizeof(SubMesh) * initialSubMeshCount;\n"
+        "\t}\n");
   APPEND("}\n\n");
 
   for (size_t i = 0; i < structs_count; i++) {

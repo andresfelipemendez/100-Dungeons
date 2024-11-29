@@ -33,7 +33,7 @@ EXPORT void load_level(game *g, const char *sceneFilePath) {
   Memory *m = get_header(g);
   World *w = get_world(g);
   reset_memory(m);
-  load_shaders(g);
+  g->load_shaders(g);
   ecs_load_level(g, sceneFilePath);
 }
 

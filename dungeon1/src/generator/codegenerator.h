@@ -9,6 +9,7 @@ enum c_type {
   size_t_type,
   submeshp_type,
   path_type,
+  shader_name_type,
 };
 
 typedef struct field {

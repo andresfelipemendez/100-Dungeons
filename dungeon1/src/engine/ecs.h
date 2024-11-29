@@ -107,5 +107,5 @@ bool add_shader(struct Memory *m, char *name, GLuint programID);
 
 // function to hand craft the loading of assets, might move to a renderer system
 // or similar
-void load_shader(struct game *m, size_t entity, struct Material *model);
+void load_material(struct game *m, size_t entity, struct Material *model);
 void load_model(struct game *m, size_t entity, struct Model *model);

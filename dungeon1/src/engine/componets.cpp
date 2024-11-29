@@ -138,6 +138,10 @@ void assign_components_memory(Memory *m, game* g, size_t* offset) {
 	*offset += sizeof(size_t) * initialEntityCount;
 	m->components->pGravitys->components = (Gravity *)((char *)g->buffer + *offset);
 	*offset += sizeof(Gravity) * initialEntityCount;
+	for (size_t i = 0; i < initialEntityCount; ++i) {
+		m->components->pModels->components[i].submeshes = (SubMesh *)((char *)g->buffer + *offset);
+		*offset += sizeof(SubMesh) * initialSubMeshCount;
+	}
 }
 
 void add_component(Memory *m, size_t entity_id, Position component) {
@@ -685,7 +689,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 				break;
 			}
 			case ModelType: {
-					toml_datum_t path_str = toml_string_in(nt, "model");
+					toml_datum_t path_str = toml_string_in(nt, "path");
 					if (path_str.ok) {
 						char* stored_str = arena_strdup(m->strings, path_str.u.s);
 						if (!stored_str) {
@@ -694,7 +698,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 							return;
 						}
 						Model c {
-							.model = stored_str
+							.path = stored_str
 						};
 						load_model(g,entity,&c);
 						free(path_str.u.s);
@@ -713,7 +717,7 @@ void ecs_load_level(game *g, const char *sceneFilePath) {
 						Material c {
 							.shader = stored_str
 						};
-						load_shader(g,entity,&c);
+						load_material(g,entity,&c);
 						free(path_str.u.s);
 					}
 				break;
@@ -846,13 +850,13 @@ void save_level(Memory *m, const char *saveFilePath) {
 		if(mask & ModelComponent) {
 			Model model;
 			if (get_component(m, entity_id, &model)) {
-				fprintf(fp,"model = { model = %s }\n", model.model);
+				fprintf(fp,"model = { path = %s }\n", model.path);
 			}
 		}
 		if(mask & MaterialComponent) {
 			Material material;
 			if (get_component(m, entity_id, &material)) {
-				fprintf(fp,"material = { shader = %s }\n", material.shader);
+				fprintf(fp,"material = { shader = %s, shader_id = %u }", material.shader, material.shader_id);
 			}
 		}
 		if(mask & InputComponent) {

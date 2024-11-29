@@ -198,6 +198,31 @@ unsigned int createShaderProgram(const char *vertexSource,
 }
 
 
+bool add_shader(Memory *m, char *name, GLuint programID) {
+  size_t name_length = strlen(name);
+  if (name_length > ENTITY_NAME_LENGTH) {
+    printf("shader name should be less than %i, name: %s \n",
+           ENTITY_NAME_LENGTH, name);
+  }
+
+  for (size_t i = 0; i < name_length; ++i) {
+    name[i] = tolower((unsigned char)name[i]);
+  }
+
+  errno_t err = strncpy_s(m->shaders->shader_names[m->shaders->count],
+                          ENTITY_NAME_LENGTH, name, name_length);
+  if (err != 0) {
+    printf("error copying shader name %s\n", name);
+    return false;
+  }
+
+  m->shaders->shader_names[m->shaders->count][name_length] = '\0';
+  m->shaders->program_ids[m->shaders->count] = programID;
+  m->shaders->count++;
+
+  return true;
+}
+
 EXPORT void load_shaders(game *g) {
 // I need to get the shader ID from the map of string to ID
   char cwd[MAX_PATH];
@@ -217,7 +242,9 @@ EXPORT void load_shaders(game *g) {
     return;
   }
 
-  Memory *m = get_header(g);
+  
+
+  Memory *m = (Memory *)((char *)g->buffer + g->buffer_size - sizeof(Memory));
   do {
     const char *vertFileName = findFileData.cFileName;
 

@@ -4,26 +4,26 @@ position = { x = -1, y = 1, z = 2 }
 rotation = { pitch = 30, yaw = 0, roll = 0 }
 
 [wall]
-model    = {model = "assets/models/static/wall.glb"}
-material = {shader ="unlit"}
-texture  = {image ="dungeon_texture.png"}
+model    = { path = "assets/models/static/wall.glb"}
+material = { shader = "unlit"}
+texture  = { path = "dungeon_texture.png"}
 position = { x = 1, y = 0, z = 0 }
 rbody = { invMass = 1.0 }
 rotation = { pitch = 0.00, yaw = 0.00, roll = 0.00 }
 
 [player]
-model    = { model = "assets/models/static/player.glb"}
-material = "unlit"
-texture  = "dungeon_texture.png"
+model    = { path = "assets/models/static/player.glb"}
+material = { shader = "unlit"}
+texture  = { path = "dungeon_texture.png"}
 position = { x = 1, y = 0, z = 4 }
 rotation = { pitch = 0.00, yaw = 0.00, roll = 0.00 }
 rbody = { invMass = 1.0}
 input = "keyboard"
 
 [floor]
-model    = "assets/models/static/wall.glb"
-material = "unlit"
-texture  = "dungeon_texture.png"
+model    = { path = "assets/models/static/wall.glb"}
+material = { shader = "unlit"}
+texture  = { path = "dungeon_texture.png"}
 position = { x = 6, y = 0, z = 0 }
 rotation = { pitch = 0.00, yaw = 0.00, roll = 0.00 }
 rbody = { invMass = 0.0}

@@ -66,7 +66,7 @@ struct Camera {
 };
 
 struct Model {
-	char* model;
+	char* path;
 	SubMesh* submeshes;
 	size_t submesh_count;
 	GLuint drawsBuffer;

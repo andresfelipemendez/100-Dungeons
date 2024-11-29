@@ -11,8 +11,6 @@
 #include <string.h>
 #include <toml.h>
 
-#include "asset_loader.h"
-
 #include <glm.hpp>
 #include <gtc/constants.hpp>
 #include <gtc/matrix_transform.hpp>
@@ -20,12 +18,18 @@
 
 #include "components.h"
 
-void load_shader(game *m, size_t entity, struct Material *model) {
-  
+void load_material(game *g, size_t entity, struct Material *model) {
+  Memory *m = get_header(g);
+  for (size_t i = 0; i < m->shaders->count; ++i) {
+    if (strcmp(m->shaders->shader_names[i], model->shader) == 0) {
+      model->shader_id = m->shaders->program_ids[i];
+      return;
+    }
+  }
 }
 
-void load_model(game *m, size_t entity, struct Model *model){
-GLuint shader_id;
+void load_model(game *g, size_t entity, struct Model *model) {
+  g->load_mesh(g, model->path);
 }
 
 bool get_entity_name(World *w, size_t entity, char *name) {
@@ -104,30 +108,6 @@ void set_entity_name(World *w, size_t entity, const char *friendly_name) {
   w->entity_names[entity][name_length] = '\0';
 }
 
-bool add_shader(Memory *m, char *name, GLuint programID) {
-  size_t name_length = strlen(name);
-  if (name_length > ENTITY_NAME_LENGTH) {
-    printf("shader name should be less than %i, name: %s \n",
-           ENTITY_NAME_LENGTH, name);
-  }
-
-  for (size_t i = 0; i < name_length; ++i) {
-    name[i] = tolower((unsigned char)name[i]);
-  }
-
-  errno_t err = strncpy_s(m->shaders->shader_names[m->shaders->count],
-                          ENTITY_NAME_LENGTH, name, name_length);
-  if (err != 0) {
-    printf("error copying shader name %s\n", name);
-    return false;
-  }
-
-  m->shaders->shader_names[m->shaders->count][name_length] = '\0';
-  m->shaders->program_ids[m->shaders->count] = programID;
-  m->shaders->count++;
-
-  return true;
-}
 
 bool get_shader_by_name_caseinsenstive(Memory *m, const char *name,
                                        GLuint *programID) {
