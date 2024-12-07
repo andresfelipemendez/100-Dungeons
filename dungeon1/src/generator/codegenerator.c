@@ -139,33 +139,42 @@ size_t generate_struct_data_structure(toml_table_t *conf, Arena *structs_arena,
 #undef print_debug
   return structs_count;
 }
+#define APPEND_FMT(fmt) \
+    do { \
+        const char *str = fmt; \
+        size_t len = strlen(str); \
+        if (*o + len < size) { \
+            memcpy(output + *o, str, len); \
+            *o += len; \
+        } \
+    } while(0)
 
 #define APPEND(fmt, ...)                                                       \
-  *o += snprintf(output + *o, size - *o, fmt, __VA_ARGS__)
+  *o += snprintf(output + *o, size - *o, fmt,__VA_ARGS__)
 
 void gen_struct_definitions(struct_input *structs, size_t structs_count,
                             char *output, size_t *o, size_t size) {
-  APPEND("#include \"ecs.h\"\n"
+  APPEND_FMT("#include \"ecs.h\"\n"
          "#include \"memory.h\"\n"
          "#include <glm.hpp>\n"
          "#include <glad.h>\n");
 
-  APPEND("enum ComponentType {\n");
+  APPEND_FMT("enum ComponentType {\n");
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("\t%sType,\n", structs[i].name);
   }
-  APPEND("\tUNKNOWN_TYPE\n"
+  APPEND_FMT("\tUNKNOWN_TYPE\n"
          "};\n\n");
 
-  APPEND("enum ComponentBitmask {\n");
+  APPEND_FMT("enum ComponentBitmask {\n");
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("\t%sComponent = (1 << %zu),\n", structs[i].name, i);
   }
-  APPEND("};\n");
-  APPEND("\n");
-  APPEND("extern const char *component_names[];\n"
+  APPEND_FMT("};\n");
+  APPEND_FMT("\n");
+  APPEND_FMT("extern const char *component_names[];\n"
          "extern size_t component_count;\n");
-  APPEND("\n");
+  APPEND_FMT("\n");
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("struct %s {\n", structs[i].name);
     for (size_t j = 0; j < structs[i].field_count; j++) {
@@ -205,7 +214,7 @@ void gen_struct_definitions(struct_input *structs, size_t structs_count,
       }
       APPEND("\t%s %s;\n", field_type_name, structs[i].fields[j].name);
     }
-    APPEND("};\n\n");
+    APPEND_FMT("};\n\n");
   }
 
   for (size_t i = 0; i < structs_count; i++) {
@@ -217,28 +226,28 @@ void gen_struct_definitions(struct_input *structs, size_t structs_count,
            structs[i].name, structs[i].name, structs[i].name);
   }
 
-  APPEND("struct Components {\n");
+  APPEND_FMT("struct Components {\n");
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("\t%ss *p%ss;\n", structs[i].name, structs[i].name);
   }
-  APPEND("};\n\n");
+  APPEND_FMT("};\n\n");
 
-  APPEND("ComponentType mapStringToComponentType(const char * type_key);\n");
+  APPEND_FMT("ComponentType mapStringToComponentType(const char * type_key);\n");
 
-  APPEND("void assign_components_memory(Memory *m,struct game* g, size_t* "
+  APPEND_FMT("void assign_components_memory(Memory *m,struct game* g, size_t* "
          "offset);\n");
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("void add_component(Memory *m, size_t entity_id, %s "
            "component);\n",
            structs[i].name);
   }
-  APPEND("\n");
+  APPEND_FMT("\n");
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("bool get_component(Memory *m, size_t entity_id, %s "
            "*component);\n",
            structs[i].name);
   }
-  APPEND("\n");
+  APPEND_FMT("\n");
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("bool set_component(Memory *m, size_t entity_id, %s "
            "component);\n",
@@ -248,19 +257,19 @@ void gen_struct_definitions(struct_input *structs, size_t structs_count,
 
 void serializer_include(struct_input *, size_t, char *output, size_t *o,
                         size_t size) {
-  APPEND("#include \"components.h\"\n"
+  APPEND_FMT("#include \"components.h\"\n"
          "#include <toml.h>\n"
          "#include <game.h>\n"
          "#include \"memory.h\"\n"
          "\n");
-  APPEND("#ifdef _WIN32\n"
+  APPEND_FMT("#ifdef _WIN32\n"
          "#define strcasecmp _stricmp\n"
          "#endif\n\n");
 }
 
 void load_level_source(struct_input *structs, size_t structs_count,
                        char *output, size_t *o, size_t size) {
-  APPEND(
+  APPEND_FMT(
       "void ecs_load_level(game *g, const char *sceneFilePath) {\n"
       "\tFILE *fp;\n"
       "\tchar errbuf[200];\n"
@@ -268,7 +277,7 @@ void load_level_source(struct_input *structs, size_t structs_count,
       "\tfopen_s(&fp,sceneFilePath, \"r\");\n"
       "\tif (!fp) {\n"
       "\t\tstrerror_s(errbuf, sizeof(errbuf), errno);\n"
-      "\t\tprintf(\"Cannot open %%s - %%s\\n\", sceneFilePath, errbuf);\n"
+      "\t\tprintf(\"Cannot open %s - %s\\n\", sceneFilePath, errbuf);\n"
       "\t\treturn;\n"
       "\t}\n"
       "\ttoml_table_t *level = toml_parse_file(fp, errbuf, sizeof(errbuf));\n"
@@ -426,17 +435,17 @@ void load_level_source(struct_input *structs, size_t structs_count,
         break;
       }
     }
-    APPEND("\t\t\t\t};\n");
-    APPEND("\t\t\t\tadd_component(m,entity,c);\n"
+    APPEND_FMT("\t\t\t\t};\n");
+    APPEND_FMT("\t\t\t\tadd_component(m,entity,c);\n"
            "\t\t\t\tbreak;\n"
            "\t\t\t}\n");
   }
-  APPEND("\t\t\tcase UNKNOWN_TYPE: {\n"
-         "\t\t\t\tprintf(\"UNKNOWN_TYPE: %%s\\n\",type_key);\n"
+  APPEND_FMT("\t\t\tcase UNKNOWN_TYPE: {\n"
+         "\t\t\t\tprintf(\"UNKNOWN_TYPE: %s\\n\",type_key);\n"
          "\t\t\t\tbreak;\n"
          "\t\t\t}\n");
 
-  APPEND("\t\t\t}\n"
+  APPEND_FMT("\t\t\t}\n"
          "\t\t}\n"
          "\t}\n"
          "}\n");
@@ -445,11 +454,11 @@ void load_level_source(struct_input *structs, size_t structs_count,
 void save_level_source(struct_input *structs, size_t structs_count,
                        char *output, size_t *o, size_t size) {
 
-  APPEND("void save_level(Memory *m, const char *saveFilePath) {\n"
+  APPEND_FMT("void save_level(Memory *m, const char *saveFilePath) {\n"
          "\tFILE *fp;\n"
          "\tfopen_s(&fp,saveFilePath, \"w\");\n"
          "\tif (!fp) {\n"
-         "\t\tprintf(\"Failed to open file %%s for writing.\\n\", "
+         "\t\tprintf(\"Failed to open file %s for writing.\\n\", "
          "saveFilePath);\n"
          "\t\treturn;\n"
          "\t}\n"
@@ -483,7 +492,7 @@ void save_level_source(struct_input *structs, size_t structs_count,
       APPEND("\t\t\t\tfprintf(fp,\"%s = { %s = %%s }\\n\", %s.%s);\n",
              lowerName, structs[i].fields[0].name, lowerName,
              structs[i].fields[0].name);
-      APPEND("\t\t\t}\n\t\t}\n");
+      APPEND_FMT("\t\t\t}\n\t\t}\n");
       continue; // Skip to next component
     }
 
@@ -517,7 +526,7 @@ void save_level_source(struct_input *structs, size_t structs_count,
         break;
       }
     }
-    APPEND("}\",");
+    APPEND_FMT("}\",");
     for (size_t j = 0; j < structs[i].field_count; j++) {
       char *separator = (j == structs[i].field_count - 1) ? "" : ",";
       switch (structs[i].fields[j].type) {
@@ -549,15 +558,15 @@ void save_level_source(struct_input *structs, size_t structs_count,
         break;
       }
     }
-    APPEND(");\n"
+    APPEND_FMT(");\n"
            "\t\t\t}\n"
            "\t\t}\n");
   }
 
-  APPEND("\t\tfprintf(fp, \"\\n\");\n"
+  APPEND_FMT("\t\tfprintf(fp, \"\\n\");\n"
          "\t}\n"
          "\tfclose(fp);\n"
-         "\tprintf(\"World saved to %%s\\n\", saveFilePath);\n"
+         "\tprintf(\"World saved to %s\\n\", saveFilePath);\n"
          "}\n");
 }
 
@@ -568,21 +577,21 @@ void serializer_source(struct_input *structs, size_t structs_count,
          "size_t component_count = %zu;\n\n",
          structs_count);
 
-  APPEND("const char *component_names[] = {\n");
+  APPEND_FMT("const char *component_names[] = {\n");
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("\t\"%s\",\n", structs[i].name);
   }
-  APPEND("};\n\n");
+  APPEND_FMT("};\n\n");
 
-  APPEND("ComponentType mapStringToComponentType(const char * type_key){\n");
+  APPEND_FMT("ComponentType mapStringToComponentType(const char * type_key){\n");
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("\tif(strcasecmp(type_key, \"%s\") == 0) return %sType;\n",
            structs[i].name, structs[i].name);
   }
-  APPEND("\treturn UNKNOWN_TYPE;\n");
-  APPEND("}\n");
+  APPEND_FMT("\treturn UNKNOWN_TYPE;\n");
+  APPEND_FMT("}\n");
 
-  APPEND("void assign_components_memory(Memory *m, game* g, size_t* offset) {\n"
+  APPEND_FMT("void assign_components_memory(Memory *m, game* g, size_t* offset) {\n"
          "\tm->strings = (StringsArena *)((char *)g->buffer + *offset);\n"
          "\t*offset += sizeof(StringsArena);\n"
          "\tm->strings = (StringsArena *)((char *)g->buffer + *offset);\n"
@@ -605,12 +614,13 @@ void serializer_source(struct_input *structs, size_t structs_count,
            "\t*offset += sizeof(%s) * initialEntityCount;\n",
            structs[i].name, structs[i].name, structs[i].name, structs[i].name,
            structs[i].name, structs[i].name, structs[i].name);
-      } APPEND("\tfor (size_t i = 0; i < initialEntityCount; ++i) {\n"
+  }
+  APPEND_FMT("\tfor (size_t i = 0; i < initialEntityCount; ++i) {\n"
         "\t\tm->components->pModels->components[i].submeshes = (SubMesh "
         "*)((char *)g->buffer + *offset);\n"
         "\t\t*offset += sizeof(SubMesh) * initialSubMeshCount;\n"
         "\t}\n");
-  APPEND("}\n\n");
+  APPEND_FMT("}\n\n");
 
   for (size_t i = 0; i < structs_count; i++) {
     APPEND("void add_component(Memory *m, size_t entity_id, %s "

@@ -1,0 +1,33 @@
+{
+	"folders":
+	[
+		{
+			"path": ".",
+			"folder_exclude_patterns": ["build", ".vs", "bin", "obj"],
+			"file_exclude_patterns": ["*.exe", "*.obj", "*.pdb", "*.ilk"]
+		}
+	],
+	 "settings": {
+        "tab_size": 4,
+        "translate_tabs_to_spaces": true,
+        "ensure_newline_at_eof_on_save": true,
+        "trim_trailing_white_space_on_save": true
+    },
+    "build_systems": [
+        {
+            "name": "Build All",
+            "cmd": ["cmd.exe", "/c", "build_all.bat & pause"],
+            "shell": true,
+            "file_regex": "^(..[^:]*):([0-9]+):([0-9]+): ?(.*)",
+            "working_dir": "${project_path}",
+            "selector": "source.c++",
+            "quiet": false,
+            "variants": [
+            	{
+                    "name": "Build and Run",
+                    "shell_cmd": "build_all.bat && build\\Release\\YourExecutable.exe"
+                }
+            ]
+        }
+    ]
+}

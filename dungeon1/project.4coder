@@ -35,7 +35,7 @@ command_list = {
 		.save_dirty_files = true,
 		.cursor_at_end = false,
 		.cmd = {
-			{ "build.bat", .os = "win"},
+			{ "build_all.bat", .os = "win"},
 		}
 	},
 	{
@@ -50,5 +50,5 @@ command_list = {
 	},
 };
 
-fkeys_command[1] = "build";
-fkeys_command[3] = "run";
+fkey_command[1] = "build";
+fkey_command[3] = "run";
