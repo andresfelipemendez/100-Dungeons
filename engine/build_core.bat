@@ -18,13 +18,15 @@ if "!SOURCE_FILES!"=="" (
 )
 
 :: Compile the DLL with clang++, using the gathered source files, include paths, and libraries
-clang++ -shared -std=c++17 -g ^
-    -I"%INCLUDE_PATH%" -I"%CORE_INCLUDE_PATH%"  -I"%ENGINE_INCLUDE_PATH%" -I"%EXTERNAL_INCLUDE_PATH%"^
-    -I"%GLAD_INCLUDE_DIR%" -I"%GLFW_INCLUDE_DIR%" ^
-    -I"%IMGUI_INCLUDE_DIR%" -I"%IMGUI_INCLUDE_BACKENDS_DIR%" ^
-    !SOURCE_FILES! -o "%OUTPUT_PATH%\core.dll" ^
-    -L"%GLAD_LIB_DIR%" -L"%GLFW_LIB_DIR%" -L"%IMGUI_LIB_DIR%" ^
-    -lglad -lglfw3dll -limgui
+cl.exe /nologo /LD /std:c++17 /EHsc /MD /Zi ^
+    /I. ^
+    /I"%PROJECT_ROOT%" ^
+    /I"%PROJECT_ROOT%\src" ^
+    !SOURCE_FILES! ^
+    /link ^
+    /LIBPATH:"%GLAD_LIB_DIR%" /LIBPATH:"%GLFW_LIB_DIR%" /LIBPATH:"%IMGUI_LIB_DIR%" ^
+    glad.lib glfw3dll.lib imgui.lib ^
+     /OUT:"%OUTPUT_PATH%\core.dll" ^
 
 :: Check if the compilation was successful
 if %errorlevel% neq 0 (

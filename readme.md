@@ -21,19 +21,29 @@ Reloading `externals.dll` closes the window, but since memory is allocated in `c
 
 The current focus is on developing the engine for `dungeon1`, which is a continuation of my Anitra project. I plan to gradually migrate code from `1dungeon` (based on my earlier GP1 project) to `dungeon1`, combining Anitra with GP1 along with new features to enhance functionality.
 
-Using `build.bat` scripts has replaced CMake for faster builds, with `clang` now handling the compilation. Setting up the `cl` compiler with `vcvars` proved challenging, as environment variables didn’t persist due to the engine calling the compiler internally. By contrast, `clang` installation sets the required paths automatically.
+Using `build.bat` scripts has replaced CMake for faster builds, with `clang` now handling the compilation. Setting up the `cl` compiler with `vcvars` proved challenging, as environment variables didn't persist due to the engine calling the compiler internally. By contrast, `clang` installation sets the required paths automatically.
 
 To build `dungeon1`, first run `setup_devenv.bat`, then `build_all.bat`. The `AnitraEngine.exe` will subsequently watch the `core` source folder and reload `core.dll` upon detecting changes. In turn, `core.dll` watches the `engine` and `externals` source folders to build and reload their respective DLLs, enabling a seamless hot-reloading workflow.
 
 The engine builds upon systems from previous projects, incorporating modular design and real-time updates via hot-reloading and directory-watching features from [Anitra](https://github.com/andresfelipemendez/anitra). Additionally, the project draws on my experience [reimplementing](https://github.com/andresfelipemendez/GP1) examples from *Game Programming in C++* by Sanjay Madhav to create a streamlined development workflow.
 
-For the scene description format, I’ve replaced JSON with TOML, which provides straightforward handling of data types without YAML's added complexity. I’m also developing a custom ECS tailored to this engine's needs, reusing my knowledge of manual memory layout from the [DirectX Pong Engine](https://github.com/andresfelipemendez/C-D3D11-Engine). This ECS gives me precise memory control from within the hot-reloaded DLLs, enhancing flexibility and performance.
+For the scene description format, I've replaced JSON with TOML, which provides straightforward handling of data types without YAML's added complexity. The engine now includes a code generator that automatically creates serialization and deserialization code for entities from TOML files, addressing C's lack of reflection capabilities. This enables efficient scene loading and persistence while maintaining type safety and reducing manual boilerplate code.
+
+I'm also developing a custom ECS tailored to this engine's needs, reusing my knowledge of manual memory layout from the [DirectX Pong Engine](https://github.com/andresfelipemendez/C-D3D11-Engine). This ECS gives me precise memory control from within the hot-reloaded DLLs, enhancing flexibility and performance.
 
 ## Features
 
 - **Multi-level Hot-reloading**: The engine supports hot-reloading at multiple levels, enhancing development efficiency.
   - **Launcher (`AnitraEngine.exe`)**: Watches and reloads `core.dll` upon changes in the `core` source folder.
   - **Core DLL (`core.dll`)**: Watches and rebuilds `engine.dll` and `externals.dll` when changes are detected in their respective source folders.
+- **Automated Entity Serialization**: A custom code generator produces C code for entity serialization and deserialization from TOML files, providing:
+  - Automatic generation of component type enums and bitmasks
+  - Basic type conversion for common data types (float, GLuint, size_t, glm::vec3)
+  - Special handling for path and shader name string components
+  - Generated boilerplate code for component memory management
+  - Component lookup and manipulation functions (add, get, set)
+  - Scene loading and saving to/from TOML format
+  - Basic error handling for file operations and memory allocation
 - **Manually Designed Dungeons**: Each of the 100 dungeons will be unique, offering varied layouts and challenges.
 - **Iterative Engine Development**: The engine undergoes continuous improvements, adding features tailored to dungeon creation and gameplay as development progresses.
 - **Custom ECS Architecture**: A streamlined, custom-built ECS system allows direct memory management within the hot-reloaded DLLs, persisting the world state across DLL reloads.

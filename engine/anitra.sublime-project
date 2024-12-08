@@ -16,7 +16,9 @@
     "build_systems": [
         {
             "name": "Build All",
-            "cmd": ["cmd.exe", "/c", "build_all.bat & pause"],
+            "cmd": ["cmd.exe", "/c", "build.bat"],
+            "target": "ansi_color_build",
+            "syntax": "Packages/ANSIescape/ANSI.sublime-syntax",
             "shell": true,
             "file_regex": "^(..[^:]*):([0-9]+):([0-9]+): ?(.*)",
             "working_dir": "${project_path}",
@@ -27,7 +29,10 @@
                     "name": "Build and Run",
                     "shell_cmd": "build_all.bat && build\\Release\\YourExecutable.exe"
                 }
-            ]
+            ],
         }
+    ],
+    "keys": [{
+        "keys":["ctrl+f5"], "command": "build", "args": {"variant": "Build and Run"} }
     ]
 }

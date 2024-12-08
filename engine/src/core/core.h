@@ -2,9 +2,9 @@
 #define CORE_H
 
 #include "export.h"
-
-EXPORT void init();
-EXPORT void stop();
+struct game;
+void EXPORT init();  // Changed order
+void EXPORT stop();
 
 void begin_game_loop(game &g);
 void waitforreloadsignal(void *hEvent);

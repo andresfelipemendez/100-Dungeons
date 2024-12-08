@@ -18,6 +18,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define _CRT_DECLARE_NONSTDC_NAMES 1
 #include <threads.h>
 
 void initializeSockets();
@@ -26,7 +28,7 @@ int startBuilderServer(void *arg);
 void printHelp();
 void build_engine_dll();
 
-#define LEN(array) (sizeof(array) / sizeof(array[0]))
+#define LEN(array) (sizeof(array) / sizeof((array[0])))
 
 #define NULL_TERMINATOR 1;
 
