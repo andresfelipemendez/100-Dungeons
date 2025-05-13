@@ -4,35 +4,28 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <ftw.h>
+#include <string.h>
 
-int main() {	
-    DIR *dir;
-    dir = opendir(".");
-    if (dir == NULL) {
-        perror("unable to open directory");
-        return EXIT_FAILURE;
-    }
-    printf("FIles in the current directory:\n");
-	
-    struct dirent *entry;
-	errno = 0;
+int display_info(const char *fpath, const struct stat *sb, int typeflag) {
 	struct stat buff;
-	while((entry = readdir(dir)) != NULL) {
-		printf("%s\n", entry->d_name);
-		if(stat(entry->d_name, &buff) == 0) {
-			char *time_str = ctime(&buff.st_mtime);
-			printf("modified %s", time_str);
-		}
+	if(stat(fpath, &buff) == 0) {
+		char *time_str = ctime(&buff.st_mtime);
+		time_str[strlen(time_str) - 1] = '\0';
+		printf("%s ", time_str);
 	}
 
-	if(errno!=0) {
-		perror("Error reading directory");
-		closedir(dir);
-		return EXIT_FAILURE;
-	}
+    printf("%s", fpath);
+    
+    if (typeflag == FTW_D) {
+        printf("/");
+    }
+    printf("\n");
+    
+    return 0;  // Continue walking
+}
 
-	closedir(dir);
-	return EXIT_SUCCESS;
-
+int main() {
+    ftw(".", display_info, 20);
     return 0;
 }
