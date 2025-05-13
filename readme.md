@@ -6,6 +6,15 @@
 
 ![hotreload](hotreload.gif)
 
+
+```bash
+gcc -std=c23 -o forge.bin forge/forge.c
+./forge
+```
+## Working on a New Build System
+
+I'm developing a custom build system to replace CMake. Since cross-platform builds require complex conditional logic that's almost like learning a new language, I'd rather implement this logic directly in C. This approach aligns better with my preference for controlling the development experience and will integrate more seamlessly with the engine's hot-reloading architecture.
+
 ## Showcase of Hot-reloading Capabilities
 
 This example demonstrates hot-reloading by changing the unlit shader color. The engine supports multiple levels of hot-reloading:
