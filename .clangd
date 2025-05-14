@@ -1,0 +1,9 @@
+CompileFlags:
+  Add: ["-xc", -I./lib/include]
+  Compiler: gcc
+
+Index:
+  Background: Build
+
+If:
+  PathMatch: *\.(c|h)$
