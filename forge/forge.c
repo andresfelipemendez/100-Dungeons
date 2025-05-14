@@ -6,11 +6,11 @@
 #include <time.h>
 #include <ftw.h>
 #include <string.h>
-//#include "../lib/file_watch.h"
-#include "../lib/compile.h"
+#include "../lib/file_watch.h"
+//#include "../lib/compile.h"
 
 int main() {
-	//watch();
+	watch();
     //ftw(".", display_info, 20);
     return 0;
 }

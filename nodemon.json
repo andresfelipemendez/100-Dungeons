@@ -1,0 +1,10 @@
+{
+	"watch": ["bootstraper.c"],
+  "ext": "c",
+  "exec": "gcc bootstraper.c && ./a.out",
+  "signal": "SIGTERM",
+  "delay": "100ms",
+  "restartable": "rs",
+  "verbose": true,
+  "legacyWatch": true
+}

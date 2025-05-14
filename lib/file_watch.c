@@ -9,6 +9,7 @@
 #include <time.h>
 #include <ftw.h>
 #include <string.h>
+#include <stdbool.h>
 
 int display_info(const char *fpath, const struct stat *sb, int typeflag) {
 	struct stat buff;
@@ -30,14 +31,15 @@ int display_info(const char *fpath, const struct stat *sb, int typeflag) {
 
 
 int list_dir(void*) {
-	ftw(".",display_info, 20);
+
+	ftw(".", display_info, 20);
 	return 0;
 }
 
-bool watch () {
+int watch () {
 	puts("calling thread");
 	thrd_t t0;
-	if(thrd_create(&t0,list_dir,NULL)==-1) {
+	if(thrd_create(&t0,list_dir,NULL) == -1) {
 		perror("cant create thread");
 	}
 	int res = 0;
