@@ -1,0 +1,90 @@
+cmake_minimum_required(VERSION 3.20)
+project(GameEngine LANGUAGES C)
+
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
+
+include(FetchContent)
+
+# arch
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  set(_ARCH x64)
+else()
+  set(_ARCH x86)
+endif()
+
+# --- SDL3 ---------------------------------------------------------
+FetchContent_Declare(
+  SDL3_prebuilt
+  URL https://github.com/libsdl-org/SDL/releases/download/release-3.2.20/SDL3-devel-3.2.20-VC.zip
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(SDL3_prebuilt)
+
+# --- SDL3_image ---------------------------------------------------
+FetchContent_Declare(
+  SDL3_image_prebuilt
+  URL https://github.com/libsdl-org/SDL_image/releases/download/release-3.2.4/SDL3_image-devel-3.2.4-VC.zip
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(SDL3_image_prebuilt)
+
+# Prefer official CMake configs from the devel zips
+list(APPEND CMAKE_PREFIX_PATH
+  "${sdl3_prebuilt_SOURCE_DIR}" "${sdl3_prebuilt_SOURCE_DIR}/cmake"
+  "${sdl3_image_prebuilt_SOURCE_DIR}" "${sdl3_image_prebuilt_SOURCE_DIR}/cmake"
+)
+find_package(SDL3 CONFIG REQUIRED)
+find_package(SDL3_image CONFIG REQUIRED)
+
+# --- exe ----------------------------------------------------------
+add_executable(game_engine src/main.c)
+target_link_libraries(game_engine PRIVATE SDL3::SDL3 SDL3_image::SDL3_image)
+
+# output dir and VS debugger cwd
+set_target_properties(game_engine PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+  VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+# copy ALL runtime DLLs from both packages
+set(_SDL3_ROOT "${sdl3_prebuilt_SOURCE_DIR}")
+set(_SDL3IMG_ROOT "${sdl3_image_prebuilt_SOURCE_DIR}")
+
+set_target_properties(game_engine PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+  VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"  # Changed from CMAKE_BINARY_DIR/bin
+)
+
+file(GLOB _RUNTIME_DLLS
+  # SDL3
+  "${_SDL3_ROOT}/lib/x64/*.dll"
+  "${_SDL3_ROOT}/*/lib/x64/*.dll"
+  # SDL3_image
+  "${_SDL3IMG_ROOT}/lib/x64/*.dll"
+  "${_SDL3IMG_ROOT}/*/lib/x64/*.dll"
+)
+
+list(FILTER _RUNTIME_DLLS INCLUDE REGEX "\\.dll$")
+
+if(_RUNTIME_DLLS)
+  add_custom_command(TARGET game_engine POST_BUILD
+    # Copy to executable directory (for direct execution)
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            ${_RUNTIME_DLLS}
+            "$<TARGET_FILE_DIR:game_engine>"
+    # Copy to source root (for debugging from IDE)
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            ${_RUNTIME_DLLS}
+            "${CMAKE_SOURCE_DIR}"
+    COMMAND_EXPAND_LISTS
+  )
+endif()
+
+# MSVC warnings and Debug flags
+if(MSVC)
+  target_compile_options(game_engine PRIVATE /W4 /WX /permissive- /Zc:preprocessor /volatile:iso)
+  target_compile_options(game_engine PRIVATE $<$<CONFIG:Debug>:/Od /Zi /RTC1>)
+  target_link_options(game_engine PRIVATE $<$<CONFIG:Debug>:/DEBUG:FULL>)
+endif()

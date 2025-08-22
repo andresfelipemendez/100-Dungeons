@@ -1,0 +1,61 @@
+
+
+/GP1/.vs
+*.exe
+*.pdb
+/GP1/GP1/Debug
+/GP1/GP1/x64
+GP1/x64/Debug
+GP1/x64/Debug/GP1.obj
+GP1/x64/Debug/vc143.idb
+GP1/x64/Debug/GP1.ilk
+GP1/x64/Debug/Game.obj
+/CHPT2/x64
+Chpt1/GP1/.vs
+Chpt1/GP1/GP1/x64
+Chpt1/GP1/x64
+Chpt1/CHPT2/x64/Debug
+Chpt1/CHPT2DOD/x64/Debug
+Chpt1/CHPT3/x64/Debug
+Chpt1/GP1/GP1/Debug
+/Chapter 3 DOD/Game/x64
+/Chapter 3 DOD/.vs
+/Chapter 3 DOD/x64
+/Chapter 4/.vs
+/Chapter 4/Game/x64
+/Chapter 4/x64
+
+/**/.vs/
+/**/.vs/*
+*.obj
+!*/Assets/*.obj
+/Chpt1 - Chpt 3/CHPT2/x64
+/Chpt1 - Chpt 3/CHPT2DOD/x64
+/Chpt1 - Chpt 3/CHPT3/x64
+/Chpt1 - Chpt 3/GP1/GP1/Debug
+/Chpt1 - Chpt 3/GP1/GP1/x64
+/Chpt1 - Chpt 3/GP1/x64
+/Chapter 3 ECS/Game/x64
+/Chapter 3 ECS/x64
+/Chapter 4/build
+/CHPT3 OOP/CHPT3/x64
+/CHPT4 OOP/CHPT3/x64
+/CHPT4 OOP/CHPT4 OOP
+/CHPT6 3D Graphics OOP/CHPT6 3D.01967eff
+/CHPT6 3D Graphics OOP/x64
+/CHPT5 OpenGL/CHPT5 OpenGL
+/CHPT5 OpenGL/x64
+/Chapter 5 ECS/.cache
+/Chapter 5 ECS/build
+/Chapter 5 ECS/Game
+/Chapter 5 ECS/x64
+/CHPT6/x64
+/CHPT6/CHPT6
+/Chapter 6 ECS/.cache
+/Chapter 6 ECS/build
+/Chapter 6 ECS/Game
+/Chapter 6 ECS/x64
+/Chapter 12 ECS/Game
+/Chapter 12 ECS/Game/x64
+/Chapter 12 ECS/Game/x64
+dungeon1/compile_commands.json
