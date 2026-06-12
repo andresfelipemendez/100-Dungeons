@@ -109,13 +109,10 @@ GAME_EXPORT GAME_UPDATE_AND_RENDER(game_update_and_render) {
         gs->clear_r = 0.10f;
         gs->clear_g = 0.05f;
         gs->clear_b = 0.18f;
+        gs->spin_rate = 1.8f;
         gs->initialized = 1;
     }
 
-    /* spin_rate arrives zeroed from a seni migration; treat 0 as unset */
-    if (gs->spin_rate == 0.0f) {
-        gs->spin_rate = 1.8f;
-    }
     gs->cam_angle += input->dt * gs->spin_rate;
 
     if (!rnd_frame_begin(gs->clear_r, gs->clear_g, gs->clear_b)) {

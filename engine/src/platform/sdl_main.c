@@ -227,6 +227,33 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
     return 1;
 }
 
+/* A successful migration makes every SENI_WAS in the header inert (the next
+   diff's old layout IS this header; all fields match by name), so strip the
+   served history -- the header keeps only live intent. The save triggers
+   one more rebuild whose diff is structurally empty; it settles at once. */
+static void seni_strip_consumed_was(void) {
+    static char arena_buf[1u << 20];
+    arena a;
+    size_t len = 0;
+    char *hdr = SDL_LoadFile(GAME_STATE_HDR, &len);
+    if (!hdr) {
+        return;
+    }
+    create_arena(&a, arena_buf, sizeof(arena_buf));
+    char *copy = arena_copy_string(&a, hdr, len);
+    SDL_free(hdr);
+    if (!copy) {
+        return;
+    }
+    annotate_result r = strip_was(&a, copy);
+    if (r.err || r.code == copy) {
+        return; /* error or nothing to strip */
+    }
+    if (SDL_SaveFile(GAME_STATE_HDR, r.code, strlen(r.code))) {
+        SDL_Log("seni: consumed SENI_WAS annotations stripped from " GAME_STATE_HDR);
+    }
+}
+
 /* Consumes answers the seni UI panel wrote into the mailbox: inserts the
    matching annotation into GAME_STATE_HDR -- the exact edit the developer
    would have typed -- and saves it. The save triggers the watcher rebuild,
@@ -506,6 +533,9 @@ int main(int argc, char *argv[]) {
                                             memory.transient,
                                             memory.transient_size,
                                             &memory.seni);
+                    if (ok) {
+                        seni_strip_consumed_was();
+                    }
                 } else if (ok) {
                     /* identical layouts: pending questions (if any) were
                        answered by reverting the header -- clear them */
