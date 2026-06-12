@@ -5,11 +5,11 @@
    the gcc child process spawned to build the migration dll is not
    instrumented (cachegrind does not follow children by default). */
 
-#include "platform.h"
-#if defined(_WIN32)
-#include "platform_windows.c"
+#include "../dodai/dodai.h"
+#ifdef _WIN32
+#include "../dodai/dodai_windows.c"
 #else
-#include "platform_linux.c"
+#include "../dodai/dodai_posix.c"
 #endif
 #include "seni.h"
 #include "arena.h"
@@ -60,7 +60,7 @@ int main(void) {
     arena a;
     diff_result d;
     generate_result g;
-    platform_lib mod;
+    void *mod;
     migrate_fn fn;
     enemy_a* old_blk;
     enemy_b* new_blk;
@@ -89,12 +89,12 @@ int main(void) {
     if (g.err) { fprintf(stderr, "generate: %s\n", g.err); return 1; }
     /* migration TU compiles from the build/seni_out audit log */
     if (seni_dump_migration(g.code, "bench_cache", src_path, sizeof(src_path)) != 0) return 1;
-    sprintf(lib_path, "build/bench_cache.%s", platform_lib_extension());
+    sprintf(lib_path, "build/bench_cache.%s", dodai_lib_extension());
     sprintf(err_path, "build/bench_cache.err");
-    if (platform_compile_shared(src_path, lib_path, err_path) != 0) return 1;
-    mod = platform_load_lib(lib_path);
+    if (dodai_compile_shared(src_path, lib_path, err_path, "-std=c89 -pedantic") != 0) return 1;
+    mod = dodai_lib_open(lib_path);
     if (!mod) return 1;
-    fn = (migrate_fn)platform_get_symbol(mod, "migrate_enemy");
+    fn = (migrate_fn)dodai_lib_symbol(mod, "migrate_enemy");
     if (!fn) return 1;
 
     /* ---- hot path 2: migrate 1M elements, several passes ---- */
@@ -110,7 +110,7 @@ int main(void) {
         sink += new_blk[MIGRATE_N - 1].x;
     }
 
-    platform_unload_lib(mod);
+    dodai_lib_close(mod);
     free(old_blk);
     free(new_blk);
     fprintf(stderr, "bench done (sink %f)\n", sink);

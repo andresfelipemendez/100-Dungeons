@@ -9,14 +9,10 @@
 
 #include <SDL3/SDL.h>
 #include <stdlib.h>
-
-#ifdef _WIN32
-#include <direct.h>
-#define platform_chdir _chdir
-#else
-#include <unistd.h>
-#define platform_chdir chdir
+#ifdef __APPLE__
+#include <unistd.h>  /* access(), F_OK */
 #endif
+#include "dodai.h"
 
 #include "base/base_types.h"
 #include "abi/abi_platform.h"
@@ -41,7 +37,7 @@ int main(int argc, char *argv[]) {
     /* the exe sits at the bundle root; anchor all relative paths there */
     {
         const char *base = SDL_GetBasePath();
-        if (base && platform_chdir(base) != 0) {
+        if (base && !dodai_chdir(base)) {
             SDL_Log("warning: cannot chdir to bundle root '%s'", base);
         }
     }

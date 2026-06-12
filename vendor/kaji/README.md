@@ -77,4 +77,5 @@ strlen, C strings only at OS boundaries.
 `test.bat` / `test.sh`: kstr unit tests, parser (vars, per-OS keys, line
 numbers in errors), command assembly, and e2e graph builds with real gcc
 (skip-when-fresh, rebuild-on-touch, async polling, failure logs, exe with
-post copies). platform specifics live behind `platform.h`.
+post copies). OS specifics live in `../dodai` (`dodai_posix.c` /
+`dodai_windows.c`).

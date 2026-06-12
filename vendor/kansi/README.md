@@ -60,11 +60,11 @@ relative paths resolve against the host process cwd.
 
 event-based when the OS provides it: ReadDirectoryChangesW (windows) /
 inotify (linux), drained non-blocking each `kansi_update` through the
-`kansi_notify_fn` callback in `platform.h`. detection latency is one frame.
+`dodai_notify_fn` callback in `../dodai/dodai.h`. detection latency is one frame.
 an event-buffer overflow is reported as a generic change so nothing is
 missed; on linux, subdirectories created after start are not auto-watched.
 
-when `kansi_platform_watch_begin` fails, falls back to polling (50ms):
+when `dodai_watch_begin` fails, falls back to polling (50ms):
 commutative hash fold of (path, mtime, size) over watched files with
 matching extensions. fallback consequence: a rewrite with identical size
 inside the filesystem's mtime quantum is invisible; real editor saves
@@ -79,5 +79,5 @@ linked per rebuild.
 
 `test.bat` (windows) / `test.sh` (linux): unit tests (parser, ext filter,
 command assembly, stamps) + e2e (watch a real dir, rebuild a real dll via
-gcc, assert BUILT/ERROR edges). platform specifics live behind `platform.h`
-(`platform_windows.c` / `platform_linux.c`).
+gcc, assert BUILT/ERROR edges). OS specifics live in `../dodai`
+(`dodai_posix.c` / `dodai_windows.c`).

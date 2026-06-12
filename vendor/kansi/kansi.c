@@ -1,5 +1,7 @@
 #include "kansi.h"
-#include "platform.h"
+#include "dodai.h"
+
+typedef struct { void *handle; } kansi_proc;
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,7 +56,7 @@ struct kansi {
     int step;             /* index into pipeline; cfg.pre_count == compile */
     kansi_proc proc;
     /* event-based notification; falls back to polling when unavailable */
-    kansi_watch watch;
+    dodai_watch watch;
     int event_mode;
     int note;             /* a matching event arrived since last handled */
     int rebuild_queued;   /* change arrived mid-build */
@@ -269,7 +271,7 @@ static void kansi_scan_file(const char *path, unsigned long long mtime,
 static unsigned long long kansi_compute_stamp(const kansi_cfg *cfg) {
     kansi_scan_ctx ctx = { cfg, 0 };
     for (int i = 0; i < cfg->watch_count; i++) {
-        kansi_platform_walk(cfg->watch[i], kansi_scan_file, &ctx);
+        dodai_walk(cfg->watch[i], kansi_scan_file, &ctx);
     }
     return ctx.stamp;
 }
@@ -284,10 +286,10 @@ static int kansi_step_skippable(const kansi_cfg *cfg, int step) {
         return 0;
     }
     unsigned long long in_t, out_t;
-    if (!kansi_platform_mtime(cfg->pre_in[step], &in_t)) {
+    if (!dodai_mtime_ns(cfg->pre_in[step], &in_t)) {
         return 0; /* missing input: run the step, let it fail loudly */
     }
-    if (!kansi_platform_mtime(cfg->pre_out[step], &out_t)) {
+    if (!dodai_mtime_ns(cfg->pre_out[step], &out_t)) {
         return 0; /* no output yet */
     }
     return out_t >= in_t;
@@ -307,8 +309,8 @@ static int kansi_spawn_step(kansi *k) {
         }
         to_run = cmd;
     }
-    return kansi_platform_spawn(to_run, k->cfg.log[0] ? k->cfg.log : NULL,
-                                &k->proc);
+    return dodai_spawn(to_run, k->cfg.log[0] ? k->cfg.log : NULL,
+                       &k->proc.handle);
 }
 
 /* ---- public API -------------------------------------------------------- */
@@ -353,9 +355,9 @@ kansi *kansi_start(const char *config_path, char *err, int err_size) {
 
     k->state = KANSI_STATE_IDLE;
     k->last_stamp = kansi_compute_stamp(&k->cfg);
-    k->last_scan_ms = kansi_platform_now_ms();
-    k->event_mode = kansi_platform_watch_begin(&k->watch, k->cfg.watch,
-                                               k->cfg.watch_count);
+    k->last_scan_ms = dodai_now_ms();
+    k->event_mode = dodai_watch_begin(&k->watch, k->cfg.watch,
+                                      k->cfg.watch_count);
     return k;
 }
 
@@ -369,12 +371,12 @@ static void kansi_on_notify(const char *path, void *user) {
 }
 
 kansi_status kansi_update(kansi *k) {
-    unsigned long long now = kansi_platform_now_ms();
+    unsigned long long now = dodai_now_ms();
 
     /* Drain change notifications first (also while building, so saves
        during a compile queue a follow-up rebuild instead of vanishing). */
     if (k->event_mode) {
-        kansi_platform_watch_poll(&k->watch, kansi_on_notify, k);
+        dodai_watch_poll(&k->watch, kansi_on_notify, k);
         if (k->note) {
             k->note = 0;
             k->change_seen_ms = now;
@@ -388,10 +390,10 @@ kansi_status kansi_update(kansi *k) {
 
     if (k->state == KANSI_STATE_BUILDING) {
         int exit_code = 0;
-        if (!kansi_platform_proc_poll(&k->proc, &exit_code)) {
+        if (!dodai_proc_poll(k->proc.handle, &exit_code)) {
             return KANSI_BUILDING;
         }
-        kansi_platform_proc_close(&k->proc);
+        dodai_proc_close(k->proc.handle); k->proc.handle = NULL;
         if (exit_code != 0) {
             k->state = k->rebuild_queued ? KANSI_STATE_WAITING : KANSI_STATE_IDLE;
             k->rebuild_queued = 0;
@@ -408,7 +410,7 @@ kansi_status kansi_update(kansi *k) {
         /* all steps done: publish the dll */
         k->state = k->rebuild_queued ? KANSI_STATE_WAITING : KANSI_STATE_IDLE;
         k->rebuild_queued = 0;
-        if (!kansi_platform_rename(k->cfg.tmp, k->cfg.out)) {
+        if (!dodai_rename(k->cfg.tmp, k->cfg.out)) {
             k->state = KANSI_STATE_IDLE;
             return KANSI_ERROR;
         }
@@ -465,14 +467,14 @@ void kansi_stop(kansi *k) {
         return;
     }
     if (k->event_mode) {
-        kansi_platform_watch_end(&k->watch);
+        dodai_watch_end(&k->watch);
     }
     if (k->state == KANSI_STATE_BUILDING) {
         int code;
-        while (!kansi_platform_proc_poll(&k->proc, &code)) {
+        while (!dodai_proc_poll(k->proc.handle, &code)) {
             /* let the in-flight step finish; steps are short-lived */
         }
-        kansi_platform_proc_close(&k->proc);
+        dodai_proc_close(k->proc.handle); k->proc.handle = NULL;
     }
     free(k);
 }

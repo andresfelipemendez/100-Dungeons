@@ -22,8 +22,8 @@ static void write_file(const char *path, const char *content) {
    landing in the same mtime quantum with the same size is invisible to any
    stamp-based watcher. Tests separate writes in time and size. */
 static void settle_ms(unsigned long long ms) {
-    unsigned long long start = kansi_platform_now_ms();
-    while (kansi_platform_now_ms() - start < ms) { /* spin */ }
+    unsigned long long start = dodai_now_ms();
+    while (dodai_now_ms() - start < ms) { /* spin */ }
 }
 
 /* ---- config parser ---- */
@@ -230,8 +230,8 @@ UTEST(watch_only, parse_and_changed_edge) {
     write_file("build/watch_only/seed.c", "int a; int b;\n");
 
     kansi_status final = KANSI_IDLE;
-    unsigned long long start = kansi_platform_now_ms();
-    while (kansi_platform_now_ms() - start < 10000) {
+    unsigned long long start = dodai_now_ms();
+    while (dodai_now_ms() - start < 10000) {
         kansi_status st = kansi_update(k);
         if (st == KANSI_CHANGED || st == KANSI_BUILT || st == KANSI_ERROR) {
             final = st;
@@ -258,8 +258,8 @@ UTEST(watch, event_notification_delivers_filename) {
     char dirs[1][512];
     snprintf(dirs[0], sizeof(dirs[0]), "build/watch_ev");
 
-    kansi_watch w = { 0 };
-    int event_mode = kansi_platform_watch_begin(&w, dirs, 1);
+    dodai_watch w = { 0 };
+    int event_mode = dodai_watch_begin(&w, dirs, 1);
     if (!event_mode) {
         /* legitimately unavailable here (e.g. 9p/drvfs mount under WSL,
            where inotify is silently dead) -- polling fallback covers it */
@@ -271,16 +271,16 @@ UTEST(watch, event_notification_delivers_filename) {
     write_file("build/watch_ev/poked.c", "int x;\n");
 
     int delivered = 0;
-    unsigned long long start = kansi_platform_now_ms();
-    while (kansi_platform_now_ms() - start < 5000) {
-        delivered += kansi_platform_watch_poll(&w, watch_capture, NULL);
+    unsigned long long start = dodai_now_ms();
+    while (dodai_now_ms() - start < 5000) {
+        delivered += dodai_watch_poll(&w, watch_capture, NULL);
         if (delivered > 0) {
             break;
         }
     }
     ASSERT_GT(delivered, 0);
     ASSERT_TRUE(strstr(watch_seen, "poked.c") != NULL);
-    kansi_platform_watch_end(&w);
+    dodai_watch_end(&w);
 }
 
 /* ---- stamp / change detection ---- */
@@ -361,8 +361,8 @@ UTEST(e2e, change_triggers_pipeline_to_built) {
         "__attribute__((dllexport)) int answer(void) { return 42 + 0; }\n");
 
     kansi_status final = KANSI_IDLE;
-    unsigned long long start = kansi_platform_now_ms();
-    while (kansi_platform_now_ms() - start < 15000) {
+    unsigned long long start = dodai_now_ms();
+    while (dodai_now_ms() - start < 15000) {
         kansi_status s = kansi_update(k);
         if (s == KANSI_BUILT || s == KANSI_ERROR) {
             final = s;
@@ -410,8 +410,8 @@ UTEST(e2e, compile_failure_reports_error_once) {
     write_file("build/e2e_bad/bad.c", "this does not compile at all;\n");
 
     kansi_status final = KANSI_IDLE;
-    unsigned long long start = kansi_platform_now_ms();
-    while (kansi_platform_now_ms() - start < 15000) {
+    unsigned long long start = dodai_now_ms();
+    while (dodai_now_ms() - start < 15000) {
         kansi_status s = kansi_update(k);
         if (s == KANSI_BUILT || s == KANSI_ERROR) {
             final = s;

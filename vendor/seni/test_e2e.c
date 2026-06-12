@@ -1,10 +1,10 @@
 // platform impl first: on windows it pulls in windows.h, which must come
 // before utest.h so utest uses windows.h's LARGE_INTEGER
-#include "platform.h"
-#if defined(_WIN32)
-#include "platform_windows.c"
+#include "../dodai/dodai.h"
+#ifdef _WIN32
+#include "../dodai/dodai_windows.c"
 #else
-#include "platform_linux.c"
+#include "../dodai/dodai_posix.c"
 #endif
 #include "utest.h"
 #include "seni.h"
@@ -40,11 +40,11 @@ static char* read_file(arena* a, const char* path) {
 
 // compiles src_path to build/<name>.<dll|so>, loads it. on gcc failure prints
 // the source (code) + gcc stderr and returns NULL.
-static platform_lib compile_src_and_load(const char* src_path, const char* code, const char* name) {
+static void *compile_src_and_load(const char* src_path, const char* code, const char* name) {
     char lib_path[256], err_path[256];
-    snprintf(lib_path, sizeof(lib_path), "build/%s.%s", name, platform_lib_extension());
+    snprintf(lib_path, sizeof(lib_path), "build/%s.%s", name, dodai_lib_extension());
     snprintf(err_path, sizeof(err_path), "build/%s.err", name);
-    if (platform_compile_shared(src_path, lib_path, err_path) != 0) {
+    if (dodai_compile_shared(src_path, lib_path, err_path, "-std=c89 -pedantic") != 0) {
         fprintf(stderr, "gcc failed for %s\ngenerated code:\n%s\n", src_path, code);
         FILE* e = fopen(err_path, "rb");
         if (e) {
@@ -54,14 +54,14 @@ static platform_lib compile_src_and_load(const char* src_path, const char* code,
         }
         return NULL;
     }
-    return platform_load_lib(lib_path);
+    return dodai_lib_open(lib_path);
 }
 
 // writes code to build/<name>.c, compiles, loads. for hand-written sources
 // (game dlls); generated migrations go through compile_migration_and_load.
-static platform_lib compile_and_load(const char* code, const char* name) {
+static void *compile_and_load(const char* code, const char* name) {
     char src_path[256];
-    platform_make_dir("build");
+    dodai_make_dir("build");
     snprintf(src_path, sizeof(src_path), "build/%s.c", name);
     FILE* f = fopen(src_path, "wb");
     if (!f) { fprintf(stderr, "cannot write %s\n", src_path); return NULL; }
@@ -72,7 +72,7 @@ static platform_lib compile_and_load(const char* code, const char* name) {
 
 // generated migration TUs compile from the build/seni_out/migration_NNN.c
 // audit log, so the file on disk is exactly what gcc consumed.
-static platform_lib compile_migration_and_load(const char* code, const char* name) {
+static void *compile_migration_and_load(const char* code, const char* name) {
     char src_path[256];
     if (seni_dump_migration(code, name, src_path, sizeof(src_path)) != 0) return NULL;
     return compile_src_and_load(src_path, code, name);
@@ -102,17 +102,17 @@ static int copy_file(const char* src, const char* dst) {
 // relative to the compiler's cwd, not the source file.
 static int snapshot_layout(const char* header_path, const char* name, char* abs_out, size_t cap) {
     char copy_path[256];
-    platform_make_dir("build");
+    dodai_make_dir("build");
     snprintf(copy_path, sizeof(copy_path), "build/%s_layout.h", name);
     if (copy_file(header_path, copy_path) != 0) return 1;
-    return platform_absolute_path(copy_path, abs_out, cap);
+    return dodai_absolute_path(copy_path, abs_out, cap);
 }
 
 typedef void (*migrate_fn)(void* old_p, void* new_p, size_t count);
 
 // pipeline: read both fixtures, diff, generate, compile, load, return migrate_<struct_name>
 static migrate_fn build_migration(arena* a, const char* old_path, const char* new_path,
-                                  const char* test_name, const char* struct_name, platform_lib* out_mod) {
+                                  const char* test_name, const char* struct_name, void ** out_mod) {
     char* old_header = read_file(a, old_path);
     char* new_header = read_file(a, new_path);
     if (!old_header || !new_header) return NULL;
@@ -120,12 +120,12 @@ static migrate_fn build_migration(arena* a, const char* old_path, const char* ne
     if (d.err) { fprintf(stderr, "diff error: %s\n", d.err); return NULL; }
     generate_result g = generate_migration(a, d.value);
     if (g.err) { fprintf(stderr, "generate error: %s\n", g.err); return NULL; }
-    platform_lib m = compile_migration_and_load(g.code, test_name);
+    void *m = compile_migration_and_load(g.code, test_name);
     if (!m) return NULL;
     *out_mod = m;
     char sym[128];
     snprintf(sym, sizeof(sym), "migrate_%s", struct_name);
-    migrate_fn fn = (migrate_fn)platform_get_symbol(m, sym);
+    migrate_fn fn = (migrate_fn)dodai_lib_symbol(m, sym);
     if (!fn) fprintf(stderr, "symbol not found: %s\n", sym);
     return fn;
 }
@@ -134,7 +134,7 @@ UTEST(e2e, add_field) {
     char buf[16384];
     arena a;
     create_arena(&a, buf, sizeof(buf));
-    platform_lib mod = NULL;
+    void *mod = NULL;
     migrate_fn migrate = build_migration(&a, "fixtures/enemy_v1.h", "fixtures/enemy_v2.h",
                                          "add_field", "enemy", &mod);
     ASSERT_TRUE(migrate != NULL);
@@ -153,14 +153,14 @@ UTEST(e2e, add_field) {
         ASSERT_EQ(old_block[i].y, new_block[i].y);
         ASSERT_EQ(0, new_block[i].health);
     }
-    platform_unload_lib(mod);
+    dodai_lib_close(mod);
 }
 
 UTEST(e2e, remove_field) {
     char buf[16384];
     arena a;
     create_arena(&a, buf, sizeof(buf));
-    platform_lib mod = NULL;
+    void *mod = NULL;
     migrate_fn migrate = build_migration(&a, "fixtures/enemy_v2.h", "fixtures/enemy_v1.h",
                                          "remove_field", "enemy", &mod);
     ASSERT_TRUE(migrate != NULL);
@@ -178,14 +178,14 @@ UTEST(e2e, remove_field) {
         ASSERT_EQ(old_block[i].x, new_block[i].x);
         ASSERT_EQ(old_block[i].y, new_block[i].y);
     }
-    platform_unload_lib(mod);
+    dodai_lib_close(mod);
 }
 
 UTEST(e2e, reorder_fields) {
     char buf[16384];
     arena a;
     create_arena(&a, buf, sizeof(buf));
-    platform_lib mod = NULL;
+    void *mod = NULL;
     migrate_fn migrate = build_migration(&a, "fixtures/reorder_v1.h", "fixtures/reorder_v2.h",
                                          "reorder_fields", "enemy", &mod);
     ASSERT_TRUE(migrate != NULL);
@@ -204,7 +204,7 @@ UTEST(e2e, reorder_fields) {
         ASSERT_EQ(old_block[i].health, new_block[i].health);
         ASSERT_EQ(old_block[i].speed, new_block[i].speed);
     }
-    platform_unload_lib(mod);
+    dodai_lib_close(mod);
 }
 
 UTEST(e2e, multiple_structs) {
@@ -219,11 +219,11 @@ UTEST(e2e, multiple_structs) {
     ASSERT_FALSE(d.err);
     generate_result g = generate_migration(&a, d.value);
     ASSERT_FALSE(g.err);
-    platform_lib mod = compile_migration_and_load(g.code, "multiple_structs");
+    void *mod = compile_migration_and_load(g.code, "multiple_structs");
     ASSERT_TRUE(mod != NULL);
 
-    migrate_fn migrate_enemy_fn = (migrate_fn)platform_get_symbol(mod, "migrate_enemy");
-    migrate_fn migrate_player_fn = (migrate_fn)platform_get_symbol(mod, "migrate_player");
+    migrate_fn migrate_enemy_fn = (migrate_fn)dodai_lib_symbol(mod, "migrate_enemy");
+    migrate_fn migrate_player_fn = (migrate_fn)dodai_lib_symbol(mod, "migrate_player");
     ASSERT_TRUE(migrate_enemy_fn != NULL);
     ASSERT_TRUE(migrate_player_fn != NULL);
 
@@ -249,7 +249,7 @@ UTEST(e2e, multiple_structs) {
     ASSERT_EQ(1234, new_players[0].score);
     ASSERT_EQ(0, new_players[0].level);
 
-    platform_unload_lib(mod);
+    dodai_lib_close(mod);
 }
 
 // hot-reload scenario: the old header is not on disk anymore (the save
@@ -268,10 +268,10 @@ UTEST(e2e, layout_embedded_in_dll) {
     snprintf(game_src, sizeof(game_src),
         "#include \"../seni_embed.h\"\n"  // generated source lives in build/
         "SENI_EMBED_LAYOUT(\"%s\");\n", layout_abs);
-    platform_lib game = compile_and_load(game_src, "game_v1");
+    void *game = compile_and_load(game_src, "game_v1");
     ASSERT_TRUE(game != NULL);
 
-    const char** layout_p = (const char**)platform_get_symbol(game, "seni_layout");
+    const char** layout_p = (const char**)dodai_lib_symbol(game, "seni_layout");
     ASSERT_TRUE(layout_p != NULL);
     const char* old_header = *layout_p;
 
@@ -286,9 +286,9 @@ UTEST(e2e, layout_embedded_in_dll) {
     ASSERT_FALSE(d.err);
     generate_result g = generate_migration(&a, d.value);
     ASSERT_FALSE(g.err);
-    platform_lib mod = compile_migration_and_load(g.code, "layout_embedded_migration");
+    void *mod = compile_migration_and_load(g.code, "layout_embedded_migration");
     ASSERT_TRUE(mod != NULL);
-    migrate_fn migrate = (migrate_fn)platform_get_symbol(mod, "migrate_enemy");
+    migrate_fn migrate = (migrate_fn)dodai_lib_symbol(mod, "migrate_enemy");
     ASSERT_TRUE(migrate != NULL);
 
     typedef struct { float x, y; } enemy_v1;
@@ -305,15 +305,15 @@ UTEST(e2e, layout_embedded_in_dll) {
         ASSERT_EQ(old_block[i].y, new_block[i].y);
         ASSERT_EQ(0, new_block[i].health);
     }
-    platform_unload_lib(mod);
-    platform_unload_lib(game);
+    dodai_lib_close(mod);
+    dodai_lib_close(game);
 }
 
 UTEST(e2e, array_resize) {
     char buf[16384];
     arena a;
     create_arena(&a, buf, sizeof(buf));
-    platform_lib mod = NULL;
+    void *mod = NULL;
     migrate_fn migrate = build_migration(&a, "fixtures/thing_v1.h", "fixtures/thing_v2.h",
                                          "array_resize", "thing", &mod);
     ASSERT_TRUE(migrate != NULL);
@@ -338,7 +338,7 @@ UTEST(e2e, array_resize) {
             ASSERT_EQ(0.0f, new_block[i].vel[j]);
         }
     }
-    platform_unload_lib(mod);
+    dodai_lib_close(mod);
 }
 
 static int write_file(const char* path, const char* content) {
@@ -430,16 +430,16 @@ UTEST(e2e, full_hot_reload) {
     /* 1. working header starts at v1 */
     char* v1_header = read_file(&a, "fixtures/game_v1.h");
     ASSERT_TRUE(v1_header != NULL);
-    platform_make_dir("build");
+    dodai_make_dir("build");
     ASSERT_EQ(0, write_file("build/game_current.h", v1_header));
 
     /* 2. build + load game v1, init, tick twice */
     ASSERT_EQ(0, snapshot_layout("build/game_current.h", "hotgame_v1", layout_abs, sizeof(layout_abs)));
     snprintf(game_src, sizeof(game_src), game_v1_fmt, layout_abs, layout_abs);
-    platform_lib game_v1 = compile_and_load(game_src, "hotgame_v1");
+    void *game_v1 = compile_and_load(game_src, "hotgame_v1");
     ASSERT_TRUE(game_v1 != NULL);
-    game_fn init_v1 = (game_fn)platform_get_symbol(game_v1, "game_init");
-    game_fn update_v1 = (game_fn)platform_get_symbol(game_v1, "game_update");
+    game_fn init_v1 = (game_fn)dodai_lib_symbol(game_v1, "game_init");
+    game_fn update_v1 = (game_fn)dodai_lib_symbol(game_v1, "game_update");
     ASSERT_TRUE(init_v1 != NULL);
     ASSERT_TRUE(update_v1 != NULL);
 
@@ -462,14 +462,14 @@ UTEST(e2e, full_hot_reload) {
     /* 4. rebuild: game dll v2 embeds the new layout */
     ASSERT_EQ(0, snapshot_layout("build/game_current.h", "hotgame_v2", layout_abs, sizeof(layout_abs)));
     snprintf(game_src, sizeof(game_src), game_v2_fmt, layout_abs, layout_abs);
-    platform_lib game_v2 = compile_and_load(game_src, "hotgame_v2");
+    void *game_v2 = compile_and_load(game_src, "hotgame_v2");
     ASSERT_TRUE(game_v2 != NULL);
-    game_fn update_v2 = (game_fn)platform_get_symbol(game_v2, "game_update");
+    game_fn update_v2 = (game_fn)dodai_lib_symbol(game_v2, "game_update");
     ASSERT_TRUE(update_v2 != NULL);
 
     /* 5. reload: diff the layouts the two dlls were actually built with */
-    const char** old_layout_p = (const char**)platform_get_symbol(game_v1, "seni_layout");
-    const char** new_layout_p = (const char**)platform_get_symbol(game_v2, "seni_layout");
+    const char** old_layout_p = (const char**)dodai_lib_symbol(game_v1, "seni_layout");
+    const char** new_layout_p = (const char**)dodai_lib_symbol(game_v2, "seni_layout");
     ASSERT_TRUE(old_layout_p != NULL);
     ASSERT_TRUE(new_layout_p != NULL);
 
@@ -477,15 +477,15 @@ UTEST(e2e, full_hot_reload) {
     ASSERT_FALSE(d.err);
     generate_result g = generate_migration(&a, d.value);
     ASSERT_FALSE(g.err);
-    platform_lib migration = compile_migration_and_load(g.code, "hotgame_migration");
+    void *migration = compile_migration_and_load(g.code, "hotgame_migration");
     ASSERT_TRUE(migration != NULL);
-    migrate_fn migrate = (migrate_fn)platform_get_symbol(migration, "migrate_enemy");
+    migrate_fn migrate = (migrate_fn)dodai_lib_symbol(migration, "migrate_enemy");
     ASSERT_TRUE(migrate != NULL);
 
     host_enemy_v2 state_v2[3];
     memset(state_v2, 0xCD, sizeof(state_v2));
     migrate(state_v1, state_v2, 3);
-    platform_unload_lib(game_v1); /* old game code gone, state survived */
+    dodai_lib_close(game_v1); /* old game code gone, state survived */
 
     /* migrated: x/y/speed carried over, health zeroed, trail zeroed */
     for (int i = 0; i < 3; i++) {
@@ -508,8 +508,8 @@ UTEST(e2e, full_hot_reload) {
         ASSERT_EQ(3.0f, state_v2[i].trail[1]);
     }
 
-    platform_unload_lib(migration);
-    platform_unload_lib(game_v2);
+    dodai_lib_close(migration);
+    dodai_lib_close(game_v2);
 }
 
 /* registry-driven reload: who calls migrate, and with which pointers.
@@ -529,7 +529,7 @@ UTEST(e2e, registry_driven_reload) {
     void* new_block = malloc(cap);
 
     /* game code: carves through the registry, finds its array again by name.
-       strict c89 (platform_compile_shared) -- no // comments. */
+       strict c89 (dodai_compile_shared) -- no // comments. */
     static const char* reg_game_fmt =
         "#include <stddef.h>\n"
         "#include \"%s\"\n"
@@ -577,17 +577,17 @@ UTEST(e2e, registry_driven_reload) {
     /* 1. working header at v1; host inits an empty self-describing block */
     char* v1_header = read_file(&a, "fixtures/game_v1.h");
     ASSERT_TRUE(v1_header != NULL);
-    platform_make_dir("build");
+    dodai_make_dir("build");
     ASSERT_EQ(0, write_file("build/game_current.h", v1_header));
     seni_registry_init(old_block, cap);
 
     /* 2. game v1 carves and runs */
     ASSERT_EQ(0, snapshot_layout("build/game_current.h", "hotreg_v1", layout_abs, sizeof(layout_abs)));
     snprintf(game_src, sizeof(game_src), reg_game_fmt, layout_abs, layout_abs, v1_tick);
-    platform_lib game_v1 = compile_and_load(game_src, "hotreg_v1");
+    void *game_v1 = compile_and_load(game_src, "hotreg_v1");
     ASSERT_TRUE(game_v1 != NULL);
-    block_fn boot_v1 = (block_fn)platform_get_symbol(game_v1, "game_boot");
-    block_fn update_v1 = (block_fn)platform_get_symbol(game_v1, "game_update");
+    block_fn boot_v1 = (block_fn)dodai_lib_symbol(game_v1, "game_boot");
+    block_fn update_v1 = (block_fn)dodai_lib_symbol(game_v1, "game_update");
     ASSERT_TRUE(boot_v1 != NULL);
     ASSERT_TRUE(update_v1 != NULL);
     boot_v1(old_block);
@@ -610,28 +610,28 @@ UTEST(e2e, registry_driven_reload) {
     ASSERT_EQ(0, write_file("build/game_current.h", v2_header));
     ASSERT_EQ(0, snapshot_layout("build/game_current.h", "hotreg_v2", layout_abs, sizeof(layout_abs)));
     snprintf(game_src, sizeof(game_src), reg_game_fmt, layout_abs, layout_abs, v2_tick);
-    platform_lib game_v2 = compile_and_load(game_src, "hotreg_v2");
+    void *game_v2 = compile_and_load(game_src, "hotreg_v2");
     ASSERT_TRUE(game_v2 != NULL);
-    block_fn update_v2 = (block_fn)platform_get_symbol(game_v2, "game_update");
+    block_fn update_v2 = (block_fn)dodai_lib_symbol(game_v2, "game_update");
     ASSERT_TRUE(update_v2 != NULL);
 
     /* 4. diff the embedded layouts, build the migration dll */
-    const char** old_layout_p = (const char**)platform_get_symbol(game_v1, "seni_layout");
-    const char** new_layout_p = (const char**)platform_get_symbol(game_v2, "seni_layout");
+    const char** old_layout_p = (const char**)dodai_lib_symbol(game_v1, "seni_layout");
+    const char** new_layout_p = (const char**)dodai_lib_symbol(game_v2, "seni_layout");
     ASSERT_TRUE(old_layout_p != NULL);
     ASSERT_TRUE(new_layout_p != NULL);
     diff_result d = diff_structs(&a, (char*)*old_layout_p, (char*)*new_layout_p);
     ASSERT_FALSE(d.err);
     generate_result g = generate_migration(&a, d.value);
     ASSERT_FALSE(g.err);
-    platform_lib migration = compile_migration_and_load(g.code, "hotreg_migration");
+    void *migration = compile_migration_and_load(g.code, "hotreg_migration");
     ASSERT_TRUE(migration != NULL);
 
     /* 5. the actual answer to "who calls migrate": the host, blind,
        driven entirely by the old block's registry + the migration dll */
     memset(new_block, 0xCD, cap);
     ASSERT_EQ(0, seni_migrate_block(old_block, new_block, cap, migration));
-    platform_unload_lib(game_v1);
+    dodai_lib_close(game_v1);
 
     seni_array_desc* nd = seni_registry_find(new_block, "enemy");
     ASSERT_TRUE(nd != NULL);
@@ -658,8 +658,8 @@ UTEST(e2e, registry_driven_reload) {
         ASSERT_EQ(3.0f, e2[i].trail[1]);
     }
 
-    platform_unload_lib(migration);
-    platform_unload_lib(game_v2);
+    dodai_lib_close(migration);
+    dodai_lib_close(game_v2);
     free(old_block);
     free(new_block);
 }
@@ -676,9 +676,9 @@ UTEST(e2e, rename_via_annotation) {
     ASSERT_EQ((size_t)0, d.question_count);
     generate_result g = generate_migration(&a, d.value);
     ASSERT_FALSE(g.err);
-    platform_lib mod = compile_migration_and_load(g.code, "rename_migration");
+    void *mod = compile_migration_and_load(g.code, "rename_migration");
     ASSERT_TRUE(mod != NULL);
-    migrate_fn fn = (migrate_fn)platform_get_symbol(mod, "migrate_lamp");
+    migrate_fn fn = (migrate_fn)dodai_lib_symbol(mod, "migrate_lamp");
     ASSERT_TRUE(fn != NULL);
 
     typedef struct { float x; int num_lights; } lamp_v1;
@@ -691,14 +691,14 @@ UTEST(e2e, rename_via_annotation) {
         ASSERT_EQ(old_block[i].x, new_block[i].x);
         ASSERT_EQ(old_block[i].num_lights, new_block[i].light_count);
     }
-    platform_unload_lib(mod);
+    dodai_lib_close(mod);
 }
 
 UTEST(e2e, identical) {
     char buf[16384];
     arena a;
     create_arena(&a, buf, sizeof(buf));
-    platform_lib mod = NULL;
+    void *mod = NULL;
     migrate_fn migrate = build_migration(&a, "fixtures/enemy_v1.h", "fixtures/enemy_v1.h",
                                          "identical", "enemy", &mod);
     ASSERT_TRUE(migrate != NULL);
@@ -715,5 +715,5 @@ UTEST(e2e, identical) {
         ASSERT_EQ(old_block[i].x, new_block[i].x);
         ASSERT_EQ(old_block[i].y, new_block[i].y);
     }
-    platform_unload_lib(mod);
+    dodai_lib_close(mod);
 }

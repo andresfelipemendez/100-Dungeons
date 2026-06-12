@@ -9,7 +9,7 @@
    existing number across runs. */
 
 #include <stdio.h>
-#include "platform.h"
+#include "../dodai/dodai.h"
 
 /* writes code to build/seni_out/migration_NNN.c, prefixed with a one-line
    provenance comment naming the caller's tag. on success returns 0 and puts
@@ -19,8 +19,8 @@ static int seni_dump_migration(const char* code, const char* tag,
                                char* out_path, size_t out_cap) {
     static long next = -1;
     FILE* f;
-    platform_make_dir("build");
-    platform_make_dir("build/seni_out");
+    dodai_make_dir("build");
+    dodai_make_dir("build/seni_out");
     if (next < 0) {
         /* resume numbering after the last file from previous runs */
         char probe[256];

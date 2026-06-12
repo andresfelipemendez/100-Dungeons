@@ -3,6 +3,28 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+void create_arena(arena* a, void* buf, size_t size) {
+    a->data = buf;
+    a->size = size;
+    a->offset = 0;
+}
+
+void* allocate_bytes(arena* a, size_t s) {
+    void* ptr;
+    if (s > a->size - a->offset) return NULL; /* no offset+s, that can wrap */
+    ptr = (char*)a->data + a->offset;
+    a->offset += s;
+    return ptr;
+}
+
+void* allocate(arena* a, size_t s) {
+    size_t addr = (size_t)((char*)a->data + a->offset);
+    size_t pad = (8 - (addr % 8)) % 8;
+    if (pad > a->size - a->offset) return NULL;
+    a->offset += pad;
+    return allocate_bytes(a, s);
+}
+
 char* arena_copy_string(arena* a, const char* src, size_t len) {
     char* dst = allocate_bytes(a, len + 1);
     if (!dst) return NULL;

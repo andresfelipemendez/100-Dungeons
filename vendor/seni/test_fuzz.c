@@ -9,14 +9,11 @@
                                     and a few survivors compile to real dlls
    on linux test.sh builds this with -fsanitize=address,undefined. */
 
-#if defined(_WIN32)
-#include <windows.h>
-#endif
-#include "platform.h"
-#if defined(_WIN32)
-#include "platform_windows.c"
+#include "../dodai/dodai.h"
+#ifdef _WIN32
+#include "../dodai/dodai_windows.c"
 #else
-#include "platform_linux.c"
+#include "../dodai/dodai_posix.c"
 #endif
 #include "utest.h"
 #include "seni.h"
@@ -358,18 +355,18 @@ UTEST(fuzz, diff_generate_pipeline) {
 }
 
 /* migration TUs compile from the build/seni_out/migration_NNN.c audit log */
-static platform_lib compile_and_load_fz(const char* code, const char* name) {
+static void *compile_and_load_fz(const char* code, const char* name) {
     char src_path[256];
     char lib_path[256];
     char err_path[256];
     if (seni_dump_migration(code, name, src_path, sizeof(src_path)) != 0) return NULL;
-    sprintf(lib_path, "build/%s.%s", name, platform_lib_extension());
+    sprintf(lib_path, "build/%s.%s", name, dodai_lib_extension());
     sprintf(err_path, "build/%s.err", name);
-    if (platform_compile_shared(src_path, lib_path, err_path) != 0) {
+    if (dodai_compile_shared(src_path, lib_path, err_path, "-std=c89 -pedantic") != 0) {
         fprintf(stderr, "gcc failed for %s, generated code:\n%s\n", src_path, code);
         return NULL;
     }
-    return platform_load_lib(lib_path);
+    return dodai_lib_open(lib_path);
 }
 
 /* a handful of random survivors all the way through gcc + dlopen + run */
@@ -386,7 +383,7 @@ UTEST(fuzz, compile_and_run) {
         arena a;
         diff_result d;
         generate_result g;
-        platform_lib mod;
+        void *mod;
         char name[32];
         unsigned long i;
         fz_gen_spec(&sp);
@@ -407,12 +404,12 @@ UTEST(fuzz, compile_and_run) {
             char sym[64];
             void (*fn)(void*, void*, size_t);
             sprintf(sym, "migrate_%s", sp2.s[i].name);
-            fn = (void (*)(void*, void*, size_t))platform_get_symbol(mod, sym);
+            fn = (void (*)(void*, void*, size_t))dodai_lib_symbol(mod, sym);
             ASSERT_TRUE(fn != NULL);
             memset(oldblk, 0x5A, sizeof(oldblk));
             memset(newblk, 0xCD, sizeof(newblk));
             fn(oldblk, newblk, 4); /* must not crash; block is far larger than 4 structs */
         }
-        platform_unload_lib(mod);
+        dodai_lib_close(mod);
     }
 }

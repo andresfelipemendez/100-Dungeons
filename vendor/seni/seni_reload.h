@@ -14,13 +14,13 @@
    in the new header); its data is dropped with a note on stderr. */
 
 #include <stdio.h>
-#include "platform.h"
+#include "../dodai/dodai.h"
 #include "seni_registry.h"
 
 typedef void (*seni_migrate_sig)(void* old_p, void* new_p, size_t count);
 
 static int seni_migrate_block(void* old_base, void* new_base, size_t new_cap,
-                              platform_lib migration) {
+                              void *migration) {
     seni_registry* old_reg = seni_registry_get(old_base);
     size_t i;
     if (!old_reg) return 1;
@@ -34,7 +34,7 @@ static int seni_migrate_block(void* old_base, void* new_base, size_t new_cap,
         void* new_arr;
 
         sprintf(sym, "migrate_%s", e->name);
-        fn = (seni_migrate_sig)platform_get_symbol(migration, sym);
+        fn = (seni_migrate_sig)dodai_lib_symbol(migration, sym);
         if (!fn) {
             fprintf(stderr, "seni_migrate_block: no %s in migration dll; "
                     "struct dropped from new layout, dropping array '%s' (%lu elements)\n",
@@ -43,7 +43,7 @@ static int seni_migrate_block(void* old_base, void* new_base, size_t new_cap,
         }
 
         sprintf(sym, "migrate_%s_old_size", e->name);
-        old_size = (const size_t*)platform_get_symbol(migration, sym);
+        old_size = (const size_t*)dodai_lib_symbol(migration, sym);
         if (!old_size) {
             fprintf(stderr, "seni_migrate_block: %s missing from migration dll\n", sym);
             return 1;
@@ -61,7 +61,7 @@ static int seni_migrate_block(void* old_base, void* new_base, size_t new_cap,
         }
 
         sprintf(sym, "migrate_%s_new_size", e->name);
-        new_size = (const size_t*)platform_get_symbol(migration, sym);
+        new_size = (const size_t*)dodai_lib_symbol(migration, sym);
         if (!new_size) {
             fprintf(stderr, "seni_migrate_block: %s missing from migration dll\n", sym);
             return 1;

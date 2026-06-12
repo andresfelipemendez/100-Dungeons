@@ -1,6 +1,6 @@
 #include "kaji.h"
 #include "kaji_str.h"
-#include "platform.h"
+#include "dodai.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -58,16 +58,16 @@ struct kaji {
 
 /* ---- vars -------------------------------------------------------------- */
 
-static int kaji_platform_is_posix(void) {
-    return kaji_platform_is_linux() || kaji_platform_is_macos();
+static int kaji_is_posix(void) {
+    return dodai_is_linux() || dodai_is_macos();
 }
 
 static const char *kaji_so_ext(void) {
-    return kaji_platform_is_posix() ? ".so" : ".dll";
+    return kaji_is_posix() ? ".so" : ".dll";
 }
 
 static const char *kaji_exe_ext(void) {
-    return kaji_platform_is_posix() ? "" : ".exe";
+    return kaji_is_posix() ? "" : ".exe";
 }
 
 static const char *kaji_tool(const kaji *k, kstr name) {
@@ -127,15 +127,15 @@ static kaji_kind kaji_kind_from(kstr s) {
 static int kaji_key_applies(kstr *key) {
     if (kstr_ends_with(*key, KSTR("_win"))) {
         *key = kstr_slice(*key, 0, key->len - 4);
-        return !kaji_platform_is_posix();
+        return !kaji_is_posix();
     }
     if (kstr_ends_with(*key, KSTR("_linux"))) {
         *key = kstr_slice(*key, 0, key->len - 6);
-        return kaji_platform_is_linux();
+        return dodai_is_linux();
     }
     if (kstr_ends_with(*key, KSTR("_mac"))) {
         *key = kstr_slice(*key, 0, key->len - 4);
-        return kaji_platform_is_macos();
+        return dodai_is_macos();
     }
     return 1;
 }
@@ -413,24 +413,24 @@ static kaji_target *kaji_find(kaji *k, kstr name) {
 
 static int kaji_target_stale(const kaji_target *t) {
     unsigned long long out_t;
-    if (!kaji_platform_mtime(t->out, &out_t)) {
+    if (!dodai_mtime_ns(t->out, &out_t)) {
         return 1;
     }
     for (int i = 0; i < t->in_count; i++) {
         unsigned long long in_t;
-        if (!kaji_platform_mtime(t->ins[i], &in_t) || in_t > out_t) {
+        if (!dodai_mtime_ns(t->ins[i], &in_t) || in_t > out_t) {
             return 1;
         }
     }
     for (int i = 0; i < t->also_count; i++) {
         unsigned long long a_t;
-        if (kaji_platform_mtime(t->also[i], &a_t) && a_t > out_t) {
+        if (dodai_mtime_ns(t->also[i], &a_t) && a_t > out_t) {
             return 1;
         }
     }
     for (int i = 0; i < t->obj_count; i++) {
         unsigned long long o_t;
-        if (kaji_platform_mtime(t->obj[i], &o_t) && o_t > out_t) {
+        if (dodai_mtime_ns(t->obj[i], &o_t) && o_t > out_t) {
             return 1;
         }
     }
@@ -460,7 +460,7 @@ static int kaji_command_for(kaji *k, const kaji_target *t,
     } else if (t->kind == KAJI_KIND_DLL) {
         kstr_buf_append(&b, KSTR(" -shared"));
     }
-    if (kaji_platform_is_posix() && t->kind != KAJI_KIND_EXE) {
+    if (kaji_is_posix() && t->kind != KAJI_KIND_EXE) {
         kstr_buf_append(&b, KSTR(" -fPIC"));
     }
     for (int i = 0; i < t->flag_count; i++)    kstr_buf_appendf(&b, " %s", t->flag[i]);
@@ -522,7 +522,7 @@ static int kaji_plan_target(kaji *k, kaji_target *t, kaji_run *run, int *forced)
     *forced = 1;
     t->planned = 1;
 
-    kaji_platform_make_dirs_for(t->out);
+    dodai_make_dirs_for(t->out);
 
     char cmd[KAJI_RUN_CMD_MAX];
     if (t->kind == KAJI_KIND_COPY) {
@@ -569,8 +569,8 @@ static int kaji_start_copy(kaji_run *run) {
         !kstr_copy(to, sizeof(to), kstr_slice(s, (size_t)sep + 1, s.len))) {
         return 0;
     }
-    kaji_platform_make_dirs_for(to);
-    return kaji_platform_copy_async(from, to,
+    dodai_make_dirs_for(to);
+    return dodai_copy_async(from, to,
                                     run->copy_step[run->step] == 2,
                                     &run->copy_thread);
 }
@@ -580,12 +580,12 @@ static int kaji_advance(kaji_run *run) {
         if (run->copy_step[run->step]) {
             return kaji_start_copy(run);
         }
-        return kaji_platform_spawn(run->cmds[run->step],
+        return dodai_spawn(run->cmds[run->step],
                                    run->log_path[0] ? run->log_path : NULL,
                                    &run->proc);
     }
     if (run->publish_out[0]) {
-        if (!kaji_platform_rename(run->publish_tmp, run->publish_out)) {
+        if (!dodai_rename(run->publish_tmp, run->publish_out)) {
             return 0;
         }
         run->publish_out[0] = 0; /* publish once */
@@ -620,7 +620,7 @@ int kaji_build_async(kaji *k, const char *target, kaji_run *run, int force) {
         t->visiting = 0;
         t->visited = 1;
         t->planned = 1;
-        kaji_platform_make_dirs_for(t->out);
+        dodai_make_dirs_for(t->out);
         char cmd[KAJI_RUN_CMD_MAX];
         if (t->kind == KAJI_KIND_COPY) {
             snprintf(cmd, sizeof(cmd), "%s|%s", t->ins[0], t->out);
@@ -652,8 +652,8 @@ int kaji_build_async(kaji *k, const char *target, kaji_run *run, int force) {
     } else if (!kaji_plan_target(k, t, run, &forced)) {
         return 0;
     }
-    kaji_platform_make_dirs_for(run->log_path);
-    kaji_platform_truncate(run->log_path);
+    dodai_make_dirs_for(run->log_path);
+    dodai_truncate(run->log_path);
     run->active = 1;
     if (!kaji_advance(run)) {
         run->active = 0;
@@ -677,19 +677,19 @@ kaji_status kaji_run_poll(kaji *k, kaji_run *run) {
     int step_ok;
     if (run->copy_step[run->step]) {
         int copy_ok = 0;
-        if (!kaji_platform_copy_poll(run->copy_thread, &copy_ok)) {
+        if (!dodai_copy_poll(run->copy_thread, &copy_ok)) {
             return KAJI_RUNNING;
         }
-        kaji_platform_copy_close(run->copy_thread);
+        dodai_copy_close(run->copy_thread);
         run->copy_thread = NULL;
         step_ok = copy_ok;
         run->exit_code = copy_ok ? 0 : 1;
     } else {
         int exit_code = 0;
-        if (!kaji_platform_poll(run->proc, &exit_code)) {
+        if (!dodai_proc_poll(run->proc, &exit_code)) {
             return KAJI_RUNNING;
         }
-        kaji_platform_close(run->proc);
+        dodai_proc_close(run->proc);
         run->proc = NULL;
         step_ok = exit_code == 0;
         run->exit_code = exit_code;
@@ -729,6 +729,6 @@ int kaji_build(kaji *k, const char *target, int force) {
                     target, run.exit_code, run.log_path);
             return 1;
         }
-        kaji_platform_sleep_ms(5);
+        dodai_sleep_ms(5);
     }
 }

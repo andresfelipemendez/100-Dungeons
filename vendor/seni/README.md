@@ -42,6 +42,5 @@ tests (test.c) then end-to-end tests (test_e2e.c).
 The e2e tests read header pairs from `fixtures/`, generate migration code,
 compile it with gcc into a shared library in `build/` (dll on windows, so on
 linux), load it, run the migration on a real memory block and assert the
-resulting layout. Platform specifics (mkdir, compile command, dynamic
-loading) live behind `platform.h`, implemented by `platform_windows.c` and
-`platform_linux.c`.
+resulting layout. OS specifics (mkdir, compile command, dynamic loading) go
+through `../dodai` (`dodai_posix.c` / `dodai_windows.c`).

@@ -20,7 +20,7 @@ static void write_file(const char *path, const char *content) {
 
 static void settle_ms(int ms) {
     /* filesystem mtime quanta: separate writes the stale-check must order */
-    kaji_platform_sleep_ms(ms);
+    dodai_sleep_ms(ms);
 }
 
 /* ---- kstr ---- */
@@ -87,6 +87,7 @@ UTEST(parse, targets_vars_tools) {
         "# comment\n"
         "builddir out_w\n"
         "builddir_linux out_l\n"
+        "builddir_mac out_m\n"
         "tool glslc my_glslc\n"
         "target snap copy\n"
         "  in src.h\n"
@@ -99,10 +100,13 @@ UTEST(parse, targets_vars_tools) {
         "  flag -g0\n"
         "  define FOO=1\n"
         "  lib_win SDL3\n"
-        "  lib_linux m\n",
+        "  lib_linux m\n"
+        "  lib_mac z\n",
         err, sizeof(err));
     ASSERT_TRUE_MSG(k != NULL, err);
-    const char *bd = kaji_platform_is_linux() ? "out_l" : "out_w";
+    const char *bd = dodai_is_linux()   ? "out_l"
+                   : dodai_is_macos()   ? "out_m"
+                                                : "out_w";
     ASSERT_STREQ(bd, k->builddir);
 
     kaji_target *t = kaji_find(k, KSTR("game"));
@@ -111,7 +115,9 @@ UTEST(parse, targets_vars_tools) {
     ASSERT_EQ(1, t->dep_count);
     ASSERT_EQ(2, t->include_count);
     ASSERT_EQ(1, t->lib_count); /* only this OS's lib survived */
-    ASSERT_STREQ(kaji_platform_is_linux() ? "m" : "SDL3", t->lib[0]);
+    ASSERT_STREQ(dodai_is_linux()  ? "m"
+                 : dodai_is_macos() ? "z"
+                                            : "SDL3", t->lib[0]);
 
     char expect[128];
     snprintf(expect, sizeof(expect), "%s/game%s", bd, kaji_so_ext());
@@ -146,9 +152,10 @@ UTEST(parse, command_assembly) {
     ASSERT_TRUE_MSG(k != NULL, err);
 
     char cmd[1024];
+    int posix = dodai_is_linux() || dodai_is_macos();
     kaji_target *o = kaji_find(k, KSTR("obj1"));
     ASSERT_TRUE(kaji_command_for(k, o, cmd, sizeof(cmd), o->out));
-    if (kaji_platform_is_linux()) {
+    if (posix) {
         ASSERT_STREQ("gcc -c -fPIC -O1 a.c -Ii1 -o bb/a.o", cmd);
     } else {
         ASSERT_STREQ("gcc -c -O1 a.c -Ii1 -o bb/a.o", cmd);
@@ -156,7 +163,7 @@ UTEST(parse, command_assembly) {
 
     kaji_target *g = kaji_find(k, KSTR("game"));
     ASSERT_TRUE(kaji_command_for(k, g, cmd, sizeof(cmd), "TMP"));
-    if (kaji_platform_is_linux()) {
+    if (posix) {
         ASSERT_STREQ("gcc -shared -fPIC -g0 -DED=1 u.c bb/a.o -LL1 -lz -o TMP", cmd);
     } else {
         ASSERT_STREQ("gcc -shared -g0 -DED=1 u.c bb/a.o -LL1 -lz -o TMP", cmd);
@@ -192,13 +199,13 @@ UTEST(e2e, graph_build_skip_rebuild) {
     char so_path[256];
     snprintf(so_path, sizeof(so_path), "build/forge/mod%s", kaji_so_ext());
     unsigned long long t1;
-    ASSERT_TRUE(kaji_platform_mtime(so_path, &t1));
+    ASSERT_TRUE(dodai_mtime_ns(so_path, &t1));
 
     /* nothing changed: everything skips, artifact untouched */
     settle_ms(30);
     ASSERT_EQ(0, kaji_build(k, "mod", 0));
     unsigned long long t2;
-    ASSERT_TRUE(kaji_platform_mtime(so_path, &t2));
+    ASSERT_TRUE(dodai_mtime_ns(so_path, &t2));
     ASSERT_EQ(t1, t2);
 
     /* touching the object's source rebuilds object AND the dll above it */
@@ -206,7 +213,7 @@ UTEST(e2e, graph_build_skip_rebuild) {
     write_file("build/answer.c", "int answer(void) { return 43; }\n");
     ASSERT_EQ(0, kaji_build(k, "mod", 0));
     unsigned long long t3;
-    ASSERT_TRUE(kaji_platform_mtime(so_path, &t3));
+    ASSERT_TRUE(dodai_mtime_ns(so_path, &t3));
     ASSERT_NE(t2, t3);
     kaji_free(k);
 }
@@ -231,7 +238,7 @@ UTEST(e2e, async_polls_to_done) {
     kaji_status final = KAJI_RUNNING;
     for (int i = 0; i < 4000 && final == KAJI_RUNNING; i++) {
         final = kaji_run_poll(k, &run);
-        kaji_platform_sleep_ms(5);
+        dodai_sleep_ms(5);
     }
     ASSERT_EQ(KAJI_DONE, (int)final);
     ASSERT_EQ(KAJI_IDLE, (int)kaji_run_poll(k, &run)); /* edge-triggered */

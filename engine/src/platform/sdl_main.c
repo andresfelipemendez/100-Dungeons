@@ -12,16 +12,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* minimal pid include -- dodai owns everything else */
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h> /* GetCurrentProcessId, forge lock file */
-#include <direct.h>
-#define platform_chdir _chdir
+#include <windows.h>
 #else
 #include <unistd.h>
-#include <fcntl.h>
-#include <sys/file.h> /* flock: the forge lock */
-#define platform_chdir chdir
 #endif
 
 #include "base/base_types.h"
@@ -31,15 +27,9 @@
 #include "seni.h"
 #include "kansi.h"
 #include "kaji.h"
+#include "dodai.h"
 
-#ifdef _WIN32
-#define DLL_SUFFIX ".dll"
-#define MIG_PIC ""
-#else
-#define DLL_SUFFIX ".so"
-#define MIG_PIC " -fPIC"
-#endif
-#define GAME_DLL_NEW PLATFORM_BUILD_DIR "/game_new" DLL_SUFFIX
+#define GAME_DLL_NEW PLATFORM_BUILD_DIR "/game_new" DODAI_DLL_SUFFIX
 /* both configs are platform-neutral now: kansi only watches, kaji carries
    the per-OS build knowledge internally */
 #define KANSI_CFG       "kansi.cfg"
@@ -58,7 +48,7 @@
 static char g_dll_loaded_path[256];
 static char g_mig_c_path[256];
 static char g_mig_dll_path[256];
-static char g_mig_cmd[640];
+static char g_mig_err_path[256];
 
 static void instance_paths_init(void) {
 #ifdef _WIN32
@@ -67,78 +57,39 @@ static void instance_paths_init(void) {
     unsigned long pid = (unsigned long)getpid();
 #endif
     SDL_snprintf(g_dll_loaded_path, sizeof(g_dll_loaded_path),
-                 PLATFORM_BUILD_DIR "/game_loaded_%lu" DLL_SUFFIX, pid);
+                 PLATFORM_BUILD_DIR "/game_loaded_%lu" DODAI_DLL_SUFFIX, pid);
     SDL_snprintf(g_mig_c_path, sizeof(g_mig_c_path),
                  PLATFORM_BUILD_DIR "/mig_%lu.c", pid);
     SDL_snprintf(g_mig_dll_path, sizeof(g_mig_dll_path),
-                 PLATFORM_BUILD_DIR "/mig_%lu" DLL_SUFFIX, pid);
-    SDL_snprintf(g_mig_cmd, sizeof(g_mig_cmd),
-                 "gcc -shared" MIG_PIC " %s -o %s 2> " PLATFORM_BUILD_DIR "/mig_errors_%lu.log",
-                 g_mig_c_path, g_mig_dll_path, pid);
+                 PLATFORM_BUILD_DIR "/mig_%lu" DODAI_DLL_SUFFIX, pid);
+    SDL_snprintf(g_mig_err_path, sizeof(g_mig_err_path),
+                 PLATFORM_BUILD_DIR "/mig_errors_%lu.log", pid);
 }
 
 /* Crashed/killed instances leave their per-pid files behind (a graceful
    quit removes its own). Sweep what is deletable; files a live instance
    still holds just refuse and stay. */
 static void instance_litter_sweep(void) {
-    static const char *patterns[] = { "game_loaded_*", "mig_*" };
-    int pi;
-    for (pi = 0; pi < 2; pi++) {
-        int count = 0;
-        char **names = SDL_GlobDirectory(PLATFORM_BUILD_DIR, patterns[pi], 0, &count);
-        int i;
-        if (!names) {
-            continue;
-        }
-        for (i = 0; i < count; i++) {
-            char path[512];
-            SDL_snprintf(path, sizeof(path), PLATFORM_BUILD_DIR "/%s", names[i]);
-            SDL_RemovePath(path); /* locked by a live instance: fails, fine */
-        }
-        SDL_free(names);
-    }
+    dodai_remove_prefixed(PLATFORM_BUILD_DIR, "game_loaded_");
+    dodai_remove_prefixed(PLATFORM_BUILD_DIR, "mig_");
 }
 
 /* The forge lock: held for the holder's lifetime, vanishes with the process
    (delete-on-close / flock), so a crashed builder never wedges the project.
    Followers retry periodically and take over when the builder exits. */
-#ifdef _WIN32
-static HANDLE g_forge_lock = INVALID_HANDLE_VALUE;
+static void *g_forge_lock;
 static b32 forge_lock_try(void) {
-    if (g_forge_lock != INVALID_HANDLE_VALUE) {
+    if (g_forge_lock) {
         return 1;
     }
-    g_forge_lock = CreateFileA(PLATFORM_BUILD_DIR "/.forge.lock",
-                               GENERIC_WRITE, 0 /* no sharing */, NULL,
-                               CREATE_ALWAYS,
-                               FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE,
-                               NULL);
-    return g_forge_lock != INVALID_HANDLE_VALUE;
+    return dodai_lockfile_try(PLATFORM_BUILD_DIR "/.forge.lock", &g_forge_lock);
 }
-#else
-static int g_forge_lock = -1;
-static b32 forge_lock_try(void) {
-    if (g_forge_lock >= 0) {
-        return 1;
-    }
-    int fd = open(PLATFORM_BUILD_DIR "/.forge.lock", O_CREAT | O_RDWR, 0666);
-    if (fd < 0) {
-        return 0;
-    }
-    if (flock(fd, LOCK_EX | LOCK_NB) != 0) {
-        close(fd);
-        return 0;
-    }
-    g_forge_lock = fd;
-    return 1;
-}
-#endif
 
 typedef struct {
-    SDL_SharedObject      *lib;
+    void                  *lib;
     GameUpdateAndRenderFn *update;
-    char                  *layout;   /* heap copy of the dll's seni_layout */
-    SDL_Time               src_mtime; /* mtime of GAME_DLL_NEW when loaded */
+    char                  *layout;     /* heap copy of the dll's seni_layout */
+    unsigned long long     src_mtime;  /* mtime of GAME_DLL_NEW when loaded */
 } GameCode;
 
 static void platform_log(const char *fmt, ...) {
@@ -148,62 +99,54 @@ static void platform_log(const char *fmt, ...) {
     va_end(args);
 }
 
-static SDL_Time file_mtime(const char *path) {
-    SDL_PathInfo info;
-    if (!SDL_GetPathInfo(path, &info)) {
-        return 0;
-    }
-    return info.modify_time;
-}
-
 static void game_unload(GameCode *code) {
     if (code->lib) {
-        SDL_UnloadObject(code->lib);
+        dodai_lib_close(code->lib);
     }
-    SDL_free(code->layout);
+    free(code->layout);
     memset(code, 0, sizeof(*code));
 }
 
 static b32 game_load(GameCode *code) {
     memset(code, 0, sizeof(*code));
-    SDL_Time mtime = file_mtime(GAME_DLL_NEW);
+    unsigned long long mtime = 0;
+    dodai_mtime_ns(GAME_DLL_NEW, &mtime);
 
-    /* Copy so the compiler can overwrite GAME_DLL_NEW while we run. Remove
-       the old copy first: macOS validates code signatures per vnode, and
-       overwriting a previously-mapped dylib in place poisons it (dlopen is
-       then SIGKILLed with "code signature invalid"). A fresh vnode per copy
-       avoids that; harmless on the other platforms. */
-    SDL_RemovePath(g_dll_loaded_path);
+    /* Copy so the compiler can overwrite GAME_DLL_NEW while we run. dodai
+       removes the old copy first: macOS validates code signatures per vnode,
+       and overwriting a previously-mapped dylib in place poisons it (dlopen
+       is then SIGKILLed with "code signature invalid"). A fresh vnode per
+       copy avoids that; harmless on the other platforms. */
     b32 copied = 0;
     for (int attempt = 0; attempt < 10; attempt++) {
-        if (SDL_CopyFile(GAME_DLL_NEW, g_dll_loaded_path)) {
+        if (dodai_copy_file(GAME_DLL_NEW, g_dll_loaded_path)) {
             copied = 1;
             break;
         }
-        SDL_Delay(100);
+        dodai_sleep_ms(100);
     }
     if (!copied) {
-        SDL_Log("reload: cannot copy %s: %s", GAME_DLL_NEW, SDL_GetError());
+        SDL_Log("reload: cannot copy %s", GAME_DLL_NEW);
         return 0;
     }
 
-    code->lib = SDL_LoadObject(g_dll_loaded_path);
+    code->lib = dodai_lib_open(g_dll_loaded_path);
     if (!code->lib) {
-        SDL_Log("reload: SDL_LoadObject failed: %s", SDL_GetError());
+        SDL_Log("reload: dodai_lib_open failed");
         return 0;
     }
     code->update = (GameUpdateAndRenderFn *)
-        SDL_LoadFunction(code->lib, "game_update_and_render");
+        dodai_lib_symbol(code->lib, "game_update_and_render");
     const char **layout_p = (const char **)
-        SDL_LoadFunction(code->lib, "seni_layout");
+        dodai_lib_symbol(code->lib, "seni_layout");
     if (!code->update || !layout_p || !*layout_p) {
-        SDL_Log("reload: missing exports in game dll: %s", SDL_GetError());
+        SDL_Log("reload: missing exports in game dll");
         game_unload(code);
         return 0;
     }
     /* The layout string lives in the dll image; copy it out so it survives
        the unload that precedes the next load. */
-    code->layout = SDL_strdup(*layout_p);
+    code->layout = strdup(*layout_p);
     code->src_mtime = mtime;
     return 1;
 }
@@ -273,33 +216,32 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
         return 0;
     }
 
-    if (!SDL_SaveFile(g_mig_c_path, gr.code, strlen(gr.code))) {
-        SDL_Log("migrate: cannot write %s: %s", g_mig_c_path, SDL_GetError());
+    if (!dodai_write_file(g_mig_c_path, gr.code, strlen(gr.code))) {
+        SDL_Log("migrate: cannot write %s", g_mig_c_path);
         return 0;
     }
-    /* fresh vnode per compile: macOS kills dlopen of an in-place-overwritten
-       previously-mapped dylib with "code signature invalid" (see game_load) */
-    SDL_RemovePath(g_mig_dll_path);
-    if (system(g_mig_cmd) != 0) {
+    /* dodai_compile_shared removes the lib first (same codesign-vnode rule
+       as dodai_copy_file) */
+    if (dodai_compile_shared(g_mig_c_path, g_mig_dll_path, g_mig_err_path, NULL) != 0) {
         SDL_Log("migrate: gcc failed, see the per-instance mig_errors log");
         return 0;
     }
 
-    SDL_SharedObject *mig = SDL_LoadObject(g_mig_dll_path);
+    void *mig = dodai_lib_open(g_mig_dll_path);
     if (!mig) {
-        SDL_Log("migrate: cannot load %s: %s", g_mig_dll_path, SDL_GetError());
+        SDL_Log("migrate: cannot load %s", g_mig_dll_path);
         return 0;
     }
     typedef void (*migrate_fn)(void *old_p, void *new_p, size_t count);
-    migrate_fn migrate = (migrate_fn)SDL_LoadFunction(mig, "migrate_game_state");
+    migrate_fn migrate = (migrate_fn)dodai_lib_symbol(mig, "migrate_game_state");
     /* the generated module also exports the compiler-true size of the new
        struct -- copy exactly that, never the whole hot block: anything that
        might one day live above game_state in hot memory must survive */
     const size_t *new_size_p =
-        (const size_t *)SDL_LoadFunction(mig, "migrate_game_state_new_size");
+        (const size_t *)dodai_lib_symbol(mig, "migrate_game_state_new_size");
     if (!migrate || !new_size_p) {
-        SDL_Log("migrate: missing exports in %s: %s", g_mig_dll_path, SDL_GetError());
-        SDL_UnloadObject(mig);
+        SDL_Log("migrate: missing exports in %s", g_mig_dll_path);
+        dodai_lib_close(mig);
         return 0;
     }
     u64 new_size = (u64)*new_size_p;
@@ -307,14 +249,14 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
         SDL_Log("migrate: new game_state size %llu does not fit (hot %llu, scratch %llu)",
                 (unsigned long long)new_size, (unsigned long long)hot_size,
                 (unsigned long long)scratch_size);
-        SDL_UnloadObject(mig);
+        dodai_lib_close(mig);
         return 0;
     }
 
     memset(scratch, 0, new_size);
     migrate(hot, scratch, 1);
     memcpy(hot, scratch, new_size);
-    SDL_UnloadObject(mig);
+    dodai_lib_close(mig);
     SDL_Log("migrate: game_state migrated to new layout (%llu bytes)",
             (unsigned long long)new_size);
     return 1;
@@ -328,13 +270,13 @@ static void seni_strip_consumed_was(void) {
     static char arena_buf[1u << 20];
     arena a;
     size_t len = 0;
-    char *hdr = SDL_LoadFile(GAME_STATE_HDR, &len);
+    char *hdr = dodai_read_file(GAME_STATE_HDR, &len);
     if (!hdr) {
         return;
     }
     create_arena(&a, arena_buf, sizeof(arena_buf));
     char *copy = arena_copy_string(&a, hdr, len);
-    SDL_free(hdr);
+    free(hdr);
     if (!copy) {
         return;
     }
@@ -342,7 +284,7 @@ static void seni_strip_consumed_was(void) {
     if (r.err || r.code == copy) {
         return; /* error or nothing to strip */
     }
-    if (SDL_SaveFile(GAME_STATE_HDR, r.code, strlen(r.code))) {
+    if (dodai_write_file(GAME_STATE_HDR, r.code, strlen(r.code))) {
         SDL_Log("seni: consumed SENI_WAS annotations stripped from " GAME_STATE_HDR);
     }
 }
@@ -366,13 +308,13 @@ static void seni_apply_answers(SeniReloadStatus *status) {
         create_arena(&a, arena_buf, sizeof(arena_buf));
 
         size_t hdr_len = 0;
-        char *hdr = SDL_LoadFile(GAME_STATE_HDR, &hdr_len);
+        char *hdr = dodai_read_file(GAME_STATE_HDR, &hdr_len);
         if (!hdr) {
-            SDL_Log("seni: cannot read %s: %s", GAME_STATE_HDR, SDL_GetError());
+            SDL_Log("seni: cannot read %s", GAME_STATE_HDR);
             continue;
         }
         char *copy = arena_copy_string(&a, hdr, hdr_len);
-        SDL_free(hdr);
+        free(hdr);
         if (!copy) {
             SDL_Log("seni: arena exhausted reading %s", GAME_STATE_HDR);
             continue;
@@ -388,8 +330,8 @@ static void seni_apply_answers(SeniReloadStatus *status) {
             SDL_Log("seni: %s", an.err);
             continue;
         }
-        if (!SDL_SaveFile(GAME_STATE_HDR, an.code, strlen(an.code))) {
-            SDL_Log("seni: cannot write %s: %s", GAME_STATE_HDR, SDL_GetError());
+        if (!dodai_write_file(GAME_STATE_HDR, an.code, strlen(an.code))) {
+            SDL_Log("seni: cannot write %s", GAME_STATE_HDR);
             continue;
         }
         if (answer == SENI_ANSWER_RENAME) {
@@ -472,7 +414,7 @@ int main(int argc, char *argv[]) {
         if (base) {
             char root[1024];
             SDL_snprintf(root, sizeof(root), "%s..", base);
-            if (platform_chdir(root) != 0) {
+            if (!dodai_chdir(root)) {
                 SDL_Log("warning: cannot chdir to project root '%s'", root);
             }
         }
@@ -565,7 +507,7 @@ int main(int argc, char *argv[]) {
             int waited;
             SDL_Log("no game dll yet, waiting for the builder...");
             for (waited = 0; waited < 150 && !game_load(&game); waited++) {
-                SDL_Delay(100);
+                dodai_sleep_ms(100);
             }
             if (!game.lib) {
                 SDL_Log("no dll appeared -- is the builder instance stuck?");
@@ -606,7 +548,7 @@ int main(int argc, char *argv[]) {
         platform_build_poll();
 
         /* follower -> builder takeover when the previous builder exits */
-        u64 role_ticks = SDL_GetTicks();
+        u64 role_ticks = dodai_now_ms();
         static u64 last_lock_try_ms;
         if (!is_builder && role_ticks - last_lock_try_ms > 2000) {
             last_lock_try_ms = role_ticks;
@@ -649,19 +591,19 @@ int main(int argc, char *argv[]) {
         }
 
         /* Watch for a recompiled dll (throttled). */
-        u64 ticks = SDL_GetTicks();
+        u64 ticks = dodai_now_ms();
         if (game.lib && ticks - last_watch_ms > 30) {
             last_watch_ms = ticks;
-            SDL_Time mtime = file_mtime(GAME_DLL_NEW);
+            unsigned long long mtime = 0;
+            dodai_mtime_ns(GAME_DLL_NEW, &mtime);
             if (mtime != 0 && mtime != game.src_mtime) {
                 SDL_Log("reload: %s changed", GAME_DLL_NEW);
 
                 size_t hdr_len = 0;
-                char *new_layout = SDL_LoadFile(GAME_STATE_HDR, &hdr_len);
+                char *new_layout = dodai_read_file(GAME_STATE_HDR, &hdr_len);
                 b32 ok = new_layout != NULL;
                 if (!ok) {
-                    SDL_Log("reload: cannot read %s: %s", GAME_STATE_HDR,
-                            SDL_GetError());
+                    SDL_Log("reload: cannot read %s", GAME_STATE_HDR);
                 }
                 if (ok && strcmp(game.layout, new_layout) != 0) {
                     /* GPU may still read transient-built resources; the new
@@ -682,7 +624,7 @@ int main(int argc, char *argv[]) {
                        answered by reverting the header -- clear them */
                     memory.seni.question_count = 0;
                 }
-                SDL_free(new_layout);
+                free(new_layout);
 
                 if (ok) {
                     game_unload(&game);
@@ -702,7 +644,7 @@ int main(int argc, char *argv[]) {
             if (game_load(&game)) {
                 memory.reloaded = 1;
             } else {
-                SDL_Delay(100);
+                dodai_sleep_ms(100);
                 continue;
             }
         }
@@ -717,7 +659,7 @@ int main(int argc, char *argv[]) {
 
     kansi_stop(watcher);
     game_unload(&game);
-    SDL_RemovePath(g_dll_loaded_path); /* per-pid copy: ours to clean up */
+    dodai_remove(g_dll_loaded_path); /* per-pid copy: ours to clean up */
     SDL_WaitForGPUIdle(device);
     SDL_ReleaseWindowFromGPUDevice(device, window);
     SDL_DestroyGPUDevice(device);

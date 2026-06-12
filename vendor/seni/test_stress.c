@@ -2,14 +2,11 @@
    migration chains. complements test_fuzz.c (randomized inputs) with
    deterministic worst-cases. */
 
-#if defined(_WIN32)
-#include <windows.h>
-#endif
-#include "platform.h"
-#if defined(_WIN32)
-#include "platform_windows.c"
+#include "../dodai/dodai.h"
+#ifdef _WIN32
+#include "../dodai/dodai_windows.c"
 #else
-#include "platform_linux.c"
+#include "../dodai/dodai_posix.c"
 #endif
 #include "utest.h"
 #include "seni.h"
@@ -23,18 +20,18 @@
 UTEST_MAIN()
 
 /* migration TUs compile from the build/seni_out/migration_NNN.c audit log */
-static platform_lib compile_and_load_st(const char* code, const char* name) {
+static void *compile_and_load_st(const char* code, const char* name) {
     char src_path[256];
     char lib_path[256];
     char err_path[256];
     if (seni_dump_migration(code, name, src_path, sizeof(src_path)) != 0) return NULL;
-    sprintf(lib_path, "build/%s.%s", name, platform_lib_extension());
+    sprintf(lib_path, "build/%s.%s", name, dodai_lib_extension());
     sprintf(err_path, "build/%s.err", name);
-    if (platform_compile_shared(src_path, lib_path, err_path) != 0) {
+    if (dodai_compile_shared(src_path, lib_path, err_path, "-std=c89 -pedantic") != 0) {
         fprintf(stderr, "gcc failed for %s, generated code:\n%s\n", src_path, code);
         return NULL;
     }
-    return platform_load_lib(lib_path);
+    return dodai_lib_open(lib_path);
 }
 
 typedef void (*migrate_fn)(void* old_p, void* new_p, size_t count);
@@ -156,17 +153,17 @@ typedef struct { float x, y; } enemy_a;
 typedef struct { float x, y; int health; float trail[2]; } enemy_b;
 
 static migrate_fn build_dir(arena* a, const char* from, const char* to,
-                            const char* name, platform_lib* out_mod) {
+                            const char* name, void **out_mod) {
     diff_result d = diff_structs(a, (char*)from, (char*)to);
     generate_result g;
-    platform_lib m;
+    void *m;
     if (d.err) { fprintf(stderr, "diff: %s\n", d.err); return NULL; }
     g = generate_migration(a, d.value);
     if (g.err) { fprintf(stderr, "generate: %s\n", g.err); return NULL; }
     m = compile_and_load_st(g.code, name);
     if (!m) return NULL;
     *out_mod = m;
-    return (migrate_fn)platform_get_symbol(m, "migrate_enemy");
+    return (migrate_fn)dodai_lib_symbol(m, "migrate_enemy");
 }
 
 UTEST(stress, migration_chain_500_cycles) {
@@ -175,7 +172,7 @@ UTEST(stress, migration_chain_500_cycles) {
     static enemy_a blk_a[256];
     static enemy_b blk_b[256];
     arena aa, ab;
-    platform_lib mod_ab = NULL, mod_ba = NULL;
+    void *mod_ab = NULL, *mod_ba = NULL;
     migrate_fn a_to_b, b_to_a;
     int i, cycle;
 
@@ -205,8 +202,8 @@ UTEST(stress, migration_chain_500_cycles) {
         ASSERT_EQ((float)i * 1.5f, blk_a[i].x);
         ASSERT_EQ((float)i * 2.5f, blk_a[i].y);
     }
-    platform_unload_lib(mod_ab);
-    platform_unload_lib(mod_ba);
+    dodai_lib_close(mod_ab);
+    dodai_lib_close(mod_ba);
 }
 
 /* ---- repeated load/unload of the same dll ------------------------------ */
@@ -214,20 +211,20 @@ UTEST(stress, migration_chain_500_cycles) {
 UTEST(stress, load_unload_100_cycles) {
     static char arena_buf[16384];
     arena a;
-    platform_lib first = NULL;
+    void *first = NULL;
     migrate_fn fn;
     char lib_path[256];
     int i;
     create_arena(&a, arena_buf, sizeof(arena_buf));
     fn = build_dir(&a, H_A, H_B, "stress_reload", &first);
     ASSERT_TRUE(fn != NULL);
-    platform_unload_lib(first);
-    sprintf(lib_path, "build/stress_reload.%s", platform_lib_extension());
+    dodai_lib_close(first);
+    sprintf(lib_path, "build/stress_reload.%s", dodai_lib_extension());
     for (i = 0; i < 100; i++) {
-        platform_lib m = platform_load_lib(lib_path);
+        void *m = dodai_lib_open(lib_path);
         ASSERT_TRUE(m != NULL);
-        ASSERT_TRUE(platform_get_symbol(m, "migrate_enemy") != NULL);
-        platform_unload_lib(m);
+        ASSERT_TRUE(dodai_lib_symbol(m, "migrate_enemy") != NULL);
+        dodai_lib_close(m);
     }
 }
 
@@ -236,7 +233,7 @@ UTEST(stress, load_unload_100_cycles) {
 UTEST(stress, migrate_200k_elements) {
     static char arena_buf[16384];
     arena a;
-    platform_lib mod = NULL;
+    void *mod = NULL;
     migrate_fn fn;
     size_t n = 200000;
     enemy_a* old_blk = (enemy_a*)malloc(n * sizeof(enemy_a));
@@ -267,7 +264,7 @@ UTEST(stress, migrate_200k_elements) {
         ASSERT_EQ(0, new_blk[i].health);
     }
     ASSERT_EQ((float)((n - 1) % 8191), new_blk[n - 1].x); /* last element exact */
-    platform_unload_lib(mod);
+    dodai_lib_close(mod);
     free(old_blk);
     free(new_blk);
 }
