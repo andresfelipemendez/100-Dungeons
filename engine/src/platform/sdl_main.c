@@ -13,10 +13,14 @@
 #include <string.h>
 
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h> /* GetCurrentProcessId, forge lock file */
 #include <direct.h>
 #define platform_chdir _chdir
 #else
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/file.h> /* flock: the forge lock */
 #define platform_chdir chdir
 #endif
 
@@ -29,25 +33,106 @@
 #include "kaji.h"
 
 #ifdef _WIN32
-#define GAME_DLL_NEW    PLATFORM_BUILD_DIR "/game_new.dll"
-#define GAME_DLL_LOADED PLATFORM_BUILD_DIR "/game_loaded.dll"
-#define MIG_DLL         PLATFORM_BUILD_DIR "/mig.dll"
-#define MIG_COMPILE     "gcc -shared " MIG_C " -o " MIG_DLL " 2> " PLATFORM_BUILD_DIR "/mig_errors.log"
+#define DLL_SUFFIX ".dll"
+#define MIG_PIC ""
 #else
-#define GAME_DLL_NEW    PLATFORM_BUILD_DIR "/game_new.so"
-#define GAME_DLL_LOADED PLATFORM_BUILD_DIR "/game_loaded.so"
-#define MIG_DLL         PLATFORM_BUILD_DIR "/mig.so"
-#define MIG_COMPILE     "gcc -shared -fPIC " MIG_C " -o " MIG_DLL " 2> " PLATFORM_BUILD_DIR "/mig_errors.log"
+#define DLL_SUFFIX ".so"
+#define MIG_PIC " -fPIC"
 #endif
+#define GAME_DLL_NEW PLATFORM_BUILD_DIR "/game_new" DLL_SUFFIX
 /* both configs are platform-neutral now: kansi only watches, kaji carries
    the per-OS build knowledge internally */
 #define KANSI_CFG       "kansi.cfg"
 #define KAJI_CFG        "kaji.cfg"
 #define GAME_STATE_HDR  "src/game_state.h"
-#define MIG_C           PLATFORM_BUILD_DIR "/mig.c"
 
 #define HOT_SIZE       (1u << 20)   /* 1 MB  */
 #define TRANSIENT_SIZE (64u << 20)  /* 64 MB */
+
+/* Several instances may run against one project dir (multi-window testing).
+   Everything an instance WRITES privately is suffixed with its pid: the
+   loaded-dll copy (Windows locks loaded images) and the migration scratch
+   (each instance migrates its own hot memory). Shared work -- watching the
+   sources and forging build/game_new -- is done by exactly ONE instance,
+   elected by the forge lock below; followers only watch the published dll. */
+static char g_dll_loaded_path[256];
+static char g_mig_c_path[256];
+static char g_mig_dll_path[256];
+static char g_mig_cmd[640];
+
+static void instance_paths_init(void) {
+#ifdef _WIN32
+    unsigned long pid = (unsigned long)GetCurrentProcessId();
+#else
+    unsigned long pid = (unsigned long)getpid();
+#endif
+    SDL_snprintf(g_dll_loaded_path, sizeof(g_dll_loaded_path),
+                 PLATFORM_BUILD_DIR "/game_loaded_%lu" DLL_SUFFIX, pid);
+    SDL_snprintf(g_mig_c_path, sizeof(g_mig_c_path),
+                 PLATFORM_BUILD_DIR "/mig_%lu.c", pid);
+    SDL_snprintf(g_mig_dll_path, sizeof(g_mig_dll_path),
+                 PLATFORM_BUILD_DIR "/mig_%lu" DLL_SUFFIX, pid);
+    SDL_snprintf(g_mig_cmd, sizeof(g_mig_cmd),
+                 "gcc -shared" MIG_PIC " %s -o %s 2> " PLATFORM_BUILD_DIR "/mig_errors_%lu.log",
+                 g_mig_c_path, g_mig_dll_path, pid);
+}
+
+/* Crashed/killed instances leave their per-pid files behind (a graceful
+   quit removes its own). Sweep what is deletable; files a live instance
+   still holds just refuse and stay. */
+static void instance_litter_sweep(void) {
+    static const char *patterns[] = { "game_loaded_*", "mig_*" };
+    int pi;
+    for (pi = 0; pi < 2; pi++) {
+        int count = 0;
+        char **names = SDL_GlobDirectory(PLATFORM_BUILD_DIR, patterns[pi], 0, &count);
+        int i;
+        if (!names) {
+            continue;
+        }
+        for (i = 0; i < count; i++) {
+            char path[512];
+            SDL_snprintf(path, sizeof(path), PLATFORM_BUILD_DIR "/%s", names[i]);
+            SDL_RemovePath(path); /* locked by a live instance: fails, fine */
+        }
+        SDL_free(names);
+    }
+}
+
+/* The forge lock: held for the holder's lifetime, vanishes with the process
+   (delete-on-close / flock), so a crashed builder never wedges the project.
+   Followers retry periodically and take over when the builder exits. */
+#ifdef _WIN32
+static HANDLE g_forge_lock = INVALID_HANDLE_VALUE;
+static b32 forge_lock_try(void) {
+    if (g_forge_lock != INVALID_HANDLE_VALUE) {
+        return 1;
+    }
+    g_forge_lock = CreateFileA(PLATFORM_BUILD_DIR "/.forge.lock",
+                               GENERIC_WRITE, 0 /* no sharing */, NULL,
+                               CREATE_ALWAYS,
+                               FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE,
+                               NULL);
+    return g_forge_lock != INVALID_HANDLE_VALUE;
+}
+#else
+static int g_forge_lock = -1;
+static b32 forge_lock_try(void) {
+    if (g_forge_lock >= 0) {
+        return 1;
+    }
+    int fd = open(PLATFORM_BUILD_DIR "/.forge.lock", O_CREAT | O_RDWR, 0666);
+    if (fd < 0) {
+        return 0;
+    }
+    if (flock(fd, LOCK_EX | LOCK_NB) != 0) {
+        close(fd);
+        return 0;
+    }
+    g_forge_lock = fd;
+    return 1;
+}
+#endif
 
 typedef struct {
     SDL_SharedObject      *lib;
@@ -86,7 +171,7 @@ static b32 game_load(GameCode *code) {
     /* Copy so the compiler can overwrite GAME_DLL_NEW while we run. */
     b32 copied = 0;
     for (int attempt = 0; attempt < 10; attempt++) {
-        if (SDL_CopyFile(GAME_DLL_NEW, GAME_DLL_LOADED)) {
+        if (SDL_CopyFile(GAME_DLL_NEW, g_dll_loaded_path)) {
             copied = 1;
             break;
         }
@@ -97,7 +182,7 @@ static b32 game_load(GameCode *code) {
         return 0;
     }
 
-    code->lib = SDL_LoadObject(GAME_DLL_LOADED);
+    code->lib = SDL_LoadObject(g_dll_loaded_path);
     if (!code->lib) {
         SDL_Log("reload: SDL_LoadObject failed: %s", SDL_GetError());
         return 0;
@@ -183,18 +268,18 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
         return 0;
     }
 
-    if (!SDL_SaveFile(MIG_C, gr.code, strlen(gr.code))) {
-        SDL_Log("migrate: cannot write %s: %s", MIG_C, SDL_GetError());
+    if (!SDL_SaveFile(g_mig_c_path, gr.code, strlen(gr.code))) {
+        SDL_Log("migrate: cannot write %s: %s", g_mig_c_path, SDL_GetError());
         return 0;
     }
-    if (system(MIG_COMPILE) != 0) {
-        SDL_Log("migrate: gcc failed, see build/mig_errors.log");
+    if (system(g_mig_cmd) != 0) {
+        SDL_Log("migrate: gcc failed, see the per-instance mig_errors log");
         return 0;
     }
 
-    SDL_SharedObject *mig = SDL_LoadObject(MIG_DLL);
+    SDL_SharedObject *mig = SDL_LoadObject(g_mig_dll_path);
     if (!mig) {
-        SDL_Log("migrate: cannot load %s: %s", MIG_DLL, SDL_GetError());
+        SDL_Log("migrate: cannot load %s: %s", g_mig_dll_path, SDL_GetError());
         return 0;
     }
     typedef void (*migrate_fn)(void *old_p, void *new_p, size_t count);
@@ -205,7 +290,7 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
     const size_t *new_size_p =
         (const size_t *)SDL_LoadFunction(mig, "migrate_game_state_new_size");
     if (!migrate || !new_size_p) {
-        SDL_Log("migrate: missing exports in %s: %s", MIG_DLL, SDL_GetError());
+        SDL_Log("migrate: missing exports in %s: %s", g_mig_dll_path, SDL_GetError());
         SDL_UnloadObject(mig);
         return 0;
     }
@@ -385,6 +470,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    instance_paths_init();
+
     {
         char kaji_err[256];
         g_forge = kaji_load(KAJI_CFG, kaji_err, sizeof(kaji_err));
@@ -432,21 +519,41 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    /* kansi: watch the source trees. On its change edge the host asks the
-       forge for a fresh dll. Optional -- `dungeon --build game` still works. */
-    char kansi_err[256];
-    kansi *watcher = kansi_start(KANSI_CFG, kansi_err, sizeof(kansi_err));
-    if (!watcher) {
-        SDL_Log("kansi disabled: %s", kansi_err);
+    /* Role election: exactly one instance watches the sources and forges
+       build/game_new; the rest follow the published dll. Followers retry
+       the lock and take over when the builder exits. */
+    b32 is_builder = forge_lock_try();
+    kansi *watcher = NULL;
+    if (is_builder) {
+        char kansi_err[256];
+        watcher = kansi_start(KANSI_CFG, kansi_err, sizeof(kansi_err));
+        if (!watcher) {
+            SDL_Log("kansi disabled: %s", kansi_err);
+        }
     }
+    SDL_Log("forge role: %s", is_builder ? "builder" : "follower (another instance builds)");
+    instance_litter_sweep();
 
     GameCode game = { 0 };
     if (!game_load(&game)) {
-        /* batteries included: forge the first dll ourselves */
-        SDL_Log("no game dll yet, forging one...");
-        if (!g_forge || kaji_build(g_forge, "game", 1) != 0 || !game_load(&game)) {
-            SDL_Log("initial game build failed -- try: dungeon --build game");
-            return 1;
+        if (is_builder) {
+            /* batteries included: forge the first dll ourselves */
+            SDL_Log("no game dll yet, forging one...");
+            if (!g_forge || kaji_build(g_forge, "game", 1) != 0 || !game_load(&game)) {
+                SDL_Log("initial game build failed -- try: dungeon --build game");
+                return 1;
+            }
+        } else {
+            /* the builder is forging it; wait for the publish */
+            int waited;
+            SDL_Log("no game dll yet, waiting for the builder...");
+            for (waited = 0; waited < 150 && !game_load(&game); waited++) {
+                SDL_Delay(100);
+            }
+            if (!game.lib) {
+                SDL_Log("no dll appeared -- is the builder instance stuck?");
+                return 1;
+            }
         }
     }
     memory.reloaded = 1;
@@ -481,9 +588,25 @@ int main(int argc, char *argv[]) {
 
         platform_build_poll();
 
+        /* follower -> builder takeover when the previous builder exits */
+        u64 role_ticks = SDL_GetTicks();
+        static u64 last_lock_try_ms;
+        if (!is_builder && role_ticks - last_lock_try_ms > 2000) {
+            last_lock_try_ms = role_ticks;
+            if (forge_lock_try()) {
+                is_builder = 1;
+                char kansi_err[256];
+                watcher = kansi_start(KANSI_CFG, kansi_err, sizeof(kansi_err));
+                if (!watcher) {
+                    SDL_Log("kansi disabled: %s", kansi_err);
+                }
+                SDL_Log("forge role: promoted to builder");
+            }
+        }
+
         /* the dev loop: kansi reports the change, kaji forges the dll, the
            dll watcher below swaps it in */
-        if (watcher && g_forge) {
+        if (is_builder && watcher && g_forge) {
             if (kansi_update(watcher) == KANSI_CHANGED) {
                 if (g_game_run.active) {
                     /* a rebuild is in flight; kansi will edge again on the
@@ -533,7 +656,8 @@ int main(int argc, char *argv[]) {
                                             memory.transient,
                                             memory.transient_size,
                                             &memory.seni);
-                    if (ok) {
+                    if (ok && is_builder) {
+                        /* shared-file edit: one writer only */
                         seni_strip_consumed_was();
                     }
                 } else if (ok) {
@@ -576,6 +700,7 @@ int main(int argc, char *argv[]) {
 
     kansi_stop(watcher);
     game_unload(&game);
+    SDL_RemovePath(g_dll_loaded_path); /* per-pid copy: ours to clean up */
     SDL_WaitForGPUIdle(device);
     SDL_ReleaseWindowFromGPUDevice(device, window);
     SDL_DestroyGPUDevice(device);

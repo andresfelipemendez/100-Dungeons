@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <SDL3/SDL_log.h>
 #include "seni.h" /* parser (compiled into editor.o, see editor_unity.c) */
 
 /* exported by the game's SENI_EMBED_LAYOUT, resolved at dll link */
@@ -57,6 +58,10 @@ b32 inspector_init(void) {
     }
     parse_result pr = parse_header(&a, copy);
     if (pr.err || pr.value.struct_count == 0) {
+        /* loud: a silent inspector reads as "layout unavailable" with no
+           clue (a stale editor.o parser once hid exactly this way) */
+        SDL_Log("inspector: cannot parse embedded layout: %s",
+                pr.err ? pr.err : "no structs found");
         return 0;
     }
 
@@ -67,6 +72,8 @@ b32 inspector_init(void) {
         ast_field *f = &st->fields[i];
         u64 size = insp_type_size(f->type);
         if (size == 0) {
+            SDL_Log("inspector: field '%s' has unsupported type, disabling",
+                    f->name);
             return 0; /* unknown type: offsets past it would be wrong */
         }
         offset = (offset + size - 1) & ~(size - 1); /* align == size here */
@@ -78,6 +85,7 @@ b32 inspector_init(void) {
         offset += size * (f->array_size ? f->array_size : 1);
     }
     insp.ready = 1;
+    SDL_Log("inspector: %u fields from embedded layout", insp.field_count);
     return 1;
 }
 
