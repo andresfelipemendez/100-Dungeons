@@ -10,14 +10,18 @@
         {
             "name": "dungeon1",
             "working_dir": "$project_path/dungeon1",
-            "shell_cmd": ".\\build.bat",
+            "shell_cmd": ".\\bootstrap.bat",
             "file_regex": "^(..[^:\\n]*):([0-9]+):?([0-9]+)?:? (.*)$",
             "syntax": "Packages/Makefile/Make Output.sublime-syntax",
             "variants":
             [
                 {
-                    "name": "reload dll only",
-                    "shell_cmd": ".\\reload.bat"
+                    "name": "forge game dll",
+                    "shell_cmd": "build\\dungeon.exe --build game"
+                },
+                {
+                    "name": "forge ship bundle",
+                    "shell_cmd": "build\\dungeon.exe --build ship"
                 },
                 {
                     "name": "run",
@@ -25,7 +29,7 @@
                 },
                 {
                     "name": "build + run",
-                    "shell_cmd": ".\\build.bat && start \"\" build\\dungeon.exe"
+                    "shell_cmd": ".\\bootstrap.bat && start \"\" build\\dungeon.exe"
                 },
                 {
                     "name": "kansi tests",

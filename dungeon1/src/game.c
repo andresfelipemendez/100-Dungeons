@@ -4,6 +4,9 @@
 #include "engine/asset/model.h"
 #include "engine/ui/ui.h"
 #include "seni_panel.h"
+#ifdef EDITOR_BUILD
+#include "editor.h"
+#endif
 #include "linalg.h"
 #include "camera.h"
 
@@ -39,7 +42,6 @@ typedef struct {
     RndPipeline pipeline;
     Model       model;
     f32         model_radius;
-    f32         fps_smoothed;
 } EngineState;
 
 static b32 cold_rebuild(EngineState *es, PlatformMemory *memory, PlatformApi *api) {
@@ -72,37 +74,11 @@ static b32 cold_rebuild(EngineState *es, PlatformMemory *memory, PlatformApi *ap
     if (!seni_panel_register(&memory->seni)) {
         return 0;
     }
+#ifdef EDITOR_BUILD
+    editor_init(memory);
+#endif
     es->ready = 1;
     return 1;
-}
-
-static void editor_ui(game_state *gs, EngineState *es, GameInput *input,
-                      f32 screen_w, f32 screen_h) {
-    static char spin_buf[32];
-    static char fps_buf[32];
-    snprintf(spin_buf, sizeof(spin_buf), "%.2f", gs->spin_rate);
-    snprintf(fps_buf, sizeof(fps_buf), "fps %.0f", es->fps_smoothed);
-
-    ui_frame_begin(screen_w, screen_h, input->mouse_x, input->mouse_y,
-                   input->mouse_left);
-
-    ui_panel_begin("editor_panel", 240.0f);
-        ui_label("EDITOR v2", 18);
-        ui_label_dim(fps_buf, 14);
-
-        ui_row_begin("spin_row");
-            ui_label("spin", 16);
-            if (ui_button("spin_minus", "-")) {
-                gs->spin_rate -= 0.2f;
-            }
-            ui_label(spin_buf, 16);
-            if (ui_button("spin_plus", "+")) {
-                gs->spin_rate += 0.2f;
-            }
-        ui_row_end();
-    ui_panel_end();
-
-    ui_frame_end(input->dt);
 }
 
 GAME_EXPORT GAME_UPDATE_AND_RENDER(game_update_and_render) {
@@ -141,9 +117,6 @@ GAME_EXPORT GAME_UPDATE_AND_RENDER(game_update_and_render) {
         gs->spin_rate = 1.8f;
     }
     gs->cam_angle += input->dt * gs->spin_rate;
-    if (input->dt > 0.0001f) {
-        es->fps_smoothed = es->fps_smoothed * 0.95f + (1.0f / input->dt) * 0.05f;
-    }
 
     if (!rnd_frame_begin(gs->clear_r, gs->clear_g, gs->clear_b)) {
         return;
@@ -168,17 +141,10 @@ GAME_EXPORT GAME_UPDATE_AND_RENDER(game_update_and_render) {
     rnd_draw_model(es->pipeline, es->model.vertex_buffer, es->model.index_buffer,
                    es->model.texture, es->model.index_count, mvp, mat4_identity());
 
-    editor_ui(gs, es, input, (f32)w, (f32)h);
+#ifdef EDITOR_BUILD
+    editor_frame(memory, api, input, (f32)w, (f32)h);
+#endif
 
     rnd_frame_end();
 }
 
-
-
-
-
-
-
-
-
-/* linux touch */

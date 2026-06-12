@@ -4,3 +4,6 @@
 [submodule "vendor/kansi"]
 	path = vendor/kansi
 	url = git@github.com:andresfelipemendez/kansi.git
+[submodule "vendor/kaji"]
+	path = vendor/kaji
+	url = git@github.com:andresfelipemendez/kaji.git

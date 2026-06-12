@@ -62,6 +62,14 @@ typedef struct PlatformApi {
        inside the dll knows its layout (abi_gpu.h) */
     void *gpu_context;
     void (*log)(const char *fmt, ...);
+    /* Spawns the build profile script editor/build/<profile> as a detached
+       child process (output to the build dir's log). OS specifics live in
+       the platform (kaji job runner); reloadable code never calls system()
+       for builds. NULL in the shipping host -- callers must check. */
+    b32 (*run_build_profile)(const char *profile);
+    /* Last spawned build: 0 idle/succeeded, 1 running, 2 failed.
+       NULL in the shipping host. */
+    int (*build_status)(void);
 } PlatformApi;
 
 typedef struct GameInput {

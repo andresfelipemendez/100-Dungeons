@@ -3,14 +3,14 @@
 Game project consuming the shared engine at `../engine`. Platform exe +
 reloadable game dll + frozen ABI, with
 [seni](C:/Users/andres/Development/seni) auto-migrating persistent game state
-when its struct layout changes. Edit code or `src/game_state.h`, run
-`reload.bat`, the running process picks it up — no restart, state survives.
+when its struct layout changes. Edit code or `src/game_state.h`, save, and
+the running process picks it up — no restart, state survives.
 
 ## Prerequisites (Windows)
 
 Vendored in the repo (batteries included): SDL3 prebuilt MinGW binaries
-(`../vendor/SDL3-mingw/`, x86_64 only), cgltf, stb, clay, and the seni +
-kansi libraries as git submodules (`../vendor/seni`, `../vendor/kansi`) —
+(`../vendor/SDL3-mingw/`, x86_64 only), cgltf, stb, clay, and the seni,
+kansi and kaji libraries as git submodules (`../vendor/{seni,kansi,kaji}`) —
 clone with `git clone --recurse-submodules` (or run
 `git submodule update --init` after a plain clone).
 
@@ -18,7 +18,7 @@ Still needed on the machine:
 
 - MinGW gcc (on PATH) — required, seni's layout embedding uses GNU `.incbin`
 - CMake + Ninja
-- Vulkan SDK (glslc; path set in `reload.bat` + `kansi.cfg`)
+- Vulkan SDK (glslc; path set in `kaji.cfg`)
 
 To build against a development checkout of seni/kansi instead of the
 submodules, override `-DSENI_DIR=`/`-DKANSI_DIR=` (exe) and the include
@@ -27,18 +27,25 @@ paths in `kansi.cfg` (dll).
 ## Build & run
 
 ```bat
-build.bat          rem exe (cmake) + first game dll
-build\dungeon.exe  rem runs from anywhere (exe anchors cwd to project root)
+bootstrap.bat      rem THE only script: platform exe via cmake (kaji lives inside)
+build\dungeon.exe  rem forges its own first game dll; runs from anywhere
 ```
+
+Everything after bootstrap is a kaji target — `dungeon --build game`,
+`--build ship`, `--build host` (rebuilds the dev exe itself, beside the
+running one). On Linux: `./bootstrap.sh`, then `./build-linux/dungeon`.
 
 ## Iterate (the whole point)
 
-With the exe running: **just save a file.** The exe embeds
-[kansi](C:/Users/andres/Development/kansi), which watches `src/` and
-`../engine/src/` (config in `kansi.cfg`) and rebuilds the dll automatically —
-pre-steps (header snapshot, glslc) then gcc, as non-blocking child processes,
-publishing via atomic rename. Build errors go to `build/kansi.log`; the old
-dll keeps running. `reload.bat` remains as the manual fallback.
+With the exe running: **just save a file.** kansi (監視) watches the source
+trees (`kansi.cfg` — watch dirs only) and reports a change edge; kaji (鍛冶)
+forges the dll from the build description in `kaji.cfg` — snapshots,
+shaders, cached objects, atomic publish — as non-blocking child processes.
+One kaji.cfg covers Windows and Linux; there are no build scripts. Build
+errors land in the build dir's `kaji_game.log`; the old dll keeps running.
+
+Other targets: `dungeon --build ship` (standalone bundle), or any target
+name from kaji.cfg — same CLI, same editor button.
 
 - Changed game/engine dll code → dll hot-swapped, state intact.
 - Changed `src/game_state.h` layout → seni reads the old layout embedded in
@@ -80,7 +87,7 @@ src/                   this game
   game.c               entry point; cold state rebuilt on every reload.
   game_unity.c         includes engine_unity.c, then game.c — one gcc call
                        produces the whole reloadable dll.
-  shaders/             GLSL → SPIR-V via glslc (recompiled by reload.bat).
+  shaders/             GLSL → SPIR-V via glslc (a kaji shader target).
 ```
 
 Rules that keep hot reload honest:
@@ -94,6 +101,7 @@ Rules that keep hot reload honest:
 
 ## Starting another game (dungeon2, ...)
 
-Copy `cmakelists.txt`, `build.bat`, `reload.bat`, and `src/{game_state.h,
-game.c, game_unity.c, shaders/}` into a sibling folder. The engine is
-consumed as source via `-I../engine/src`; nothing else to wire up.
+Copy `cmakelists.txt`, `bootstrap.bat`/`bootstrap.sh`, `kaji.cfg`, `kansi.cfg`, and
+`src/{game_state.h, game.c, game_unity.c, shaders/}` into a sibling folder.
+The engine is consumed as source via `-I../engine/src`; nothing else to
+wire up.

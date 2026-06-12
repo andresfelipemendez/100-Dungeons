@@ -13,6 +13,7 @@ set(VENDOR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vendor")
 set(ENGINE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../engine")
 set(SENI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vendor/seni" CACHE PATH "Path to the seni library checkout")
 set(KANSI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vendor/kansi" CACHE PATH "Path to the kansi library checkout")
+set(KAJI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vendor/kaji" CACHE PATH "Path to the kaji library checkout")
 
 # --- SDL3 ----------------------------------------------------------------
 # Windows: vendored prebuilt MinGW binaries (batteries included).
@@ -36,8 +37,10 @@ endif()
 
 if(WIN32)
   set(KANSI_PLATFORM "${KANSI_DIR}/platform_windows.c")
+  set(KAJI_PLATFORM "${KAJI_DIR}/platform_windows.c")
 else()
   set(KANSI_PLATFORM "${KANSI_DIR}/platform_linux.c")
+  set(KAJI_PLATFORM "${KAJI_DIR}/platform_linux.c")
 endif()
 
 add_executable(dungeon
@@ -45,9 +48,11 @@ add_executable(dungeon
   "${SENI_DIR}/seni.c"
   "${SENI_DIR}/arena.c"
   "${KANSI_DIR}/kansi.c"
-  "${KANSI_PLATFORM}")
+  "${KANSI_PLATFORM}"
+  "${KAJI_DIR}/kaji.c"
+  "${KAJI_PLATFORM}")
 
-target_include_directories(dungeon PRIVATE src "${ENGINE_DIR}/src" "${SENI_DIR}" "${KANSI_DIR}")
+target_include_directories(dungeon PRIVATE src "${ENGINE_DIR}/src" "${SENI_DIR}" "${KANSI_DIR}" "${KAJI_DIR}")
 target_link_libraries(dungeon PRIVATE SDL3::SDL3)
 target_compile_options(dungeon PRIVATE -Wall -Wextra)
 

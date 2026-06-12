@@ -26,22 +26,23 @@
 
 #include "seni.h"
 #include "kansi.h"
+#include "kaji.h"
 
 #ifdef _WIN32
 #define GAME_DLL_NEW    PLATFORM_BUILD_DIR "/game_new.dll"
 #define GAME_DLL_LOADED PLATFORM_BUILD_DIR "/game_loaded.dll"
 #define MIG_DLL         PLATFORM_BUILD_DIR "/mig.dll"
 #define MIG_COMPILE     "gcc -shared " MIG_C " -o " MIG_DLL " 2> " PLATFORM_BUILD_DIR "/mig_errors.log"
-#define KANSI_CFG       "kansi.cfg"
-#define RELOAD_HINT     "run reload.bat first"
 #else
 #define GAME_DLL_NEW    PLATFORM_BUILD_DIR "/game_new.so"
 #define GAME_DLL_LOADED PLATFORM_BUILD_DIR "/game_loaded.so"
 #define MIG_DLL         PLATFORM_BUILD_DIR "/mig.so"
 #define MIG_COMPILE     "gcc -shared -fPIC " MIG_C " -o " MIG_DLL " 2> " PLATFORM_BUILD_DIR "/mig_errors.log"
-#define KANSI_CFG       "kansi.linux.cfg"
-#define RELOAD_HINT     "run ./reload.sh first"
 #endif
+/* both configs are platform-neutral now: kansi only watches, kaji carries
+   the per-OS build knowledge internally */
+#define KANSI_CFG       "kansi.cfg"
+#define KAJI_CFG        "kaji.cfg"
 #define GAME_STATE_HDR  "src/game_state.h"
 #define MIG_C           PLATFORM_BUILD_DIR "/mig.c"
 
@@ -268,8 +269,65 @@ static void seni_apply_answers(SeniReloadStatus *status) {
     }
 }
 
+/* The forge: every build (the dev dll, ship bundles, anything in kaji.cfg)
+   goes through kaji. Two run slots: the dev dll rebuild that kansi's change
+   edge triggers, and whatever profile the editor/CLI asked for -- a ship
+   build never blocks the gameplay rebuild loop. */
+static kaji *g_forge;
+static kaji_run g_game_run;   /* dev dll rebuilds (kansi edge) */
+static kaji_run g_profile_run; /* editor/CLI requested targets */
+static int g_build_state; /* 0 idle/ok, 1 running, 2 failed */
+
+/* --build [target]: headless CLI mode. Builds the named kaji target
+   (default: ship), forwards its exit status, never opens a window:
+       dungeon --build            # ship
+       dungeon --build game       # the reloadable dll */
+static int run_build_cli(int argc, char *argv[]) {
+    const char *target = argc >= 3 ? argv[2] : "ship";
+    if (!g_forge) {
+        fprintf(stderr, "build: no forge (missing/broken " KAJI_CFG ")\n");
+        return 1;
+    }
+    fprintf(stderr, "build: target '%s'\n", target);
+    return kaji_build(g_forge, target, 1);
+}
+
+static b32 platform_run_build_profile(const char *profile) {
+    if (!g_forge) {
+        SDL_Log("build: no forge (missing/broken " KAJI_CFG ")");
+        return 0;
+    }
+    if (!kaji_build_async(g_forge, profile, &g_profile_run, 1)) {
+        SDL_Log("build: cannot start '%s' (unknown target or build running?)",
+                profile ? profile : "(null)");
+        return 0;
+    }
+    g_build_state = 1;
+    SDL_Log("build: target '%s' started (log: %s)", profile, g_profile_run.log_path);
+    return 1;
+}
+
+static int platform_build_status(void) {
+    return g_build_state;
+}
+
+static void platform_build_poll(void) {
+    switch (kaji_run_poll(g_forge, &g_profile_run)) {
+    case KAJI_DONE:
+        g_build_state = 0;
+        SDL_Log("build: done");
+        break;
+    case KAJI_FAILED:
+        g_build_state = 2;
+        SDL_Log("build: FAILED (exit %d), see %s",
+                g_profile_run.exit_code, g_profile_run.log_path);
+        break;
+    default:
+        break;
+    }
+}
+
 int main(int argc, char *argv[]) {
-    (void)argc; (void)argv;
     SDL_SetLogPriorities(SDL_LOG_PRIORITY_DEBUG);
 
     /* All paths (dlls, shaders, assets, gcc spawn) are relative to the
@@ -285,6 +343,18 @@ int main(int argc, char *argv[]) {
                 SDL_Log("warning: cannot chdir to project root '%s'", root);
             }
         }
+    }
+
+    {
+        char kaji_err[256];
+        g_forge = kaji_load(KAJI_CFG, kaji_err, sizeof(kaji_err));
+        if (!g_forge) {
+            SDL_Log("kaji disabled: %s", kaji_err);
+        }
+    }
+
+    if (argc >= 2 && strcmp(argv[1], "--build") == 0) {
+        return run_build_cli(argc, argv);
     }
 
     if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -309,7 +379,8 @@ int main(int argc, char *argv[]) {
     }
 
     GpuContext gpu_context = { window, device };
-    PlatformApi api = { &gpu_context, platform_log };
+    PlatformApi api = { &gpu_context, platform_log,
+                        platform_run_build_profile, platform_build_status };
 
     PlatformMemory memory = { 0 };
     memory.hot_size = HOT_SIZE;
@@ -321,8 +392,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    /* kansi: watch source trees, auto-rebuild the dll. Optional -- without
-       a config the manual reload script still works. */
+    /* kansi: watch the source trees. On its change edge the host asks the
+       forge for a fresh dll. Optional -- `dungeon --build game` still works. */
     char kansi_err[256];
     kansi *watcher = kansi_start(KANSI_CFG, kansi_err, sizeof(kansi_err));
     if (!watcher) {
@@ -331,8 +402,12 @@ int main(int argc, char *argv[]) {
 
     GameCode game = { 0 };
     if (!game_load(&game)) {
-        SDL_Log("initial game dll load failed -- " RELOAD_HINT);
-        return 1;
+        /* batteries included: forge the first dll ourselves */
+        SDL_Log("no game dll yet, forging one...");
+        if (!g_forge || kaji_build(g_forge, "game", 1) != 0 || !game_load(&game)) {
+            SDL_Log("initial game build failed -- try: dungeon --build game");
+            return 1;
+        }
     }
     memory.reloaded = 1;
 
@@ -364,12 +439,32 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        if (watcher) {
-            kansi_status ks = kansi_update(watcher);
-            if (ks == KANSI_BUILT) {
-                SDL_Log("kansi: dll rebuilt");
-            } else if (ks == KANSI_ERROR) {
-                SDL_Log("kansi: build failed, see %s", kansi_log_path(watcher));
+        platform_build_poll();
+
+        /* the dev loop: kansi reports the change, kaji forges the dll, the
+           dll watcher below swaps it in */
+        if (watcher && g_forge) {
+            if (kansi_update(watcher) == KANSI_CHANGED) {
+                if (g_game_run.active) {
+                    /* a rebuild is in flight; kansi will edge again on the
+                       next save, and the in-flight result still publishes */
+                    SDL_Log("forge: change during rebuild, finishing current");
+                } else if (kaji_build_async(g_forge, "game", &g_game_run, 1)) {
+                    SDL_Log("forge: sources changed, rebuilding dll");
+                } else {
+                    SDL_Log("forge: cannot start dll rebuild");
+                }
+            }
+            switch (kaji_run_poll(g_forge, &g_game_run)) {
+            case KAJI_DONE:
+                SDL_Log("forge: dll rebuilt");
+                break;
+            case KAJI_FAILED:
+                SDL_Log("forge: dll build FAILED (exit %d), see %s",
+                        g_game_run.exit_code, g_game_run.log_path);
+                break;
+            default:
+                break;
             }
         }
 
