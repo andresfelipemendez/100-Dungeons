@@ -1,0 +1,43 @@
+{
+    "folders":
+    [
+        { "path": ".", "name": "100-Dungeons" },
+        { "path": "C:/Users/andres/Development/seni", "name": "seni" },
+        { "path": "C:/Users/andres/Development/kansi", "name": "kansi" }
+    ],
+    "build_systems":
+    [
+        {
+            "name": "dungeon1",
+            "working_dir": "$project_path/dungeon1",
+            "shell_cmd": ".\\build.bat",
+            "file_regex": "^(..[^:\\n]*):([0-9]+):?([0-9]+)?:? (.*)$",
+            "syntax": "Packages/Makefile/Make Output.sublime-syntax",
+            "variants":
+            [
+                {
+                    "name": "reload dll only",
+                    "shell_cmd": ".\\reload.bat"
+                },
+                {
+                    "name": "run",
+                    "shell_cmd": "start \"\" build\\dungeon.exe"
+                },
+                {
+                    "name": "build + run",
+                    "shell_cmd": ".\\build.bat && start \"\" build\\dungeon.exe"
+                },
+                {
+                    "name": "kansi tests",
+                    "working_dir": "C:/Users/andres/Development/kansi",
+                    "shell_cmd": ".\\test.bat"
+                },
+                {
+                    "name": "seni tests",
+                    "working_dir": "C:/Users/andres/Development/seni",
+                    "shell_cmd": ".\\test.bat"
+                }
+            ]
+        }
+    ]
+}
