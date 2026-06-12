@@ -210,7 +210,10 @@ b32 ui_button(const char *id, const char *label) {
 
     Clay__OpenElementWithId(eid);
     Clay__ConfigureOpenElement((Clay_ElementDeclaration){
-        .layout = { .sizing = { CLAY_SIZING_FIXED(26), CLAY_SIZING_FIXED(26) },
+        /* fits the label, never narrower than a square glyph button */
+        .layout = { .sizing = { .width = CLAY_SIZING_FIT(26),
+                                .height = CLAY_SIZING_FIXED(26) },
+                    .padding = { 8, 8, 0, 0 },
                     .childAlignment = { CLAY_ALIGN_X_CENTER, CLAY_ALIGN_Y_CENTER } },
         .backgroundColor = Clay_Hovered()
             ? (Clay_Color){ 95, 100, 140, 255 }

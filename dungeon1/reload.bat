@@ -6,7 +6,7 @@ setlocal
 cd /d "%~dp0"
 
 set GLSLC=C:\VulkanSDK\1.4.341.1\Bin\glslc.exe
-set SENI_DIR=C:\Users\andres\Development\seni
+set SENI_DIR=..\vendor\seni
 
 if not exist build mkdir build
 

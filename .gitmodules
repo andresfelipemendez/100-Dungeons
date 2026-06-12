@@ -1,0 +1,6 @@
+[submodule "vendor/seni"]
+	path = vendor/seni
+	url = git@github.com:andresfelipemendez/seni.git
+[submodule "vendor/kansi"]
+	path = vendor/kansi
+	url = git@github.com:andresfelipemendez/kansi.git

@@ -18,5 +18,5 @@ typedef struct {
 
     float clear_r, clear_g, clear_b;
 
-    float rotation_speed SENI_WAS(spin_speed);
+    float spin_rate SENI_WAS(rotation_speed);
 } game_state;

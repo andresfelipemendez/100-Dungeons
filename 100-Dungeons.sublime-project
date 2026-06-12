@@ -2,8 +2,8 @@
     "folders":
     [
         { "path": ".", "name": "100-Dungeons" },
-        { "path": "C:/Users/andres/Development/seni", "name": "seni" },
-        { "path": "C:/Users/andres/Development/kansi", "name": "kansi" }
+        { "path": "vendor/seni", "name": "seni" },
+        { "path": "vendor/kansi", "name": "kansi" }
     ],
     "build_systems":
     [
@@ -29,12 +29,12 @@
                 },
                 {
                     "name": "kansi tests",
-                    "working_dir": "C:/Users/andres/Development/kansi",
+                    "working_dir": "$project_path/vendor/kansi",
                     "shell_cmd": ".\\test.bat"
                 },
                 {
                     "name": "seni tests",
-                    "working_dir": "C:/Users/andres/Development/seni",
+                    "working_dir": "$project_path/vendor/seni",
                     "shell_cmd": ".\\test.bat"
                 }
             ]

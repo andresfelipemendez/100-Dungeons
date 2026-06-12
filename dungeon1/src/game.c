@@ -79,7 +79,7 @@ static void editor_ui(game_state *gs, EngineState *es, GameInput *input,
                       f32 screen_w, f32 screen_h) {
     static char spin_buf[32];
     static char fps_buf[32];
-    snprintf(spin_buf, sizeof(spin_buf), "%.2f", gs->rotation_speed);
+    snprintf(spin_buf, sizeof(spin_buf), "%.2f", gs->spin_rate);
     snprintf(fps_buf, sizeof(fps_buf), "fps %.0f", es->fps_smoothed);
 
     ui_frame_begin(screen_w, screen_h, input->mouse_x, input->mouse_y,
@@ -92,11 +92,11 @@ static void editor_ui(game_state *gs, EngineState *es, GameInput *input,
         ui_row_begin("spin_row");
             ui_label("spin", 16);
             if (ui_button("spin_minus", "-")) {
-                gs->rotation_speed -= 0.2f;
+                gs->spin_rate -= 0.2f;
             }
             ui_label(spin_buf, 16);
             if (ui_button("spin_plus", "+")) {
-                gs->rotation_speed += 0.2f;
+                gs->spin_rate += 0.2f;
             }
         ui_row_end();
     ui_panel_end();
@@ -135,11 +135,11 @@ __declspec(dllexport) GAME_UPDATE_AND_RENDER(game_update_and_render) {
         gs->initialized = 1;
     }
 
-    /* rotation_speed arrives zeroed from a seni migration; treat 0 as unset */
-    if (gs->rotation_speed == 0.0f) {
-        gs->rotation_speed = 1.8f;
+    /* spin_rate arrives zeroed from a seni migration; treat 0 as unset */
+    if (gs->spin_rate == 0.0f) {
+        gs->spin_rate = 1.8f;
     }
-    gs->cam_angle += input->dt * gs->rotation_speed;
+    gs->cam_angle += input->dt * gs->spin_rate;
     if (input->dt > 0.0001f) {
         es->fps_smoothed = es->fps_smoothed * 0.95f + (1.0f / input->dt) * 0.05f;
     }
@@ -171,6 +171,7 @@ __declspec(dllexport) GAME_UPDATE_AND_RENDER(game_update_and_render) {
 
     rnd_frame_end();
 }
+
 
 
 

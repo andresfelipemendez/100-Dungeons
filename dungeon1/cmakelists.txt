@@ -10,8 +10,8 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 set(VENDOR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vendor")
 set(ENGINE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../engine")
-set(SENI_DIR "C:/Users/andres/Development/seni" CACHE PATH "Path to the seni library checkout")
-set(KANSI_DIR "C:/Users/andres/Development/kansi" CACHE PATH "Path to the kansi library checkout")
+set(SENI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vendor/seni" CACHE PATH "Path to the seni library checkout")
+set(KANSI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vendor/kansi" CACHE PATH "Path to the kansi library checkout")
 
 list(APPEND CMAKE_PREFIX_PATH "${VENDOR_DIR}/SDL3-mingw/x86_64-w64-mingw32")
 find_package(SDL3 CONFIG REQUIRED)

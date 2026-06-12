@@ -8,13 +8,21 @@ when its struct layout changes. Edit code or `src/game_state.h`, run
 
 ## Prerequisites (Windows)
 
+Vendored in the repo (batteries included): SDL3 prebuilt MinGW binaries
+(`../vendor/SDL3-mingw/`, x86_64 only), cgltf, stb, clay, and the seni +
+kansi libraries as git submodules (`../vendor/seni`, `../vendor/kansi`) —
+clone with `git clone --recurse-submodules` (or run
+`git submodule update --init` after a plain clone).
+
+Still needed on the machine:
+
 - MinGW gcc (on PATH) — required, seni's layout embedding uses GNU `.incbin`
 - CMake + Ninja
-- Vulkan SDK (glslc; path set in `reload.bat`)
-- seni checkout at `C:/Users/andres/Development/seni` (override with `-DSENI_DIR=`)
-- `../vendor/SDL3-mingw/`: extract `SDL3-devel-<ver>-mingw.tar.gz` from
-  [SDL releases](https://github.com/libsdl-org/SDL/releases) and rename the
-  `SDL3-<ver>` folder (gitignored, not committed)
+- Vulkan SDK (glslc; path set in `reload.bat` + `kansi.cfg`)
+
+To build against a development checkout of seni/kansi instead of the
+submodules, override `-DSENI_DIR=`/`-DKANSI_DIR=` (exe) and the include
+paths in `kansi.cfg` (dll).
 
 ## Build & run
 

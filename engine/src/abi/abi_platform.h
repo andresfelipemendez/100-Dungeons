@@ -11,15 +11,37 @@
    finds a same-type field removal + addition in one struct it cannot know
    whether that is a rename (data must move) or a removal (data must die);
    the platform refuses the reload and parks the questions here. The game's
-   UI (seni_panel.c in the seni checkout) shows them; the developer answers
-   by annotating the state header (SENI_WAS / SENI_DROPPED), which triggers
-   a rebuild and a clean reload. Fixed buffers: this struct crosses the
-   exe/dll boundary, so no pointers into either side. */
+   UI (seni_panel.c in the seni checkout) shows them with answer buttons.
+
+   Two-way mailbox: the platform writes the questions; the UI writes
+   `answer`; the platform consumes the answer by inserting the matching
+   annotation (SENI_WAS / SENI_DROPPED) into the state header on disk --
+   the same edit the developer would type by hand, so the header stays the
+   single source of intent. Saving the header triggers the rebuild that
+   retries the reload and clears the questions. Fixed buffers only: this
+   struct crosses the exe/dll boundary. */
 #define SENI_STATUS_MAX_QUESTIONS 16
 #define SENI_STATUS_MSG_MAX 512
+#define SENI_STATUS_NAME_MAX 64
+
+enum {
+    SENI_ANSWER_NONE = 0,
+    SENI_ANSWER_RENAME = 1,  /* annotate: <added> SENI_WAS(<removed>) */
+    SENI_ANSWER_DROPPED = 2, /* annotate: SENI_DROPPED(<removed>) */
+    SENI_ANSWER_APPLIED = 3  /* platform wrote the annotation; rebuild pending */
+};
+
+typedef struct SeniQuestion {
+    char message[SENI_STATUS_MSG_MAX];          /* preformatted, multi-line */
+    char struct_name[SENI_STATUS_NAME_MAX];
+    char removed[SENI_STATUS_NAME_MAX];
+    char added[SENI_STATUS_NAME_MAX];
+    u32  answer; /* SENI_ANSWER_*; UI writes, platform consumes */
+} SeniQuestion;
+
 typedef struct SeniReloadStatus {
-    u32  question_count; /* 0 = nothing pending, reloads flow */
-    char questions[SENI_STATUS_MAX_QUESTIONS][SENI_STATUS_MSG_MAX];
+    u32 question_count; /* 0 = nothing pending, reloads flow */
+    SeniQuestion questions[SENI_STATUS_MAX_QUESTIONS];
 } SeniReloadStatus;
 
 typedef struct PlatformMemory {

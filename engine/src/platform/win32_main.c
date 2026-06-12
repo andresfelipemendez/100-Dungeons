@@ -131,8 +131,12 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
         u64 n = dr.question_count < SENI_STATUS_MAX_QUESTIONS
               ? dr.question_count : SENI_STATUS_MAX_QUESTIONS;
         for (u64 q = 0; q < n; q++) {
-            SDL_strlcpy(status->questions[q], dr.questions[q].message,
-                        SENI_STATUS_MSG_MAX);
+            SeniQuestion *sq = &status->questions[q];
+            SDL_strlcpy(sq->message, dr.questions[q].message, SENI_STATUS_MSG_MAX);
+            SDL_strlcpy(sq->struct_name, dr.questions[q].struct_name, SENI_STATUS_NAME_MAX);
+            SDL_strlcpy(sq->removed, dr.questions[q].removed, SENI_STATUS_NAME_MAX);
+            SDL_strlcpy(sq->added, dr.questions[q].added, SENI_STATUS_NAME_MAX);
+            sq->answer = SENI_ANSWER_NONE;
             SDL_Log("migrate: %s", dr.questions[q].message);
         }
         if (dr.question_count > n) {
@@ -184,6 +188,61 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
     SDL_UnloadObject(mig);
     SDL_Log("migrate: game_state migrated to new layout");
     return 1;
+}
+
+/* Consumes answers the seni UI panel wrote into the mailbox: inserts the
+   matching annotation into GAME_STATE_HDR -- the exact edit the developer
+   would have typed -- and saves it. The save triggers the watcher rebuild,
+   which retries the reload; the fresh diff has no questions and the panel
+   clears. */
+static void seni_apply_answers(SeniReloadStatus *status) {
+    for (u32 q = 0; q < status->question_count; q++) {
+        SeniQuestion *sq = &status->questions[q];
+        if (sq->answer != SENI_ANSWER_RENAME && sq->answer != SENI_ANSWER_DROPPED) {
+            continue;
+        }
+        u32 answer = sq->answer;
+        sq->answer = SENI_ANSWER_APPLIED; /* one attempt per click, even on failure */
+
+        static char arena_buf[1u << 20];
+        arena a;
+        create_arena(&a, arena_buf, sizeof(arena_buf));
+
+        size_t hdr_len = 0;
+        char *hdr = SDL_LoadFile(GAME_STATE_HDR, &hdr_len);
+        if (!hdr) {
+            SDL_Log("seni: cannot read %s: %s", GAME_STATE_HDR, SDL_GetError());
+            continue;
+        }
+        char *copy = arena_copy_string(&a, hdr, hdr_len);
+        SDL_free(hdr);
+        if (!copy) {
+            SDL_Log("seni: arena exhausted reading %s", GAME_STATE_HDR);
+            continue;
+        }
+
+        annotate_result an;
+        if (answer == SENI_ANSWER_RENAME) {
+            an = annotate_rename(&a, copy, sq->struct_name, sq->removed, sq->added);
+        } else {
+            an = annotate_dropped(&a, copy, sq->struct_name, sq->removed);
+        }
+        if (an.err) {
+            SDL_Log("seni: %s", an.err);
+            continue;
+        }
+        if (!SDL_SaveFile(GAME_STATE_HDR, an.code, strlen(an.code))) {
+            SDL_Log("seni: cannot write %s: %s", GAME_STATE_HDR, SDL_GetError());
+            continue;
+        }
+        if (answer == SENI_ANSWER_RENAME) {
+            SDL_Log("seni: answered rename %s.%s <- %s; %s annotated, rebuilding",
+                    sq->struct_name, sq->added, sq->removed, GAME_STATE_HDR);
+        } else {
+            SDL_Log("seni: answered removal of %s.%s; %s annotated, rebuilding",
+                    sq->struct_name, sq->removed, GAME_STATE_HDR);
+        }
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -345,6 +404,10 @@ int main(int argc, char *argv[]) {
                 continue;
             }
         }
+
+        /* apply any disambiguation answers clicked in the seni panel last
+           frame: edits + saves the state header, which kicks the rebuild */
+        seni_apply_answers(&memory.seni);
 
         game.update(&memory, &api, &input);
         memory.reloaded = 0;
