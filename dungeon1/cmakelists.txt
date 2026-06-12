@@ -54,6 +54,9 @@ add_executable(dungeon
 
 target_include_directories(dungeon PRIVATE src "${ENGINE_DIR}/src" "${SENI_DIR}" "${KANSI_DIR}" "${KAJI_DIR}")
 target_link_libraries(dungeon PRIVATE SDL3::SDL3)
+if(NOT WIN32)
+  target_link_libraries(dungeon PRIVATE pthread) # kaji's copy worker threads
+endif()
 target_compile_options(dungeon PRIVATE -Wall -Wextra)
 
 if(WIN32)
