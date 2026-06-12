@@ -199,18 +199,31 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
     }
     typedef void (*migrate_fn)(void *old_p, void *new_p, size_t count);
     migrate_fn migrate = (migrate_fn)SDL_LoadFunction(mig, "migrate_game_state");
-    if (!migrate) {
-        SDL_Log("migrate: migrate_game_state not found: %s", SDL_GetError());
+    /* the generated module also exports the compiler-true size of the new
+       struct -- copy exactly that, never the whole hot block: anything that
+       might one day live above game_state in hot memory must survive */
+    const size_t *new_size_p =
+        (const size_t *)SDL_LoadFunction(mig, "migrate_game_state_new_size");
+    if (!migrate || !new_size_p) {
+        SDL_Log("migrate: missing exports in %s: %s", MIG_DLL, SDL_GetError());
+        SDL_UnloadObject(mig);
+        return 0;
+    }
+    u64 new_size = (u64)*new_size_p;
+    if (new_size == 0 || new_size > hot_size || new_size > scratch_size) {
+        SDL_Log("migrate: new game_state size %llu does not fit (hot %llu, scratch %llu)",
+                (unsigned long long)new_size, (unsigned long long)hot_size,
+                (unsigned long long)scratch_size);
         SDL_UnloadObject(mig);
         return 0;
     }
 
-    u64 copy_size = hot_size < scratch_size ? hot_size : scratch_size;
-    memset(scratch, 0, copy_size);
+    memset(scratch, 0, new_size);
     migrate(hot, scratch, 1);
-    memcpy(hot, scratch, copy_size);
+    memcpy(hot, scratch, new_size);
     SDL_UnloadObject(mig);
-    SDL_Log("migrate: game_state migrated to new layout");
+    SDL_Log("migrate: game_state migrated to new layout (%llu bytes)",
+            (unsigned long long)new_size);
     return 1;
 }
 
