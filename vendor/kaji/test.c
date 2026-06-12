@@ -1,0 +1,289 @@
+/* Unit + e2e tests. Includes kaji.c directly to reach internals. */
+#include "kaji.c"
+#include "utest.h"
+
+#ifdef _WIN32
+#include <direct.h>
+#define test_mkdir(p) _mkdir(p)
+#else
+#include <sys/stat.h>
+#define test_mkdir(p) mkdir(p, 0755)
+#endif
+
+static void write_file(const char *path, const char *content) {
+    FILE *f = fopen(path, "wb");
+    if (f) {
+        fputs(content, f);
+        fclose(f);
+    }
+}
+
+static void settle_ms(int ms) {
+    /* filesystem mtime quanta: separate writes the stale-check must order */
+    kaji_platform_sleep_ms(ms);
+}
+
+/* ---- kstr ---- */
+
+UTEST(kstr, views_and_compare) {
+    kstr s = KSTR("hello world");
+    ASSERT_EQ(11u, (unsigned)s.len);
+    ASSERT_TRUE(kstr_eq(kstr_slice(s, 0, 5), KSTR("hello")));
+    ASSERT_TRUE(kstr_eq_c(kstr_slice(s, 6, 11), "world"));
+    ASSERT_TRUE(kstr_starts_with(s, KSTR("hell")));
+    ASSERT_TRUE(kstr_ends_with(s, KSTR("rld")));
+    ASSERT_FALSE(kstr_eq(s, KSTR("hello")));
+    ASSERT_TRUE(kstr_eq(kstr_trim(KSTR("  x\t\r\n")), KSTR("x")));
+}
+
+UTEST(kstr, line_and_token_iterators) {
+    kstr text = KSTR("a b\tc\r\nsecond line\n\nlast");
+    kstr line = kstr_next_line(&text);
+    ASSERT_TRUE(kstr_eq(line, KSTR("a b\tc"))); /* \r stripped */
+    kstr tok = kstr_next_token(&line);
+    ASSERT_TRUE(kstr_eq(tok, KSTR("a")));
+    tok = kstr_next_token(&line);
+    ASSERT_TRUE(kstr_eq(tok, KSTR("b")));
+    tok = kstr_next_token(&line);
+    ASSERT_TRUE(kstr_eq(tok, KSTR("c")));
+    tok = kstr_next_token(&line);
+    ASSERT_TRUE(kstr_is_empty(tok));
+
+    ASSERT_TRUE(kstr_eq(kstr_next_line(&text), KSTR("second line")));
+    ASSERT_TRUE(kstr_eq(kstr_next_line(&text), KSTR("")));
+    ASSERT_TRUE(kstr_eq(kstr_next_line(&text), KSTR("last")));
+    ASSERT_EQ(0u, (unsigned)text.len);
+}
+
+UTEST(kstr, copy_bounds_and_builder) {
+    char small[4];
+    ASSERT_FALSE(kstr_copy(small, sizeof(small), KSTR("toolong")));
+    ASSERT_STREQ("too", small); /* truncated but terminated */
+    ASSERT_TRUE(kstr_copy(small, sizeof(small), KSTR("ok")));
+    ASSERT_STREQ("ok", small);
+
+    char storage[16];
+    kstr_buf b;
+    kstr_buf_init(&b, storage, sizeof(storage));
+    kstr_buf_append(&b, KSTR("gcc"));
+    kstr_buf_appendf(&b, " -I%s", "src");
+    ASSERT_FALSE(b.overflow);
+    ASSERT_STREQ("gcc -Isrc", storage);
+    kstr_buf_appendf(&b, " %s", "waaaay too long for this");
+    ASSERT_TRUE(b.overflow); /* sticky */
+}
+
+/* ---- config parsing ---- */
+
+static kaji *load_cfg(const char *content, char *err, int err_size) {
+    test_mkdir("build");
+    write_file("build/test_kaji.cfg", content);
+    return kaji_load("build/test_kaji.cfg", err, err_size);
+}
+
+UTEST(parse, targets_vars_tools) {
+    char err[256] = { 0 };
+    kaji *k = load_cfg(
+        "# comment\n"
+        "builddir out_w\n"
+        "builddir_linux out_l\n"
+        "tool glslc my_glslc\n"
+        "target snap copy\n"
+        "  in src.h\n"
+        "  out ${B}/snap.h\n"
+        "target game dll\n"
+        "  dep snap\n"
+        "  in unity.c\n"
+        "  out ${B}/game${SO}\n"
+        "  include inc1 inc2\n"
+        "  flag -g0\n"
+        "  define FOO=1\n"
+        "  lib_win SDL3\n"
+        "  lib_linux m\n",
+        err, sizeof(err));
+    ASSERT_TRUE_MSG(k != NULL, err);
+    const char *bd = kaji_platform_is_linux() ? "out_l" : "out_w";
+    ASSERT_STREQ(bd, k->builddir);
+
+    kaji_target *t = kaji_find(k, KSTR("game"));
+    ASSERT_TRUE(t != NULL);
+    ASSERT_EQ(KAJI_KIND_DLL, (int)t->kind);
+    ASSERT_EQ(1, t->dep_count);
+    ASSERT_EQ(2, t->include_count);
+    ASSERT_EQ(1, t->lib_count); /* only this OS's lib survived */
+    ASSERT_STREQ(kaji_platform_is_linux() ? "m" : "SDL3", t->lib[0]);
+
+    char expect[128];
+    snprintf(expect, sizeof(expect), "%s/game%s", bd, kaji_so_ext());
+    ASSERT_STREQ(expect, t->out);
+    kaji_free(k);
+}
+
+UTEST(parse, errors_carry_line_numbers) {
+    char err[256] = { 0 };
+    ASSERT_TRUE(load_cfg("target a copy\n  in x\n  out y\n  bogus v\n",
+                         err, sizeof(err)) == NULL);
+    ASSERT_TRUE(strstr(err, "line 4") != NULL);
+    ASSERT_TRUE(strstr(err, "bogus") != NULL);
+
+    ASSERT_TRUE(load_cfg("target a dll\n  in x\n  out ${NOPE}/y\n",
+                         err, sizeof(err)) == NULL);
+    ASSERT_TRUE(strstr(err, "expansion") != NULL);
+
+    ASSERT_TRUE(load_cfg("target a copy\n  in x\n  out y\n  dep ghost\n",
+                         err, sizeof(err)) == NULL);
+    ASSERT_TRUE(strstr(err, "ghost") != NULL);
+}
+
+UTEST(parse, command_assembly) {
+    char err[256] = { 0 };
+    kaji *k = load_cfg(
+        "builddir bb\nbuilddir_linux bb\n"
+        "target obj1 object\n  in a.c\n  out bb/a.o\n  flag -O1\n  include i1\n"
+        "target game dll\n  in u.c\n  out bb/g${SO}\n  obj bb/a.o\n"
+        "  flag -g0\n  define ED=1\n  libdir L1\n  lib z\n",
+        err, sizeof(err));
+    ASSERT_TRUE_MSG(k != NULL, err);
+
+    char cmd[1024];
+    kaji_target *o = kaji_find(k, KSTR("obj1"));
+    ASSERT_TRUE(kaji_command_for(k, o, cmd, sizeof(cmd), o->out));
+    if (kaji_platform_is_linux()) {
+        ASSERT_STREQ("gcc -c -fPIC -O1 a.c -Ii1 -o bb/a.o", cmd);
+    } else {
+        ASSERT_STREQ("gcc -c -O1 a.c -Ii1 -o bb/a.o", cmd);
+    }
+
+    kaji_target *g = kaji_find(k, KSTR("game"));
+    ASSERT_TRUE(kaji_command_for(k, g, cmd, sizeof(cmd), "TMP"));
+    if (kaji_platform_is_linux()) {
+        ASSERT_STREQ("gcc -shared -fPIC -g0 -DED=1 u.c bb/a.o -LL1 -lz -o TMP", cmd);
+    } else {
+        ASSERT_STREQ("gcc -shared -g0 -DED=1 u.c bb/a.o -LL1 -lz -o TMP", cmd);
+    }
+    kaji_free(k);
+}
+
+/* ---- e2e: real gcc builds through the graph ---- */
+
+static const char *E2E_CFG =
+    "builddir build/forge\n"
+    "builddir_linux build/forge\n"
+    "target answer object\n"
+    "  in build/answer.c\n"
+    "  out ${B}/answer.o\n"
+    "target mod dll\n"
+    "  dep answer\n"
+    "  in build/mod.c\n"
+    "  out ${B}/mod${SO}\n"
+    "  obj ${B}/answer.o\n";
+
+UTEST(e2e, graph_build_skip_rebuild) {
+    test_mkdir("build");
+    write_file("build/answer.c", "int answer(void) { return 42; }\n");
+    write_file("build/mod.c", "extern int answer(void);\n"
+                              "int twice(void) { return answer() * 2; }\n");
+    char err[256] = { 0 };
+    kaji *k = load_cfg(E2E_CFG, err, sizeof(err));
+    ASSERT_TRUE_MSG(k != NULL, err);
+
+    /* full build */
+    ASSERT_EQ(0, kaji_build(k, "mod", 0));
+    char so_path[256];
+    snprintf(so_path, sizeof(so_path), "build/forge/mod%s", kaji_so_ext());
+    unsigned long long t1;
+    ASSERT_TRUE(kaji_platform_mtime(so_path, &t1));
+
+    /* nothing changed: everything skips, artifact untouched */
+    settle_ms(30);
+    ASSERT_EQ(0, kaji_build(k, "mod", 0));
+    unsigned long long t2;
+    ASSERT_TRUE(kaji_platform_mtime(so_path, &t2));
+    ASSERT_EQ(t1, t2);
+
+    /* touching the object's source rebuilds object AND the dll above it */
+    settle_ms(30);
+    write_file("build/answer.c", "int answer(void) { return 43; }\n");
+    ASSERT_EQ(0, kaji_build(k, "mod", 0));
+    unsigned long long t3;
+    ASSERT_TRUE(kaji_platform_mtime(so_path, &t3));
+    ASSERT_NE(t2, t3);
+    kaji_free(k);
+}
+
+UTEST(e2e, async_polls_to_done) {
+    test_mkdir("build");
+    write_file("build/answer.c", "int answer(void) { return 1; }\n");
+    write_file("build/mod.c", "extern int answer(void);\n"
+                              "int once(void) { return answer(); }\n");
+    char err[256] = { 0 };
+    kaji *k = load_cfg(E2E_CFG, err, sizeof(err));
+    ASSERT_TRUE_MSG(k != NULL, err);
+
+    settle_ms(30);
+    write_file("build/mod.c", "extern int answer(void);\n"
+                              "int thrice(void) { return answer() * 3; }\n");
+    kaji_run run = { 0 };
+    ASSERT_TRUE(kaji_build_async(k, "mod", &run, 0));
+    /* busy slot refused */
+    ASSERT_FALSE(kaji_build_async(k, "mod", &run, 0));
+
+    kaji_status final = KAJI_RUNNING;
+    for (int i = 0; i < 4000 && final == KAJI_RUNNING; i++) {
+        final = kaji_run_poll(k, &run);
+        kaji_platform_sleep_ms(5);
+    }
+    ASSERT_EQ(KAJI_DONE, (int)final);
+    ASSERT_EQ(KAJI_IDLE, (int)kaji_run_poll(k, &run)); /* edge-triggered */
+    kaji_free(k);
+}
+
+UTEST(e2e, compile_error_fails_with_log) {
+    test_mkdir("build");
+    write_file("build/answer.c", "int answer(void) { return 1; }\n");
+    write_file("build/mod.c", "this does not compile;\n");
+    char err[256] = { 0 };
+    kaji *k = load_cfg(E2E_CFG, err, sizeof(err));
+    ASSERT_TRUE_MSG(k != NULL, err);
+
+    ASSERT_EQ(1, kaji_build(k, "mod", 0));
+
+    FILE *log = fopen("build/forge/kaji_mod.log", "rb");
+    ASSERT_TRUE(log != NULL);
+    char buf[512] = { 0 };
+    fread(buf, 1, sizeof(buf) - 1, log);
+    fclose(log);
+    ASSERT_TRUE(strstr(buf, "error") != NULL);
+    /* heal for later runs */
+    write_file("build/mod.c", "extern int answer(void);\n"
+                              "int ok(void) { return answer(); }\n");
+    kaji_free(k);
+}
+
+UTEST(e2e, exe_with_post_copy) {
+    test_mkdir("build");
+    test_mkdir("build/payload");
+    write_file("build/payload/data.txt", "loot\n");
+    write_file("build/main.c", "int main(void) { return 0; }\n");
+    char err[256] = { 0 };
+    kaji *k = load_cfg(
+        "builddir build/forge\nbuilddir_linux build/forge\n"
+        "target app exe\n"
+        "  in build/main.c\n"
+        "  out ${B}/bundle/app${EXE}\n"
+        "  post copydir build/payload ${B}/bundle/payload\n"
+        "  post copy build/main.c ${B}/bundle/main.c.txt\n",
+        err, sizeof(err));
+    ASSERT_TRUE_MSG(k != NULL, err);
+    ASSERT_EQ(0, kaji_build(k, "app", 0));
+
+    FILE *f = fopen("build/forge/bundle/payload/data.txt", "rb");
+    ASSERT_TRUE(f != NULL);
+    if (f) fclose(f);
+    f = fopen("build/forge/bundle/main.c.txt", "rb");
+    ASSERT_TRUE(f != NULL);
+    if (f) fclose(f);
+    kaji_free(k);
+}
+
+UTEST_MAIN();

@@ -13,12 +13,16 @@
 #define UI_BAKE_PX    32.0f /* glyphs baked at this size, scaled at draw */
 #define UI_ATLAS_SIZE 512
 /* tried in order; covers native Windows, WSL (windows fonts via /mnt/c),
-   and common Linux distro monospace fonts */
+   common Linux distro monospace fonts, and macOS */
 static const char *ui_font_candidates[] = {
     "C:/Windows/Fonts/consola.ttf",
     "/mnt/c/Windows/Fonts/consola.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
     "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
+    /* macOS: plain .ttf only -- stb_truetype is handed offset 0, which a
+       .ttc collection (Menlo) would fail */
+    "/System/Library/Fonts/Monaco.ttf",
+    "/System/Library/Fonts/Supplemental/Courier New.ttf",
 };
 
 #define UI_MAX_PANELS 8

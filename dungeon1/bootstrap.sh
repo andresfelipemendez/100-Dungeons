@@ -8,8 +8,20 @@
 set -e
 cd "$(dirname "$0")"
 
-cmake -S . -B build-linux -G Ninja -DCMAKE_C_COMPILER=gcc -DCMAKE_BUILD_TYPE=Debug
-cmake --build build-linux --parallel "$(nproc)"
+if [ "$(uname)" = "Darwin" ]; then
+    # macOS: clang (gcc here is clang anyway), separate build dir -- object
+    # formats and cmake caches must not collide with linux builds
+    BUILD_DIR=build-mac
+    CC=cc
+    JOBS="$(sysctl -n hw.ncpu)"
+else
+    BUILD_DIR=build-linux
+    CC=gcc
+    JOBS="$(nproc)"
+fi
+
+cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_C_COMPILER="$CC" -DCMAKE_BUILD_TYPE=Debug
+cmake --build "$BUILD_DIR" --parallel "$JOBS"
 
 echo
-echo "bootstrap complete. run:  ./build-linux/dungeon"
+echo "bootstrap complete. run:  ./$BUILD_DIR/dungeon"

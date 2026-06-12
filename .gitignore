@@ -1,4 +1,5 @@
 ﻿*.DS_Store
 dungeon1/build
 dungeon1/build-linux
+dungeon1/build-mac
 .vs

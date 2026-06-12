@@ -56,6 +56,15 @@ int main(int argc, char *argv[]) {
         SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
         return 1;
     }
+#ifdef __APPLE__
+    /* modern dyld won't find the Vulkan SDK's loader (/usr/local/lib) from
+       a bare dlopen name; point SDL at it explicitly. MoltenVK translates
+       to Metal underneath -- the SPIR-V pipeline stays unchanged. */
+    if (!SDL_GetHint(SDL_HINT_VULKAN_LIBRARY) &&
+        access("/usr/local/lib/libvulkan.dylib", F_OK) == 0) {
+        SDL_SetHint(SDL_HINT_VULKAN_LIBRARY, "/usr/local/lib/libvulkan.dylib");
+    }
+#endif
     SDL_GPUDevice *device =
         SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, false, "vulkan");
     if (!device) {

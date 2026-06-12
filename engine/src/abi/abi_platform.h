@@ -83,6 +83,8 @@ typedef struct GameInput {
    share a directory: object formats, cmake caches and .gch files collide. */
 #ifdef _WIN32
 #define PLATFORM_BUILD_DIR "build"
+#elif defined(__APPLE__)
+#define PLATFORM_BUILD_DIR "build-mac"
 #else
 #define PLATFORM_BUILD_DIR "build-linux"
 #endif

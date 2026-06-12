@@ -168,7 +168,12 @@ static b32 game_load(GameCode *code) {
     memset(code, 0, sizeof(*code));
     SDL_Time mtime = file_mtime(GAME_DLL_NEW);
 
-    /* Copy so the compiler can overwrite GAME_DLL_NEW while we run. */
+    /* Copy so the compiler can overwrite GAME_DLL_NEW while we run. Remove
+       the old copy first: macOS validates code signatures per vnode, and
+       overwriting a previously-mapped dylib in place poisons it (dlopen is
+       then SIGKILLed with "code signature invalid"). A fresh vnode per copy
+       avoids that; harmless on the other platforms. */
+    SDL_RemovePath(g_dll_loaded_path);
     b32 copied = 0;
     for (int attempt = 0; attempt < 10; attempt++) {
         if (SDL_CopyFile(GAME_DLL_NEW, g_dll_loaded_path)) {
@@ -272,6 +277,9 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
         SDL_Log("migrate: cannot write %s: %s", g_mig_c_path, SDL_GetError());
         return 0;
     }
+    /* fresh vnode per compile: macOS kills dlopen of an in-place-overwritten
+       previously-mapped dylib with "code signature invalid" (see game_load) */
+    SDL_RemovePath(g_mig_dll_path);
     if (system(g_mig_cmd) != 0) {
         SDL_Log("migrate: gcc failed, see the per-instance mig_errors log");
         return 0;
@@ -494,6 +502,15 @@ int main(int argc, char *argv[]) {
         SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
         return 1;
     }
+#ifdef __APPLE__
+    /* modern dyld won't find the Vulkan SDK's loader (/usr/local/lib) from
+       a bare dlopen name; point SDL at it explicitly. MoltenVK translates
+       to Metal underneath -- the SPIR-V pipeline stays unchanged. */
+    if (!SDL_GetHint(SDL_HINT_VULKAN_LIBRARY) &&
+        access("/usr/local/lib/libvulkan.dylib", F_OK) == 0) {
+        SDL_SetHint(SDL_HINT_VULKAN_LIBRARY, "/usr/local/lib/libvulkan.dylib");
+    }
+#endif
     SDL_GPUDevice *device =
         SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, "vulkan");
     if (!device) {
