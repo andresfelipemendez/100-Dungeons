@@ -2,8 +2,9 @@ cmake_minimum_required(VERSION 3.24)
 project(Dungeon LANGUAGES C)
 
 # Builds ONLY the platform exe (the stable binary). The reloadable game dll
-# is built by reload.bat with a single gcc call -- that is the iteration loop.
-# MinGW gcc required: seni's layout embedding uses GNU .incbin assembly.
+# is built by reload.bat / reload.sh with a single gcc call -- that is the
+# iteration loop. MinGW/Linux gcc required: seni's layout embedding uses GNU
+# .incbin assembly.
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -13,21 +14,46 @@ set(ENGINE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../engine")
 set(SENI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vendor/seni" CACHE PATH "Path to the seni library checkout")
 set(KANSI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vendor/kansi" CACHE PATH "Path to the kansi library checkout")
 
-list(APPEND CMAKE_PREFIX_PATH "${VENDOR_DIR}/SDL3-mingw/x86_64-w64-mingw32")
-find_package(SDL3 CONFIG REQUIRED)
+# --- SDL3 ----------------------------------------------------------------
+# Windows: vendored prebuilt MinGW binaries (batteries included).
+# Linux: no distro package on Ubuntu 24.04 -- built from source once via
+# FetchContent (shared, so the game .so resolves SDL symbols from the
+# already-loaded library at dlopen time).
+if(WIN32)
+  list(APPEND CMAKE_PREFIX_PATH "${VENDOR_DIR}/SDL3-mingw/x86_64-w64-mingw32")
+  find_package(SDL3 CONFIG REQUIRED)
+else()
+  include(FetchContent)
+  set(SDL_SHARED ON CACHE BOOL "" FORCE)
+  set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+  set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
+  FetchContent_Declare(SDL3
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+    GIT_TAG release-3.4.10
+    GIT_SHALLOW TRUE)
+  FetchContent_MakeAvailable(SDL3)
+endif()
+
+if(WIN32)
+  set(KANSI_PLATFORM "${KANSI_DIR}/platform_windows.c")
+else()
+  set(KANSI_PLATFORM "${KANSI_DIR}/platform_linux.c")
+endif()
 
 add_executable(dungeon
-  "${ENGINE_DIR}/src/platform/win32_main.c"
+  "${ENGINE_DIR}/src/platform/sdl_main.c"
   "${SENI_DIR}/seni.c"
   "${SENI_DIR}/arena.c"
   "${KANSI_DIR}/kansi.c"
-  "${KANSI_DIR}/platform_windows.c")
+  "${KANSI_PLATFORM}")
 
 target_include_directories(dungeon PRIVATE src "${ENGINE_DIR}/src" "${SENI_DIR}" "${KANSI_DIR}")
 target_link_libraries(dungeon PRIVATE SDL3::SDL3)
 target_compile_options(dungeon PRIVATE -Wall -Wextra)
 
-add_custom_command(TARGET dungeon POST_BUILD
-  COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-    "${VENDOR_DIR}/SDL3-mingw/x86_64-w64-mingw32/bin/SDL3.dll"
-    "$<TARGET_FILE_DIR:dungeon>/SDL3.dll")
+if(WIN32)
+  add_custom_command(TARGET dungeon POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+      "${VENDOR_DIR}/SDL3-mingw/x86_64-w64-mingw32/bin/SDL3.dll"
+      "$<TARGET_FILE_DIR:dungeon>/SDL3.dll")
+endif()

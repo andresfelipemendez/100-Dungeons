@@ -70,6 +70,22 @@ typedef struct GameInput {
     b32 mouse_left;
 } GameInput;
 
+/* Where per-OS build artifacts (game dll, compiled shaders, migration
+   scratch) live, relative to the project root. Windows and Linux must not
+   share a directory: object formats, cmake caches and .gch files collide. */
+#ifdef _WIN32
+#define PLATFORM_BUILD_DIR "build"
+#else
+#define PLATFORM_BUILD_DIR "build-linux"
+#endif
+
+/* Export decoration for the dll's entry points. */
+#ifdef _WIN32
+#define GAME_EXPORT __declspec(dllexport)
+#else
+#define GAME_EXPORT __attribute__((visibility("default")))
+#endif
+
 #define GAME_UPDATE_AND_RENDER(name) \
     void name(PlatformMemory *memory, PlatformApi *api, GameInput *input)
 typedef GAME_UPDATE_AND_RENDER(GameUpdateAndRenderFn);

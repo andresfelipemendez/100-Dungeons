@@ -1,13 +1,24 @@
 /* Platform layer: owns the process, window, GPU device, the persistent
    memory blocks, the dll reload loop, and the seni migration driver. Knows
    nothing about the game's types beyond the ABI; must never need recompiling
-   while iterating on the game. Run from the dungeon1/ directory. */
+   while iterating on the game.
+
+   One file for every SDL platform: beyond the handful of definitions below
+   (chdir, shared-object names, the migration compile command), everything
+   here is SDL and identical on Windows and Linux. */
 
 #include <SDL3/SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef _WIN32
 #include <direct.h>
+#define platform_chdir _chdir
+#else
+#include <unistd.h>
+#define platform_chdir chdir
+#endif
 
 #include "base/base_types.h"
 #include "abi/abi_platform.h"
@@ -16,11 +27,23 @@
 #include "seni.h"
 #include "kansi.h"
 
-#define GAME_DLL_NEW    "build/game_new.dll"
-#define GAME_DLL_LOADED "build/game_loaded.dll"
+#ifdef _WIN32
+#define GAME_DLL_NEW    PLATFORM_BUILD_DIR "/game_new.dll"
+#define GAME_DLL_LOADED PLATFORM_BUILD_DIR "/game_loaded.dll"
+#define MIG_DLL         PLATFORM_BUILD_DIR "/mig.dll"
+#define MIG_COMPILE     "gcc -shared " MIG_C " -o " MIG_DLL " 2> " PLATFORM_BUILD_DIR "/mig_errors.log"
+#define KANSI_CFG       "kansi.cfg"
+#define RELOAD_HINT     "run reload.bat first"
+#else
+#define GAME_DLL_NEW    PLATFORM_BUILD_DIR "/game_new.so"
+#define GAME_DLL_LOADED PLATFORM_BUILD_DIR "/game_loaded.so"
+#define MIG_DLL         PLATFORM_BUILD_DIR "/mig.so"
+#define MIG_COMPILE     "gcc -shared -fPIC " MIG_C " -o " MIG_DLL " 2> " PLATFORM_BUILD_DIR "/mig_errors.log"
+#define KANSI_CFG       "kansi.linux.cfg"
+#define RELOAD_HINT     "run ./reload.sh first"
+#endif
 #define GAME_STATE_HDR  "src/game_state.h"
-#define MIG_C           "build/mig.c"
-#define MIG_DLL         "build/mig.dll"
+#define MIG_C           PLATFORM_BUILD_DIR "/mig.c"
 
 #define HOT_SIZE       (1u << 20)   /* 1 MB  */
 #define TRANSIENT_SIZE (64u << 20)  /* 64 MB */
@@ -163,7 +186,7 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
         SDL_Log("migrate: cannot write %s: %s", MIG_C, SDL_GetError());
         return 0;
     }
-    if (system("gcc -shared " MIG_C " -o " MIG_DLL " 2> build/mig_errors.log") != 0) {
+    if (system(MIG_COMPILE) != 0) {
         SDL_Log("migrate: gcc failed, see build/mig_errors.log");
         return 0;
     }
@@ -258,7 +281,7 @@ int main(int argc, char *argv[]) {
         if (base) {
             char root[1024];
             SDL_snprintf(root, sizeof(root), "%s..", base);
-            if (_chdir(root) != 0) {
+            if (platform_chdir(root) != 0) {
                 SDL_Log("warning: cannot chdir to project root '%s'", root);
             }
         }
@@ -301,14 +324,14 @@ int main(int argc, char *argv[]) {
     /* kansi: watch source trees, auto-rebuild the dll. Optional -- without
        a config the manual reload script still works. */
     char kansi_err[256];
-    kansi *watcher = kansi_start("kansi.cfg", kansi_err, sizeof(kansi_err));
+    kansi *watcher = kansi_start(KANSI_CFG, kansi_err, sizeof(kansi_err));
     if (!watcher) {
         SDL_Log("kansi disabled: %s", kansi_err);
     }
 
     GameCode game = { 0 };
     if (!game_load(&game)) {
-        SDL_Log("initial game dll load failed -- run reload.bat first");
+        SDL_Log("initial game dll load failed -- " RELOAD_HINT);
         return 1;
     }
     memory.reloaded = 1;

@@ -16,7 +16,7 @@
    path is resolved by the assembler relative to the compiler's cwd, which
    reload.bat pins to the project root. */
 #include "seni_embed.h"
-SENI_EMBED_LAYOUT("build/game_state.h");
+SENI_EMBED_LAYOUT(PLATFORM_BUILD_DIR "/game_state.h");
 
 #ifndef ASSETS_DIR
 #define ASSETS_DIR "../assets"
@@ -47,7 +47,8 @@ static b32 cold_rebuild(EngineState *es, PlatformMemory *memory, PlatformApi *ap
     if (!rnd_init(api->gpu_context)) {
         return 0;
     }
-    es->pipeline = rnd_pipeline_create("build/model.vert.spv", "build/model.frag.spv");
+    es->pipeline = rnd_pipeline_create(PLATFORM_BUILD_DIR "/model.vert.spv",
+                                       PLATFORM_BUILD_DIR "/model.frag.spv");
     if (!es->pipeline.id) {
         return 0;
     }
@@ -104,7 +105,7 @@ static void editor_ui(game_state *gs, EngineState *es, GameInput *input,
     ui_frame_end(input->dt);
 }
 
-__declspec(dllexport) GAME_UPDATE_AND_RENDER(game_update_and_render) {
+GAME_EXPORT GAME_UPDATE_AND_RENDER(game_update_and_render) {
     game_state *gs = (game_state *)memory->hot;
     EngineState *es = (EngineState *)memory->transient;
 
@@ -180,3 +181,4 @@ __declspec(dllexport) GAME_UPDATE_AND_RENDER(game_update_and_render) {
 
 
 
+/* linux touch */

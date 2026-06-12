@@ -12,7 +12,14 @@
 
 #define UI_BAKE_PX    32.0f /* glyphs baked at this size, scaled at draw */
 #define UI_ATLAS_SIZE 512
-#define UI_FONT_PATH  "C:/Windows/Fonts/consola.ttf"
+/* tried in order; covers native Windows, WSL (windows fonts via /mnt/c),
+   and common Linux distro monospace fonts */
+static const char *ui_font_candidates[] = {
+    "C:/Windows/Fonts/consola.ttf",
+    "/mnt/c/Windows/Fonts/consola.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
+};
 
 #define UI_MAX_PANELS 8
 
@@ -69,9 +76,15 @@ static Clay_Dimensions ui_measure_text(Clay_StringSlice text,
 
 static b32 ui_font_bake(u8 *bitmap8, u8 *rgba) {
     size_t ttf_size = 0;
-    void *ttf = SDL_LoadFile(UI_FONT_PATH, &ttf_size);
+    void *ttf = NULL;
+    for (u32 i = 0; i < sizeof(ui_font_candidates) / sizeof(*ui_font_candidates); i++) {
+        ttf = SDL_LoadFile(ui_font_candidates[i], &ttf_size);
+        if (ttf) {
+            break;
+        }
+    }
     if (!ttf) {
-        SDL_Log("ui: cannot load font '%s': %s", UI_FONT_PATH, SDL_GetError());
+        SDL_Log("ui: no usable monospace font found (see ui_font_candidates)");
         return 0;
     }
     if (stbtt_BakeFontBitmap((const unsigned char *)ttf, 0, UI_BAKE_PX,

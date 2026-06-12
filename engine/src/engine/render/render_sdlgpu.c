@@ -1,5 +1,6 @@
 #include "engine/render/render.h"
 #include "abi/abi_gpu.h"
+#include "abi/abi_platform.h" /* PLATFORM_BUILD_DIR */
 
 #include <SDL3/SDL.h>
 #include <string.h>
@@ -472,8 +473,8 @@ static b32 rnd_ui_setup(void) {
         return 0;
     }
 
-    SDL_GPUShader *vs = load_shader_spv("build/ui.vert.spv", 1);
-    SDL_GPUShader *fs = load_shader_spv("build/ui.frag.spv", 0);
+    SDL_GPUShader *vs = load_shader_spv(PLATFORM_BUILD_DIR "/ui.vert.spv", 1);
+    SDL_GPUShader *fs = load_shader_spv(PLATFORM_BUILD_DIR "/ui.frag.spv", 0);
     if (!vs || !fs) {
         if (vs) SDL_ReleaseGPUShader(rnd.device, vs);
         if (fs) SDL_ReleaseGPUShader(rnd.device, fs);
