@@ -7,12 +7,15 @@
 
    A project is any folder holding a project.meikyu marker:
        name dungeon1            (window title, ship exe name; default:
-                                 the folder's basename)
+                                 the folder's basename; whitespace is
+                                 sanitized to '-')
        assets ../assets         (dir bundled into ship; default ../assets)
+       version 0.1              (optional; engine warns on mismatch)
 
    Generated at every project open, into <build>/gen/ (absolute engine /
-   vendor paths inside, so they survive any cwd; regenerated each open so
-   engine upgrades propagate):
+   vendor paths inside -- double-quoted, kaji's tokenizer understands
+   quotes -- so they survive any cwd; regenerated each open so engine
+   upgrades propagate):
        game_unity.gen.c   engine prelude + every .c under src/, sorted
        kaji.gen.cfg       snapshot/shaders/vendor_impl/ui/editor/pch/
                           game/ship/host targets, fully concrete
@@ -21,6 +24,7 @@
 #include "base/base_types.h"
 
 #define PROJECT_MARKER "project.meikyu"
+#define MEIKYU_VERSION "0.1"
 
 typedef struct {
     char name[256];
@@ -36,9 +40,11 @@ typedef struct {
    cause is logged. */
 b32 project_open(Project *p);
 
-/* Rescan src/ and rewrite the unity file only if the .c set changed
+/* Rescan src/ and rewrite the generated files whose content changed
    (called on the kansi change edge, before the rebuild, so added or
-   deleted files hot-reload like edits). 0 = write failure. */
-b32 project_regen_unity(Project *p);
+   deleted .c/.vert/.frag files hot-reload like edits). Sets *kaji_changed
+   when kaji.gen.cfg was rewritten (shader set changed) -- the caller must
+   reload its kaji instance before the next build. 0 = write failure. */
+b32 project_regen(Project *p, b32 *kaji_changed);
 
 #endif /* PROJECT_GEN_H */

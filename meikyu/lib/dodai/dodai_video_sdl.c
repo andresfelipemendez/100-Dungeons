@@ -19,13 +19,15 @@ int dodai_video_init(void) {
     return 1;
 }
 
-int dodai_video_open(const char *title, int w, int h, int debug_gpu,
+int dodai_video_open(ito title, int w, int h, int debug_gpu,
                      DodaiVideo *out) {
+    char title_c[256];
+    ito_copy(title_c, sizeof(title_c), title);
     if (!SDL_Init(SDL_INIT_VIDEO)) { /* refcounts if already up */
         SDL_Log("dodai_video_open: SDL_Init failed: %s", SDL_GetError());
         return 0;
     }
-    SDL_Window *window = SDL_CreateWindow(title, w, h, SDL_WINDOW_RESIZABLE);
+    SDL_Window *window = SDL_CreateWindow(title_c, w, h, SDL_WINDOW_RESIZABLE);
     if (!window) {
         SDL_Log("dodai_video_open: SDL_CreateWindow failed: %s", SDL_GetError());
         return 0;
@@ -106,37 +108,49 @@ unsigned long long dodai_ticks_us(void) {
 }
 
 void dodai_log(const char *fmt, ...) {
+    /* render through ito's formatter so %S (an ito by value) works at every
+       log site, then hand SDL one finished line */
+    char line[2048];
+    ito_buf b;
+    ito_buf_init(&b, line, sizeof(line));
     va_list args;
     va_start(args, fmt);
-    SDL_LogMessageV(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO,
-                    fmt, args);
+    ito_buf_vappendf(&b, fmt, args);
     va_end(args);
+    SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO,
+                   "%s", ito_buf_cstr(&b));
 }
 
-int dodai_pref_path(const char *org, const char *app, char *out, size_t cap) {
-    char *pref = SDL_GetPrefPath(org, app);
+int dodai_pref_path(ito org, ito app, ito_buf *out) {
+    char orgc[128], appc[128];
+    ito_copy(orgc, sizeof(orgc), org);
+    ito_copy(appc, sizeof(appc), app);
+    char *pref = SDL_GetPrefPath(orgc, appc);
     if (!pref) {
         return 0;
     }
-    int n = snprintf(out, cap, "%s", pref);
+    ito_buf_append_c(out, pref);
     SDL_free(pref);
-    return n >= 0 && (size_t)n < cap;
+    return !out->overflow;
 }
 
-int dodai_exe_dir(char *out, size_t cap) {
+int dodai_exe_dir(ito_buf *out) {
     const char *base = SDL_GetBasePath();
     if (!base) {
         return 0;
     }
-    int n = snprintf(out, cap, "%s", base);
-    return n >= 0 && (size_t)n < cap;
+    ito_buf_append_c(out, base);
+    return !out->overflow;
 }
 
 #define DODAI_MSGBOX_MAX_BUTTONS 16
 
-int dodai_message_box(const char *title, const char *msg,
+int dodai_message_box(ito title, ito msg,
                       const char *const *buttons, int n,
                       int default_idx, int cancel_idx) {
+    char title_c[256], msg_c[2048];
+    ito_copy(title_c, sizeof(title_c), title);
+    ito_copy(msg_c, sizeof(msg_c), msg);
     SDL_MessageBoxButtonData btns[DODAI_MSGBOX_MAX_BUTTONS];
     if (n > DODAI_MSGBOX_MAX_BUTTONS) {
         /* never clamp silently: a dropped button whose index is default_idx
@@ -158,7 +172,7 @@ int dodai_message_box(const char *title, const char *msg,
         btns[i].buttonID = i;
         btns[i].text = buttons[i];
     }
-    SDL_MessageBoxData mb = { SDL_MESSAGEBOX_INFORMATION, NULL, title, msg,
+    SDL_MessageBoxData mb = { SDL_MESSAGEBOX_INFORMATION, NULL, title_c, msg_c,
                               n, btns, NULL };
     int hit = -1;
     if (!SDL_ShowMessageBox(&mb, &hit) || hit < 0) {
@@ -186,7 +200,7 @@ static void SDLCALL folder_pick_cb(void *userdata,
     SDL_SetAtomicInt(&p->done, 1);
 }
 
-int dodai_folder_dialog(char *out, size_t cap) {
+int dodai_folder_dialog(ito_buf *out) {
     FolderPick pick = { { 0 }, { 0 } };
     SDL_ShowOpenFolderDialog(folder_pick_cb, &pick, NULL, NULL, false);
     while (!SDL_GetAtomicInt(&pick.done)) {
@@ -196,6 +210,6 @@ int dodai_folder_dialog(char *out, size_t cap) {
     if (!pick.dir[0]) {
         return 0;
     }
-    int n = snprintf(out, cap, "%s", pick.dir);
-    return n >= 0 && (size_t)n < cap;
+    ito_buf_append_c(out, pick.dir);
+    return !out->overflow;
 }

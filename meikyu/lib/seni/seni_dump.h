@@ -19,8 +19,8 @@ static int seni_dump_migration(const char* code, const char* tag,
                                char* out_path, size_t out_cap) {
     static long next = -1;
     FILE* f;
-    dodai_make_dir("build");
-    dodai_make_dir("build/seni_out");
+    dodai_make_dir(ITO("build"));
+    dodai_make_dir(ITO("build/seni_out"));
     if (next < 0) {
         /* resume numbering after the last file from previous runs */
         char probe[256];

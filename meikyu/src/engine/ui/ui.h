@@ -2,26 +2,29 @@
 #define UI_H
 
 /* Immediate-mode editor UI. clay does the layout and stb_truetype the text,
-   but both are private to ui.c -- this header is strict C89 and exposes only
-   plain widget calls, so game code never sees a CLAY macro (clay requires
-   C99; ui.c is the one engine file compiled as such, into its own object).
+   but both are private to ui.c -- game code never sees a CLAY macro (clay
+   requires C99; ui.c is the one engine file compiled as such, into its own
+   object). The widget API speaks `ito` (first-party string views); the raw
+   char* clay/stb want lives behind this interface, inside ui.c.
 
    All UI state, including clay's context, lives in cold memory and is
    rebuilt on every reload -- nothing here may be stored in hot memory.
 
    Usage per frame (between rnd_frame_begin and rnd_frame_end):
        ui_frame_begin(w, h, mouse_x, mouse_y, mouse_down);
-       ui_panel_begin("panel", 240.0f);
-           ui_label("EDITOR", 18);
-           ui_row_begin("spin_row");
-               if (ui_button("minus", "-")) { ... }
+       ui_panel_begin(ITO("panel"), 240.0f);
+           ui_label(ITO("EDITOR"), 18);
+           ui_row_begin(ITO("spin_row"));
+               if (ui_button(ITO("minus"), ITO("-"))) { ... }
            ui_row_end();
        ui_panel_end();
        ui_frame_end(dt);
    Click edges are tracked internally; ui_button returns true once per
-   click. ids must be unique within the frame. */
+   click. ids must be unique within the frame. Text/id views must stay
+   valid until ui_frame_end (frame-static buffers / literals are fine). */
 
 #include "base/base_types.h"
+#include "ito.h"
 
 /* Bytes ui_init needs (clay context + font bake scratch). */
 u64 ui_memory_required(void);
@@ -34,15 +37,15 @@ void ui_frame_begin(f32 screen_w, f32 screen_h,
                     f32 mouse_x, f32 mouse_y, b32 mouse_down);
 void ui_frame_end(f32 dt);
 
-/* Widgets. Text pointers must stay valid until ui_frame_end (frame-static
+/* Widgets. Text/id views must stay valid until ui_frame_end (frame-static
    buffers are fine for formatted values). */
-void ui_panel_begin(const char *id, f32 width);
+void ui_panel_begin(ito id, f32 width);
 void ui_panel_end(void);
-void ui_row_begin(const char *id);
+void ui_row_begin(ito id);
 void ui_row_end(void);
-void ui_label(const char *text, int font_size);
-void ui_label_dim(const char *text, int font_size); /* secondary color */
-b32  ui_button(const char *id, const char *label);
+void ui_label(ito text, int font_size);
+void ui_label_dim(ito text, int font_size); /* secondary color */
+b32  ui_button(ito id, ito label);
 
 /* --- extension hook ------------------------------------------------------
    Libraries (e.g. seni) contribute panels without the game drawing them:
@@ -53,6 +56,6 @@ b32  ui_button(const char *id, const char *label);
    every reload, from the game's cold-rebuild path right after ui_init.
    Registering an existing name replaces its callback. */
 typedef void (*UiPanelFn)(void *user);
-b32 ui_panel_register(const char *name, UiPanelFn fn, void *user);
+b32 ui_panel_register(ito name, UiPanelFn fn, void *user);
 
 #endif /* UI_H */

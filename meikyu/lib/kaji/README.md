@@ -68,13 +68,13 @@ enumerate, so the watcher's change edge is the truth.
 
 ## strings
 
-parsing is built on `kaji_str.h`: pointer+size string views (`kstr`),
+parsing is built on `ito (../ito/ito.h)`: pointer+size string views (`ito`),
 line/token iterators, and a bounded builder -- no strtok, no hidden
 strlen, C strings only at OS boundaries.
 
 ## tests
 
-`test.bat` / `test.sh`: kstr unit tests, parser (vars, per-OS keys, line
+`test.bat` / `test.sh`: ito unit tests, parser (vars, per-OS keys, line
 numbers in errors), command assembly, and e2e graph builds with real gcc
 (skip-when-fresh, rebuild-on-touch, async polling, failure logs, exe with
 post copies). OS specifics live in `../dodai` (`dodai_posix.c` /

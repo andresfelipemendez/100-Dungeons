@@ -10,9 +10,13 @@
    never link or include this -- core dodai stays SDL-free on purpose.
 
    Conventions follow core dodai: 1 = success / 0 = failure; the impl logs
-   the SDL error detail itself, callers add context and exit/skip. */
+   the SDL error detail itself, callers add context and exit/skip. String
+   params are `ito` (first-party string lib); path out-params are `ito_buf`.
+   dodai_log's format literal stays const char* (boundary rule) but gains a
+   %S conversion that consumes an ito by value. */
 
 #include <stddef.h>
+#include "../ito/ito.h"
 
 /* ---- lifecycle --------------------------------------------------------- */
 /* The opened window/device pair, passed as a unit so the two void*s can
@@ -30,7 +34,7 @@ int  dodai_video_init(void);
 /* Window + GPU device (SPIR-V shaders, vulkan driver) + claim the window
    for the device. debug_gpu enables the validation/debug device. The macOS
    /usr/local/lib/libvulkan.dylib loader hint lives inside. */
-int  dodai_video_open(const char *title, int w, int h, int debug_gpu,
+int  dodai_video_open(ito title, int w, int h, int debug_gpu,
                       DodaiVideo *out);
 void dodai_gpu_wait_idle(void *device);
 /* Wait idle, release the window from the device, destroy both, quit SDL. */
@@ -52,21 +56,24 @@ void dodai_video_poll(DodaiInput *out);
    throttles keep using core dodai_now_ms. */
 unsigned long long dodai_ticks_us(void);
 /* printf-style log line (SDL application log underneath). The signature
-   matches PlatformApi.log, so hosts pass it through the ABI directly. */
+   matches PlatformApi.log, so hosts pass it through the ABI directly.
+   Supports an extra %S conversion consuming an ito by value (see
+   ito_buf_vappendf); standard conversions work as usual. */
 void dodai_log(const char *fmt, ...);
 /* Per-user writable settings dir for org/app, trailing separator included. */
-int  dodai_pref_path(const char *org, const char *app, char *out, size_t cap);
+int  dodai_pref_path(ito org, ito app, ito_buf *out);
 /* Directory containing the running exe, trailing separator included. */
-int  dodai_exe_dir(char *out, size_t cap);
+int  dodai_exe_dir(ito_buf *out);
 
 /* ---- modal dialogs (project picker) -------------------------------------*/
-/* Native message box with one button per buttons[i]. Returns the hit
-   index; default_idx maps to Return, cancel_idx to Escape and is also
+/* Native message box with one button per buttons[i] (buttons stay C
+   strings -- SDL_MessageBoxButtonData.text is const char*). Returns the
+   hit index; default_idx maps to Return, cancel_idx to Escape and is also
    returned when the box is closed or fails. */
-int  dodai_message_box(const char *title, const char *msg,
+int  dodai_message_box(ito title, ito msg,
                        const char *const *buttons, int n,
                        int default_idx, int cancel_idx);
 /* Native folder picker. Blocks, pumping events internally; 0 = cancelled. */
-int  dodai_folder_dialog(char *out, size_t cap);
+int  dodai_folder_dialog(ito_buf *out);
 
 #endif /* DODAI_VIDEO_H */

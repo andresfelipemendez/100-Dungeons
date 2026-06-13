@@ -28,9 +28,9 @@ static const char *ui_font_candidates[] = {
 #define UI_MAX_PANELS 8
 
 typedef struct {
-    const char *name; /* must outlive the registration (string literal) */
-    UiPanelFn   fn;
-    void       *user;
+    ito       name; /* view must outlive the registration (string literal) */
+    UiPanelFn fn;
+    void     *user;
 } UiPanel;
 
 typedef struct {
@@ -57,10 +57,11 @@ static void ui_clay_error(Clay_ErrorData err) {
     SDL_Log("clay error: %.*s", (int)err.errorText.length, err.errorText.chars);
 }
 
-static Clay_String ui_string(const char *chars) {
+/* the ito->clay boundary: clay's string is ptr+len, exactly an ito */
+static Clay_String ui_string(ito s) {
     return (Clay_String){ .isStaticallyAllocated = false,
-                          .length = (int32_t)strlen(chars),
-                          .chars = chars };
+                          .length = (int32_t)s.len,
+                          .chars = s.ptr };
 }
 
 static Clay_Dimensions ui_measure_text(Clay_StringSlice text,
@@ -160,7 +161,7 @@ void ui_frame_begin(f32 screen_w, f32 screen_h,
 
 /* ---- widgets ---------------------------------------------------------- */
 
-void ui_panel_begin(const char *id, f32 width) {
+void ui_panel_begin(ito id, f32 width) {
     if (!ui.ready) {
         return;
     }
@@ -182,7 +183,7 @@ void ui_panel_end(void) {
     Clay__CloseElement();
 }
 
-void ui_row_begin(const char *id) {
+void ui_row_begin(ito id) {
     if (!ui.ready) {
         return;
     }
@@ -201,7 +202,7 @@ void ui_row_end(void) {
     Clay__CloseElement();
 }
 
-static void ui_text_internal(const char *text, int font_size, Clay_Color color) {
+static void ui_text_internal(ito text, int font_size, Clay_Color color) {
     if (!ui.ready) {
         return;
     }
@@ -209,15 +210,15 @@ static void ui_text_internal(const char *text, int font_size, Clay_Color color) 
         .fontSize = (uint16_t)font_size, .textColor = color }));
 }
 
-void ui_label(const char *text, int font_size) {
+void ui_label(ito text, int font_size) {
     ui_text_internal(text, font_size, (Clay_Color){ 230, 232, 244, 255 });
 }
 
-void ui_label_dim(const char *text, int font_size) {
+void ui_label_dim(ito text, int font_size) {
     ui_text_internal(text, font_size, (Clay_Color){ 150, 155, 170, 255 });
 }
 
-b32 ui_button(const char *id, const char *label) {
+b32 ui_button(ito id, ito label) {
     if (!ui.ready) {
         return 0;
     }
@@ -280,17 +281,17 @@ static void ui_draw_border(Clay_BoundingBox bb, Clay_BorderRenderData *bd) {
     if (r > 0) ui_draw_rect((Clay_BoundingBox){ bb.x + bb.width - r, bb.y + t, r, bb.height - t - b }, c);
 }
 
-b32 ui_panel_register(const char *name, UiPanelFn fn, void *user) {
+b32 ui_panel_register(ito name, UiPanelFn fn, void *user) {
     for (u32 i = 0; i < ui.panel_count; i++) {
-        if (strcmp(ui.panels[i].name, name) == 0) {
+        if (ito_eq(ui.panels[i].name, name)) {
             ui.panels[i].fn = fn;
             ui.panels[i].user = user;
             return 1;
         }
     }
     if (ui.panel_count >= UI_MAX_PANELS) {
-        SDL_Log("ui: panel registry full (%d panels), cannot register '%s'",
-                UI_MAX_PANELS, name);
+        SDL_Log("ui: panel registry full (%d panels), cannot register '%.*s'",
+                UI_MAX_PANELS, (int)name.len, name.ptr);
         return 0;
     }
     ui.panels[ui.panel_count].name = name;

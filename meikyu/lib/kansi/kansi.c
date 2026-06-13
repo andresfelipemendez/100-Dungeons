@@ -3,10 +3,10 @@
 
 typedef struct { void *handle; } kansi_proc;
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 
 #define KANSI_MAX_PATH    512
 #define KANSI_MAX_CMD     4096
@@ -62,14 +62,6 @@ struct kansi {
     int rebuild_queued;   /* change arrived mid-build */
 };
 
-/* ---- small string helpers ------------------------------------------- */
-
-static char *kansi_trim(char *s) {
-    while (*s && isspace((unsigned char)*s)) s++;
-    char *end = s + strlen(s);
-    while (end > s && isspace((unsigned char)end[-1])) *--end = 0;
-    return s;
-}
 
 static int kansi_has_ext(const kansi_cfg *cfg, const char *path) {
     if (cfg->ext_count == 0) {
@@ -100,21 +92,17 @@ static int kansi_has_ext(const kansi_cfg *cfg, const char *path) {
    Line-based: `key value`, '#' comments, keys repeatable. Returns 0 and
    fills err on failure. */
 
-static int kansi_parse_line(kansi_cfg *cfg, char *line, char *err, int err_size) {
-    char *hash = strchr(line, '#');
-    if (hash) {
-        *hash = 0;
+static int kansi_parse_line(kansi_cfg *cfg, ito line, char *err, int err_size) {
+    int hash = ito_find(line, '#');
+    if (hash >= 0) {
+        line = ito_slice(line, 0, (size_t)hash);
     }
-    char *s = kansi_trim(line);
-    if (!*s) {
+    line = ito_trim(line);
+    if (!line.len) {
         return 1;
     }
-    char *value = s;
-    while (*value && !isspace((unsigned char)*value)) value++;
-    if (*value) {
-        *value++ = 0;
-    }
-    value = kansi_trim(value);
+    ito key = ito_next_token(&line);   /* `key value...` */
+    ito value = ito_trim(line);        /* rest of line, spaces kept */
 
 #define KANSI_APPEND(arr, count, max, what)                                  \
     do {                                                                     \
@@ -122,56 +110,59 @@ static int kansi_parse_line(kansi_cfg *cfg, char *line, char *err, int err_size)
             snprintf(err, err_size, "too many '%s' entries", what);          \
             return 0;                                                        \
         }                                                                    \
-        snprintf(cfg->arr[cfg->count++], sizeof(cfg->arr[0]), "%s", value);  \
+        ito_copy(cfg->arr[cfg->count++], sizeof(cfg->arr[0]), value);        \
     } while (0)
 
-    if (strcmp(s, "watch") == 0)        KANSI_APPEND(watch, watch_count, KANSI_MAX_WATCH, "watch");
-    else if (strcmp(s, "pre") == 0)     KANSI_APPEND(pre, pre_count, KANSI_MAX_PRE, "pre");
-    else if (strcmp(s, "obj") == 0)     KANSI_APPEND(obj, obj_count, KANSI_MAX_INC, "obj");
-    else if (strcmp(s, "pre_newer") == 0) {
+    if (ito_eq_c(key, "watch"))        KANSI_APPEND(watch, watch_count, KANSI_MAX_WATCH, "watch");
+    else if (ito_eq_c(key, "pre"))     KANSI_APPEND(pre, pre_count, KANSI_MAX_PRE, "pre");
+    else if (ito_eq_c(key, "obj"))     KANSI_APPEND(obj, obj_count, KANSI_MAX_INC, "obj");
+    else if (ito_eq_c(key, "pre_newer")) {
         /* pre_newer <input> <output> <command...>: run the command only when
            output is missing or older than input */
         if (cfg->pre_count >= KANSI_MAX_PRE) {
             snprintf(err, err_size, "too many 'pre' entries");
             return 0;
         }
-        char *input = strtok(value, " 	");
-        char *output = strtok(NULL, " 	");
-        char *command = strtok(NULL, "");
-        if (!input || !output || !command) {
+        ito input = ito_next_token(&value);
+        ito output = ito_next_token(&value);
+        ito command = ito_trim(value);
+        if (!input.len || !output.len || !command.len) {
             snprintf(err, err_size, "pre_newer needs: <input> <output> <command>");
             return 0;
         }
-        command = kansi_trim(command);
         int i = cfg->pre_count++;
-        snprintf(cfg->pre_in[i], sizeof(cfg->pre_in[0]), "%s", input);
-        snprintf(cfg->pre_out[i], sizeof(cfg->pre_out[0]), "%s", output);
-        snprintf(cfg->pre[i], sizeof(cfg->pre[0]), "%s", command);
+        ito_copy(cfg->pre_in[i], sizeof(cfg->pre_in[0]), input);
+        ito_copy(cfg->pre_out[i], sizeof(cfg->pre_out[0]), output);
+        ito_copy(cfg->pre[i], sizeof(cfg->pre[0]), command);
     }
-    else if (strcmp(s, "include") == 0) KANSI_APPEND(include, include_count, KANSI_MAX_INC, "include");
-    else if (strcmp(s, "libdir") == 0)  KANSI_APPEND(libdir, libdir_count, KANSI_MAX_LIBDIR, "libdir");
-    else if (strcmp(s, "lib") == 0)     KANSI_APPEND(lib, lib_count, KANSI_MAX_LIB, "lib");
-    else if (strcmp(s, "flag") == 0)    KANSI_APPEND(flag, flag_count, KANSI_MAX_FLAG, "flag");
-    else if (strcmp(s, "define") == 0)  KANSI_APPEND(define, define_count, KANSI_MAX_DEFINE, "define");
-    else if (strcmp(s, "ext") == 0) {
+    else if (ito_eq_c(key, "include")) KANSI_APPEND(include, include_count, KANSI_MAX_INC, "include");
+    else if (ito_eq_c(key, "libdir"))  KANSI_APPEND(libdir, libdir_count, KANSI_MAX_LIBDIR, "libdir");
+    else if (ito_eq_c(key, "lib"))     KANSI_APPEND(lib, lib_count, KANSI_MAX_LIB, "lib");
+    else if (ito_eq_c(key, "flag"))    KANSI_APPEND(flag, flag_count, KANSI_MAX_FLAG, "flag");
+    else if (ito_eq_c(key, "define"))  KANSI_APPEND(define, define_count, KANSI_MAX_DEFINE, "define");
+    else if (ito_eq_c(key, "ext")) {
         /* space-separated list on one line */
-        char *tok = strtok(value, " \t");
-        while (tok) {
+        ito tok = ito_next_token(&value);
+        while (tok.len) {
             if (cfg->ext_count >= KANSI_MAX_EXT) {
                 snprintf(err, err_size, "too many 'ext' entries");
                 return 0;
             }
-            snprintf(cfg->ext[cfg->ext_count++], sizeof(cfg->ext[0]), "%s", tok);
-            tok = strtok(NULL, " \t");
+            ito_copy(cfg->ext[cfg->ext_count++], sizeof(cfg->ext[0]), tok);
+            tok = ito_next_token(&value);
         }
     }
-    else if (strcmp(s, "source") == 0)      snprintf(cfg->source, sizeof(cfg->source), "%s", value);
-    else if (strcmp(s, "out") == 0)         snprintf(cfg->out, sizeof(cfg->out), "%s", value);
-    else if (strcmp(s, "tmp") == 0)         snprintf(cfg->tmp, sizeof(cfg->tmp), "%s", value);
-    else if (strcmp(s, "log") == 0)         snprintf(cfg->log, sizeof(cfg->log), "%s", value);
-    else if (strcmp(s, "debounce_ms") == 0) cfg->debounce_ms = atoi(value);
+    else if (ito_eq_c(key, "source"))      ito_copy(cfg->source, sizeof(cfg->source), value);
+    else if (ito_eq_c(key, "out"))         ito_copy(cfg->out, sizeof(cfg->out), value);
+    else if (ito_eq_c(key, "tmp"))         ito_copy(cfg->tmp, sizeof(cfg->tmp), value);
+    else if (ito_eq_c(key, "log"))         ito_copy(cfg->log, sizeof(cfg->log), value);
+    else if (ito_eq_c(key, "debounce_ms")) {
+        char num[16];
+        ito_copy(num, sizeof(num), value);
+        cfg->debounce_ms = atoi(num);
+    }
     else {
-        snprintf(err, err_size, "unknown config key '%s'", s);
+        snprintf(err, err_size, "unknown config key '" ITO_FMT "'", ITO_ARG(key));
         return 0;
     }
 #undef KANSI_APPEND
@@ -183,24 +174,16 @@ static int kansi_parse_config(kansi_cfg *cfg, const char *text,
     memset(cfg, 0, sizeof(*cfg));
     cfg->debounce_ms = 300;
 
-    char line[KANSI_MAX_CMD];
-    const char *p = text;
+    ito rest = ito_from(text);
     int line_no = 0;
-    while (*p) {
-        const char *nl = strchr(p, '\n');
-        size_t len = nl ? (size_t)(nl - p) : strlen(p);
-        if (len >= sizeof(line)) {
-            len = sizeof(line) - 1;
-        }
-        memcpy(line, p, len);
-        line[len] = 0;
+    while (rest.len) {
+        ito line = ito_next_line(&rest);
         line_no++;
         char line_err[256] = { 0 };
         if (!kansi_parse_line(cfg, line, line_err, sizeof(line_err))) {
             snprintf(err, err_size, "line %d: %s", line_no, line_err);
             return 0;
         }
-        p = nl ? nl + 1 : p + len;
     }
 
     if (cfg->watch_count == 0) { snprintf(err, err_size, "config missing 'watch'"); return 0; }
@@ -256,9 +239,13 @@ static unsigned long long kansi_fnv(const char *s) {
     return h;
 }
 
-static void kansi_scan_file(const char *path, unsigned long long mtime,
+static void kansi_scan_file(ito path_v, unsigned long long mtime,
                             unsigned long long size, void *user) {
     kansi_scan_ctx *ctx = (kansi_scan_ctx *)user;
+    char path[DODAI_PATH_MAX];
+    if (!ito_copy(path, sizeof(path), path_v)) {
+        return;
+    }
     if (!kansi_has_ext(ctx->cfg, path)) {
         return;
     }
@@ -271,7 +258,7 @@ static void kansi_scan_file(const char *path, unsigned long long mtime,
 static unsigned long long kansi_compute_stamp(const kansi_cfg *cfg) {
     kansi_scan_ctx ctx = { cfg, 0 };
     for (int i = 0; i < cfg->watch_count; i++) {
-        dodai_walk(cfg->watch[i], kansi_scan_file, &ctx);
+        dodai_walk(ito_from(cfg->watch[i]), kansi_scan_file, &ctx);
     }
     return ctx.stamp;
 }
@@ -286,10 +273,10 @@ static int kansi_step_skippable(const kansi_cfg *cfg, int step) {
         return 0;
     }
     unsigned long long in_t, out_t;
-    if (!dodai_mtime_ns(cfg->pre_in[step], &in_t)) {
+    if (!dodai_mtime_ns(ito_from(cfg->pre_in[step]), &in_t)) {
         return 0; /* missing input: run the step, let it fail loudly */
     }
-    if (!dodai_mtime_ns(cfg->pre_out[step], &out_t)) {
+    if (!dodai_mtime_ns(ito_from(cfg->pre_out[step]), &out_t)) {
         return 0; /* no output yet */
     }
     return out_t >= in_t;
@@ -309,7 +296,7 @@ static int kansi_spawn_step(kansi *k) {
         }
         to_run = cmd;
     }
-    return dodai_spawn(to_run, k->cfg.log[0] ? k->cfg.log : NULL,
+    return dodai_spawn(ito_from(to_run), ito_from(k->cfg.log), /* empty = no redirect */
                        &k->proc.handle);
 }
 
@@ -363,8 +350,12 @@ kansi *kansi_start(const char *config_path, char *err, int err_size) {
 
 /* Event callback: an empty path means the OS event buffer overflowed --
    treat it as a change so nothing is missed. */
-static void kansi_on_notify(const char *path, void *user) {
+static void kansi_on_notify(ito path_v, void *user) {
     kansi *k = (kansi *)user;
+    char path[DODAI_PATH_MAX];
+    if (!ito_copy(path, sizeof(path), path_v)) {
+        return;
+    }
     if (!path[0] || kansi_has_ext(&k->cfg, path)) {
         k->note = 1;
     }
@@ -410,7 +401,7 @@ kansi_status kansi_update(kansi *k) {
         /* all steps done: publish the dll */
         k->state = k->rebuild_queued ? KANSI_STATE_WAITING : KANSI_STATE_IDLE;
         k->rebuild_queued = 0;
-        if (!dodai_rename(k->cfg.tmp, k->cfg.out)) {
+        if (!dodai_rename(ito_from(k->cfg.tmp), ito_from(k->cfg.out))) {
             k->state = KANSI_STATE_IDLE;
             return KANSI_ERROR;
         }

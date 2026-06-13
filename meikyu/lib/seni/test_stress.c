@@ -27,11 +27,11 @@ static void *compile_and_load_st(const char* code, const char* name) {
     if (seni_dump_migration(code, name, src_path, sizeof(src_path)) != 0) return NULL;
     sprintf(lib_path, "build/%s.%s", name, dodai_lib_extension());
     sprintf(err_path, "build/%s.err", name);
-    if (dodai_compile_shared(src_path, lib_path, err_path, "-std=c89 -pedantic") != 0) {
+    if (dodai_compile_shared(ito_from(src_path), ito_from(lib_path), ito_from(err_path), "-std=c89 -pedantic") != 0) {
         fprintf(stderr, "gcc failed for %s, generated code:\n%s\n", src_path, code);
         return NULL;
     }
-    return dodai_lib_open(lib_path);
+    return dodai_lib_open(ito_from(lib_path));
 }
 
 typedef void (*migrate_fn)(void* old_p, void* new_p, size_t count);
@@ -221,7 +221,7 @@ UTEST(stress, load_unload_100_cycles) {
     dodai_lib_close(first);
     sprintf(lib_path, "build/stress_reload.%s", dodai_lib_extension());
     for (i = 0; i < 100; i++) {
-        void *m = dodai_lib_open(lib_path);
+        void *m = dodai_lib_open(ito_from(lib_path));
         ASSERT_TRUE(m != NULL);
         ASSERT_TRUE(dodai_lib_symbol(m, "migrate_enemy") != NULL);
         dodai_lib_close(m);

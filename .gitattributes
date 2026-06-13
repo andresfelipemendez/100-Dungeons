@@ -1,10 +1,5 @@
 *.png filter=lfs diff=lfs merge=lfs -text
 *.zip filter=lfs diff=lfs merge=lfs -text
 *.glb filter=lfs diff=lfs merge=lfs -text
+# vendor/ is third-party only; first-party libs live in meikyu/lib
 vendor/** filter=lfs diff=lfs merge=lfs -text
-# first-party libraries vendored from former submodules: plain source,
-# normal diffs -- only third-party blobs above stay in LFS
-vendor/seni/** -filter -diff -merge text=auto
-vendor/kansi/** -filter -diff -merge text=auto
-vendor/kaji/** -filter -diff -merge text=auto
-vendor/dodai/** -filter -diff -merge text=auto

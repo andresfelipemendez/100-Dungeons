@@ -1,6 +1,9 @@
 /* project_gen: see project_gen.h. All paths the engine contributes are
-   absolute (derived from the exe location); project paths stay relative
-   to the project root, which is also kaji's spawn cwd. */
+   absolute (derived from the exe location) and double-quoted in the
+   generated configs -- kaji's tokenizer strips the quotes, its command
+   builder re-quotes for the shell, so clone paths with spaces survive
+   end to end. Project paths stay relative to the project root, which is
+   also kaji's spawn cwd. */
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -32,6 +35,7 @@
 /* engine/vendor roots + discovery results; one project per process */
 static char g_engine[PATH_CAP];   /* <repo>/meikyu, absolute */
 static char g_vendor[PATH_CAP];   /* <repo>/vendor, absolute */
+static char g_glslc[PATH_CAP];    /* resolved shader compiler */
 static char g_sources[MAX_SOURCES][PATH_CAP]; /* src/... relative */
 static int  g_source_count;
 static char g_shaders[MAX_SHADERS][PATH_CAP]; /* src/shaders/... relative */
@@ -39,41 +43,49 @@ static int  g_shader_count;
 
 /* ---- text emitter -------------------------------------------------------- */
 
-static char   g_buf[128 * 1024];
-static size_t g_len;
+/* one ito_buf builder for the file under construction: sticky overflow and
+   NUL-termination come from ito, so the emitter is just init + appendf */
+static char    g_storage[128 * 1024];
+static ito_buf g_emit;
 
-static void emit_reset(void) { g_len = 0; g_buf[0] = 0; }
+static void emit_reset(void) { ito_buf_init(&g_emit, g_storage, sizeof(g_storage)); }
 
 static void emit(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    int n = vsnprintf(g_buf + g_len, sizeof(g_buf) - g_len, fmt, args);
+    ito_buf_vappendf(&g_emit, fmt, args);
     va_end(args);
-    if (n > 0) {
-        g_len += (size_t)n;
-        if (g_len >= sizeof(g_buf)) {
-            g_len = sizeof(g_buf) - 1; /* truncated; surfaces as a compile
-                                          failure downstream, log anyway */
-            dodai_log("project_gen: generated text exceeds %d bytes",
-                      (int)sizeof(g_buf));
-        }
-    }
 }
 
-/* write only when content changed: the unity file is a kaji input --
-   rewriting it with identical bytes would force pointless rebuilds */
-static b32 write_if_changed(const char *path, const char *data, size_t len) {
+/* write only when content changed: the generated file is a kaji input --
+   rewriting it with identical bytes would force pointless rebuilds. A
+   truncated buffer (overflow) silently builds the wrong thing, so refuse.
+   *changed (optional) reports an actual write. */
+static b32 write_if_changed(const char *path, b32 *changed) {
+    if (changed) {
+        *changed = 0;
+    }
+    if (g_emit.overflow) {
+        dodai_log("project_gen: generated text for %s exceeds %d bytes, "
+                  "refusing to write a truncated file",
+                  path, (int)sizeof(g_storage));
+        return 0;
+    }
     size_t old_len = 0;
-    char *old = dodai_read_file(path, &old_len);
-    b32 same = old && old_len == len && memcmp(old, data, len) == 0;
+    char *old = dodai_read_file(ito_from(path), &old_len);
+    b32 same = old && old_len == g_emit.len &&
+               memcmp(old, g_emit.buf, g_emit.len) == 0;
     free(old);
     if (same) {
         return 1;
     }
-    dodai_make_dirs_for(path);
-    if (!dodai_write_file(path, data, len)) {
+    dodai_make_dirs_for(ito_from(path));
+    if (!dodai_write_file(ito_from(path), g_emit.buf, g_emit.len)) {
         dodai_log("project_gen: cannot write %s", path);
         return 0;
+    }
+    if (changed) {
+        *changed = 1;
     }
     return 1;
 }
@@ -86,10 +98,14 @@ typedef struct {
     const char *ext_a, *ext_b; /* ".c" / ".vert"+".frag" */
 } Collect;
 
-static void collect_cb(const char *path, unsigned long long mtime,
+static void collect_cb(ito path_v, unsigned long long mtime,
                        unsigned long long size, void *user) {
     (void)mtime; (void)size;
     Collect *c = (Collect *)user;
+    char path[PATH_CAP];
+    if (!ito_copy(path, sizeof(path), path_v)) {
+        return;
+    }
     const char *dot = strrchr(path, '.');
     if (!dot) {
         return;
@@ -110,12 +126,12 @@ static int cmp_path(const void *a, const void *b) {
 
 static void discover(void) {
     Collect src = { g_sources, 0, MAX_SOURCES, ".c", NULL };
-    dodai_walk("src", collect_cb, &src);
+    dodai_walk(ITO("src"), collect_cb, &src);
     qsort(g_sources, (size_t)src.count, PATH_CAP, cmp_path);
     g_source_count = src.count;
 
     Collect sh = { g_shaders, 0, MAX_SHADERS, ".vert", ".frag" };
-    dodai_walk("src/shaders", collect_cb, &sh);
+    dodai_walk(ITO("src/shaders"), collect_cb, &sh);
     qsort(g_shaders, (size_t)sh.count, PATH_CAP, cmp_path);
     g_shader_count = sh.count;
 }
@@ -127,37 +143,38 @@ static void marker_parse(Project *p) {
     snprintf(p->assets, sizeof(p->assets), "../assets");
 
     size_t len = 0;
-    char *text = dodai_read_file(PROJECT_MARKER, &len);
-    char *line = text;
-    while (line && *line) {
-        char *nl = strchr(line, '\n');
-        if (nl) {
-            *nl = 0;
+    char *text = dodai_read_file(ITO(PROJECT_MARKER), &len);
+    ito rest = { text, text ? len : 0 };
+    while (rest.len) {
+        ito line = ito_trim(ito_next_line(&rest));
+        if (!line.len || line.ptr[0] == '#') {
+            continue;
         }
-        char *cr = strchr(line, '\r');
-        if (cr) {
-            *cr = 0;
-        }
-        if (*line && *line != '#') {
-            char key[64], val[1000];
-            if (sscanf(line, "%63s %999[^\n]", key, val) == 2) {
-                if (strcmp(key, "name") == 0) {
-                    snprintf(p->name, sizeof(p->name), "%s", val);
-                } else if (strcmp(key, "assets") == 0) {
-                    snprintf(p->assets, sizeof(p->assets), "%s", val);
-                } else {
-                    dodai_log("project_gen: unknown marker key '%s'", key);
-                }
+        ito key = ito_next_token(&line);   /* `key value...` */
+        ito val = ito_trim(line);          /* rest of line, spaces kept */
+        if (ito_eq_c(key, "name")) {
+            ito_copy(p->name, sizeof(p->name), val);
+        } else if (ito_eq_c(key, "assets")) {
+            ito_copy(p->assets, sizeof(p->assets), val);
+        } else if (ito_eq_c(key, "version")) {
+            if (!ito_eq_c(val, MEIKYU_VERSION)) {
+                dodai_log("project_gen: project version '" ITO_FMT "' != "
+                          "engine version '" MEIKYU_VERSION "' -- generated "
+                          "recipes may differ across the team", ITO_ARG(val));
             }
+        } else {
+            dodai_log("project_gen: unknown marker key '" ITO_FMT "'",
+                      ITO_ARG(key));
         }
-        line = nl ? nl + 1 : NULL;
     }
     free(text);
 
     if (!p->name[0]) {
         /* fall back to the folder's basename */
         char abs[PATH_CAP];
-        if (dodai_absolute_path(".", abs, sizeof(abs)) == 0) {
+        ito_buf ab;
+        ito_buf_init(&ab, abs, sizeof(abs));
+        if (dodai_absolute_path(ITO("."), &ab) == 0) {
             const char *slash = strrchr(abs, '/');
             snprintf(p->name, sizeof(p->name), "%s",
                      slash && slash[1] ? slash + 1 : "game");
@@ -167,59 +184,122 @@ static void marker_parse(Project *p) {
         dodai_log("project_gen: no 'name' in " PROJECT_MARKER ", using '%s'",
                   p->name);
     }
+    /* the name lands in exe paths and -D defines where embedded whitespace
+       cannot be quoted away; sanitize rather than refuse */
+    b32 sanitized = 0;
+    for (char *c = p->name; *c; c++) {
+        if (*c == ' ' || *c == '\t') {
+            *c = '-';
+            sanitized = 1;
+        }
+    }
+    if (sanitized) {
+        dodai_log("project_gen: whitespace in 'name' replaced: '%s'", p->name);
+    }
 }
 
-/* ---- roots --------------------------------------------------------------- */
+/* ---- roots + tools ------------------------------------------------------- */
 
 static b32 roots_resolve(void) {
     char exe_dir[PATH_CAP], up[PATH_CAP + 16];
-    if (!dodai_exe_dir(exe_dir, sizeof(exe_dir))) {
+    ito_buf eb;
+    ito_buf_init(&eb, exe_dir, sizeof(exe_dir));
+    if (!dodai_exe_dir(&eb)) {
         dodai_log("project_gen: cannot locate the exe");
         return 0;
     }
     snprintf(up, sizeof(up), "%s..", exe_dir); /* exe_dir ends with sep */
-    if (dodai_absolute_path(up, g_engine, sizeof(g_engine)) != 0) {
+    ito_buf engb;
+    ito_buf_init(&engb, g_engine, sizeof(g_engine));
+    if (dodai_absolute_path(ito_from(up), &engb) != 0) {
         dodai_log("project_gen: cannot resolve engine root from '%s'", up);
         return 0;
     }
     snprintf(up, sizeof(up), "%s/../vendor", g_engine);
-    if (dodai_absolute_path(up, g_vendor, sizeof(g_vendor)) != 0) {
+    ito_buf venb;
+    ito_buf_init(&venb, g_vendor, sizeof(g_vendor));
+    if (dodai_absolute_path(ito_from(up), &venb) != 0) {
         dodai_log("project_gen: no vendor/ beside the engine ('%s')", up);
         return 0;
     }
     return 1;
 }
 
+static b32 file_exists(const char *path) {
+    unsigned long long m;
+    return dodai_mtime_ns(ito_from(path), &m) != 0;
+}
+
+/* GUI launches (Spotlight, .app, explorer) get a minimal PATH where glslc
+   is invisible, and windows installs differ per VulkanSDK version --
+   resolve an absolute path at generation time when we can, fall back to
+   the bare name (terminal launches) or the known default. */
+static void glslc_resolve(void) {
+    const char *sdk = getenv("VULKAN_SDK");
+    char probe[PATH_CAP];
+#ifdef _WIN32
+    if (sdk && *sdk) {
+        snprintf(probe, sizeof(probe), "%s\\Bin\\glslc.exe", sdk);
+        if (file_exists(probe)) {
+            snprintf(g_glslc, sizeof(g_glslc), "%s", probe);
+            return;
+        }
+    }
+    snprintf(g_glslc, sizeof(g_glslc),
+             "C:\\VulkanSDK\\1.4.341.1\\Bin\\glslc.exe");
+#else
+    if (sdk && *sdk) {
+        snprintf(probe, sizeof(probe), "%s/bin/glslc", sdk);
+        if (file_exists(probe)) {
+            snprintf(g_glslc, sizeof(g_glslc), "%s", probe);
+            return;
+        }
+    }
+    if (file_exists("/usr/local/bin/glslc")) {
+        snprintf(g_glslc, sizeof(g_glslc), "/usr/local/bin/glslc");
+        return;
+    }
+    if (file_exists("/opt/homebrew/bin/glslc")) {
+        snprintf(g_glslc, sizeof(g_glslc), "/opt/homebrew/bin/glslc");
+        return;
+    }
+    snprintf(g_glslc, sizeof(g_glslc), "glslc"); /* hope PATH has it */
+#endif
+}
+
 /* ---- generated unity ----------------------------------------------------- */
 
 static b32 unity_emit_and_write(void) {
     emit_reset();
-    emit("/* generated by meikyu -- do not edit; regenerated on every\n"
-         "   project open and source-set change */\n\n");
+    emit("/* generated by meikyu " MEIKYU_VERSION " -- do not edit;\n"
+         "   regenerated on every project open and source-set change */\n\n");
     emit("#include \"%s/src/engine/engine_unity.c\"\n\n", g_engine);
-    emit("#include \"%s/seni/seni_panel.c\" "
-         "/* seni's reload-question panel */\n\n", g_vendor);
+    emit("#include \"%s/lib/seni/seni_panel.c\" "
+         "/* seni's reload-question panel */\n\n", g_engine);
     for (int i = 0; i < g_source_count; i++) {
         char abs[PATH_CAP];
-        if (dodai_absolute_path(g_sources[i], abs, sizeof(abs)) != 0) {
+        ito_buf ab;
+        ito_buf_init(&ab, abs, sizeof(abs));
+        if (dodai_absolute_path(ito_from(g_sources[i]), &ab) != 0) {
             dodai_log("project_gen: cannot resolve '%s'", g_sources[i]);
             return 0;
         }
         emit("#include \"%s\"\n", abs);
     }
-    return write_if_changed(UNITY_GEN, g_buf, g_len);
+    return write_if_changed(UNITY_GEN, NULL);
 }
 
 /* ---- generated kansi cfg ------------------------------------------------- */
 
 static b32 kansi_emit_and_write(void) {
     emit_reset();
-    emit("# generated by meikyu -- do not edit\n");
+    emit("# generated by meikyu " MEIKYU_VERSION " -- do not edit\n");
     emit("watch src\n");
-    emit("watch %s/src\n", g_engine);
+    emit("watch %s/src\n", g_engine); /* kansi values run to end of line --
+                                         spaces are fine unquoted */
     emit("ext .c .h .vert .frag\n");
     emit("debounce_ms 30\n");
-    return write_if_changed(KANSI_GEN, g_buf, g_len);
+    return write_if_changed(KANSI_GEN, NULL);
 }
 
 /* ---- generated kaji cfg -------------------------------------------------- */
@@ -234,36 +314,36 @@ static const char *shader_base(const char *path) {
 static void shader_target_name(const char *path, char *out, size_t cap) {
     snprintf(out, cap, "%s", shader_base(path));
     for (char *c = out; *c; c++) {
-        if (*c == '.') {
+        if (*c == '.' || *c == ' ') {
             *c = '_';
         }
     }
 }
 
-static b32 kaji_emit_and_write(const Project *p) {
+static b32 kaji_emit_and_write(const Project *p, b32 *changed) {
     const char *B = PLATFORM_BUILD_DIR;
     int mac = dodai_is_macos();
     int lin = dodai_is_linux();
     int win = !mac && !lin;
 
     /* shared include list for pch + game (MUST be identical: the .gch is
-       flag-sensitive) */
-    char includes[2048];
+       flag-sensitive). Absolute entries are quoted -- kaji strips the
+       quotes at parse and re-quotes for the shell. */
+    char includes[2560];
     snprintf(includes, sizeof(includes),
-             "%s src %s/src %s/src/editor %s/cgltf %s/stb %s/clay %s/seni "
-             "%s" SDL_MINGW "/include",
-             B, g_engine, g_engine, g_vendor, g_vendor, g_vendor, g_vendor,
-             g_vendor);
+             "%s src \"%s/src\" \"%s/src/editor\" \"%s/lib/ito\" \"%s/cgltf\" "
+             "\"%s/stb\" \"%s/clay\" \"%s/lib/seni\" \"%s" SDL_MINGW "/include\"",
+             B, g_engine, g_engine, g_engine, g_vendor, g_vendor, g_vendor,
+             g_engine, g_vendor);
 
     emit_reset();
-    emit("# generated by meikyu for project '%s' -- do not edit\n", p->name);
+    emit("# generated by meikyu " MEIKYU_VERSION " for project '%s' -- "
+         "do not edit\n", p->name);
     emit("builddir %s\n\n", B);
 
-    if (win) {
-        emit("tool glslc C:\\VulkanSDK\\1.4.341.1\\Bin\\glslc.exe\n\n");
-    } else {
-        emit("tool glslc glslc\n\n");
-    }
+    /* tool value runs to end of line in kaji's parser: no quotes here,
+       the command builder quotes it for the shell */
+    emit("tool glslc %s\n\n", g_glslc);
 
     /* hot-state snapshot: #include and seni's .incbin must read the same
        bytes even if src/game_state.h is saved mid-compile */
@@ -276,48 +356,51 @@ static b32 kaji_emit_and_write(const Project *p) {
         char tname[256];
         shader_target_name(g_shaders[i], tname, sizeof(tname));
         emit("target %s shader\n"
-             "  in %s\n"
-             "  out %s/%s.spv\n\n", tname, g_shaders[i], B,
+             "  in \"%s\"\n"
+             "  out \"%s/%s.spv\"\n\n", tname, g_shaders[i], B,
              shader_base(g_shaders[i]));
     }
     emit("target ui_vert shader\n"
-         "  in %s/src/engine/render/shaders/ui.vert\n"
+         "  in \"%s/src/engine/render/shaders/ui.vert\"\n"
          "  out %s/ui.vert.spv\n\n", g_engine, B);
     emit("target ui_frag shader\n"
-         "  in %s/src/engine/render/shaders/ui.frag\n"
+         "  in \"%s/src/engine/render/shaders/ui.frag\"\n"
          "  out %s/ui.frag.spv\n\n", g_engine, B);
 
     emit("target vendor_impl object\n"
-         "  in %s/src/engine/vendor_impl.c\n"
+         "  in \"%s/src/engine/vendor_impl.c\"\n"
          "  out %s/vendor_impl.o\n"
          "  flag -O1\n"
-         "  include %s/cgltf %s/stb %s/clay\n\n",
+         "  include \"%s/cgltf\" \"%s/stb\" \"%s/clay\"\n\n",
          g_engine, B, g_vendor, g_vendor, g_vendor);
 
     emit("target ui object\n"
-         "  in %s/src/engine/ui/ui.c\n"
-         "  also %s/src/engine/ui/ui.h %s/clay/clay.h\n"
+         "  in \"%s/src/engine/ui/ui.c\"\n"
+         "  also \"%s/src/engine/ui/ui.h\" \"%s/clay/clay.h\"\n"
          "  out %s/ui.o\n"
          "  flag -g0 -O0 -pipe -std=c99\n"
-         "  include %s/src %s/clay %s/stb %s" SDL_MINGW "/include\n\n",
-         g_engine, g_engine, g_vendor, B, g_engine, g_vendor, g_vendor,
-         g_vendor);
+         "  include \"%s/src\" \"%s/lib/ito\" \"%s/clay\" \"%s/stb\" "
+              "\"%s" SDL_MINGW "/include\"\n\n",
+         g_engine, g_engine, g_vendor, B, g_engine, g_engine, g_vendor,
+         g_vendor, g_vendor);
 
     emit("target editor object\n"
-         "  in %s/src/editor/editor_unity.c\n"
-         "  also %s/src/editor/editor.c %s/src/editor/editor.h\n"
-         "  also %s/src/editor/panels/inspector.c "
-              "%s/src/editor/panels/build_panel.c\n"
-         "  also %s/seni/seni.c %s/seni/seni.h %s/seni/arena.c\n"
+         "  in \"%s/src/editor/editor_unity.c\"\n"
+         "  also \"%s/src/editor/editor.c\" \"%s/src/editor/editor.h\"\n"
+         "  also \"%s/src/editor/panels/inspector.c\" "
+              "\"%s/src/editor/panels/build_panel.c\"\n"
+         "  also \"%s/lib/seni/seni.c\" \"%s/lib/seni/seni.h\" "
+              "\"%s/lib/seni/arena.c\"\n"
          "  out %s/editor.o\n"
          "  flag -g0 -O0 -pipe -std=c99\n"
-         "  include %s/src/editor %s/src %s/seni %s" SDL_MINGW "/include\n\n",
+         "  include \"%s/src/editor\" \"%s/src\" \"%s/lib/ito\" \"%s/lib/seni\" "
+              "\"%s" SDL_MINGW "/include\"\n\n",
          g_engine, g_engine, g_engine, g_engine, g_engine,
-         g_vendor, g_vendor, g_vendor, B,
-         g_engine, g_engine, g_vendor, g_vendor);
+         g_engine, g_engine, g_engine, B,
+         g_engine, g_engine, g_engine, g_engine, g_vendor);
 
     emit("target pch_snapshot copy\n"
-         "  in %s/src/pch.h\n"
+         "  in \"%s/src/pch.h\"\n"
          "  out %s/pch.h\n\n", g_engine, B);
     emit("target pch pch\n"
          "  dep pch_snapshot\n"
@@ -343,7 +426,7 @@ static b32 kaji_emit_and_write(const Project *p) {
          "  define EDITOR_BUILD\n"
          "  include %s\n", B, B, B, B, B, includes);
     if (win) {
-        emit("  libdir %s" SDL_MINGW "/lib\n  lib SDL3\n", g_vendor);
+        emit("  libdir \"%s" SDL_MINGW "/lib\"\n  lib SDL3\n", g_vendor);
     } else {
         emit("  lib m\n");
     }
@@ -356,23 +439,24 @@ static b32 kaji_emit_and_write(const Project *p) {
 
     /* the engine exe rebuilds itself; lands beside the running exe */
     emit("target host exe\n"
-         "  in %s/src/platform/host_main.c %s/src/platform/project_gen.c\n"
-         "  in %s/seni/seni.c %s/seni/arena.c\n"
-         "  in %s/kansi/kansi.c %s/kaji/kaji.c\n"
-         "  in %s/dodai/dodai_video_sdl.c\n"
-         "  in %s/dodai/%s\n"
-         "  out %s/%s/meikyu_new" EXE_SUFFIX "\n"
+         "  in \"%s/src/platform/host_main.c\" "
+              "\"%s/src/platform/project_gen.c\"\n"
+         "  in \"%s/lib/seni/seni.c\" \"%s/lib/seni/arena.c\"\n"
+         "  in \"%s/lib/kansi/kansi.c\" \"%s/lib/kaji/kaji.c\"\n"
+         "  in \"%s/lib/dodai/dodai_video_sdl.c\"\n"
+         "  in \"%s/lib/dodai/%s\"\n"
+         "  out \"%s/%s/meikyu_new" EXE_SUFFIX "\"\n"
          "  flag -g -O0 -Wall -Wextra -std=c99\n"
-         "  include %s/src %s/seni %s/kansi %s/kaji %s/dodai "
-              "%s" SDL_MINGW "/include\n",
-         g_engine, g_engine, g_vendor, g_vendor, g_vendor, g_vendor,
-         g_vendor, g_vendor, win ? "dodai_windows.c" : "dodai_posix.c",
+         "  include \"%s/src\" \"%s/lib/seni\" \"%s/lib/kansi\" \"%s/lib/kaji\" "
+              "\"%s/lib/dodai\" \"%s" SDL_MINGW "/include\"\n",
+         g_engine, g_engine, g_engine, g_engine, g_engine, g_engine,
+         g_engine, g_engine, win ? "dodai_windows.c" : "dodai_posix.c",
          g_engine, B,
-         g_engine, g_vendor, g_vendor, g_vendor, g_vendor, g_vendor);
+         g_engine, g_engine, g_engine, g_engine, g_engine, g_vendor);
     if (win) {
-        emit("  libdir %s" SDL_MINGW "/lib\n  lib SDL3\n\n", g_vendor);
+        emit("  libdir \"%s" SDL_MINGW "/lib\"\n  lib SDL3\n\n", g_vendor);
     } else {
-        emit("  libdir %s/%s/_deps/sdl3-build\n"
+        emit("  libdir \"%s/%s/_deps/sdl3-build\"\n"
              "  lib SDL3 m pthread\n", g_engine, B);
         if (mac) {
             emit("  flag -Wl,-rpath,@loader_path/_deps/sdl3-build\n\n");
@@ -390,44 +474,44 @@ static b32 kaji_emit_and_write(const Project *p) {
         emit(" %s", tname);
     }
     emit(" vendor_impl ui\n");
-    emit("  in %s/src/platform/runtime_main.c " UNITY_GEN "\n"
-         "  in %s/dodai/dodai_video_sdl.c\n"
-         "  in %s/dodai/%s\n"
+    emit("  in \"%s/src/platform/runtime_main.c\" " UNITY_GEN "\n"
+         "  in \"%s/lib/dodai/dodai_video_sdl.c\"\n"
+         "  in \"%s/lib/dodai/%s\"\n"
          "  out %s/ship/%s" EXE_SUFFIX "\n"
          "  obj %s/vendor_impl.o %s/ui.o\n"
          "  flag -O2 -std=c99\n"
          "  define NDEBUG ASSETS_DIR=\\\"assets\\\" GAME_TITLE=\\\"%s\\\"\n"
-         "  include %s %s/dodai\n",
-         g_engine, g_vendor, g_vendor,
+         "  include %s \"%s/lib/dodai\"\n",
+         g_engine, g_engine, g_engine,
          win ? "dodai_windows.c" : "dodai_posix.c",
-         B, p->name, B, B, p->name, includes, g_vendor);
+         B, p->name, B, B, p->name, includes, g_engine);
     if (win) {
-        emit("  libdir %s" SDL_MINGW "/lib\n  lib SDL3\n", g_vendor);
+        emit("  libdir \"%s" SDL_MINGW "/lib\"\n  lib SDL3\n", g_vendor);
     } else {
-        emit("  libdir %s/%s/_deps/sdl3-build\n"
+        emit("  libdir \"%s/%s/_deps/sdl3-build\"\n"
              "  lib SDL3 m pthread\n", g_engine, B);
         emit(mac ? "  flag -Wl,-rpath,@loader_path\n"
                  : "  flag -Wl,-rpath,'$ORIGIN'\n");
     }
     for (int i = 0; i < g_shader_count; i++) {
-        emit("  post copy %s/%s.spv %s/ship/%s/%s.spv\n",
+        emit("  post copy \"%s/%s.spv\" \"%s/ship/%s/%s.spv\"\n",
              B, shader_base(g_shaders[i]), B, B, shader_base(g_shaders[i]));
     }
     emit("  post copy %s/ui.vert.spv %s/ship/%s/ui.vert.spv\n", B, B, B);
     emit("  post copy %s/ui.frag.spv %s/ship/%s/ui.frag.spv\n", B, B, B);
     if (win) {
-        emit("  post copy %s" SDL_MINGW "/bin/SDL3.dll %s/ship/SDL3.dll\n",
+        emit("  post copy \"%s" SDL_MINGW "/bin/SDL3.dll\" %s/ship/SDL3.dll\n",
              g_vendor, B);
     } else if (mac) {
-        emit("  post copy %s/%s/_deps/sdl3-build/libSDL3.0.dylib "
+        emit("  post copy \"%s/%s/_deps/sdl3-build/libSDL3.0.dylib\" "
              "%s/ship/libSDL3.0.dylib\n", g_engine, B, B);
     } else {
-        emit("  post copy %s/%s/_deps/sdl3-build/libSDL3.so.0 "
+        emit("  post copy \"%s/%s/_deps/sdl3-build/libSDL3.so.0\" "
              "%s/ship/libSDL3.so.0\n", g_engine, B, B);
     }
-    emit("  post copydir %s %s/ship/assets\n", p->assets, B);
+    emit("  post copydir \"%s\" %s/ship/assets\n", p->assets, B);
 
-    return write_if_changed(KAJI_GEN, g_buf, g_len);
+    return write_if_changed(KAJI_GEN, changed);
 }
 
 /* ---- public -------------------------------------------------------------- */
@@ -440,6 +524,7 @@ b32 project_open(Project *p) {
     if (!roots_resolve()) {
         return 0;
     }
+    glslc_resolve();
     marker_parse(p);
     discover();
     if (g_source_count == 0) {
@@ -447,22 +532,25 @@ b32 project_open(Project *p) {
         return 0;
     }
     if (!unity_emit_and_write() || !kansi_emit_and_write() ||
-        !kaji_emit_and_write(p)) {
+        !kaji_emit_and_write(p, NULL)) {
         return 0;
     }
-    dodai_log("project '%s': %d source file%s, %d shader%s",
+    dodai_log("project '%s': %d source file%s, %d shader%s (glslc: %s)",
               p->name, g_source_count, g_source_count == 1 ? "" : "s",
-              g_shader_count, g_shader_count == 1 ? "" : "s");
+              g_shader_count, g_shader_count == 1 ? "" : "s", g_glslc);
     return 1;
 }
 
-b32 project_regen_unity(Project *p) {
-    (void)p;
+b32 project_regen(Project *p, b32 *kaji_changed) {
+    *kaji_changed = 0;
     discover();
     if (g_source_count == 0) {
         dodai_log("project_gen: src/ has no .c files anymore; keeping the "
-                  "previous unity file");
+                  "previous generated files");
         return 1;
     }
-    return unity_emit_and_write();
+    /* unity follows the source set; the kaji cfg follows the shader set
+       (each shader is its own target) -- regenerate both so a new .vert
+       saved mid-session compiles without reopening the project */
+    return unity_emit_and_write() && kaji_emit_and_write(p, kaji_changed);
 }

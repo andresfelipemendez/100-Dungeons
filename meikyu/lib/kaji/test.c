@@ -23,53 +23,53 @@ static void settle_ms(int ms) {
     dodai_sleep_ms(ms);
 }
 
-/* ---- kstr ---- */
+/* ---- ito ---- */
 
-UTEST(kstr, views_and_compare) {
-    kstr s = KSTR("hello world");
+UTEST(ito, views_and_compare) {
+    ito s = ITO("hello world");
     ASSERT_EQ(11u, (unsigned)s.len);
-    ASSERT_TRUE(kstr_eq(kstr_slice(s, 0, 5), KSTR("hello")));
-    ASSERT_TRUE(kstr_eq_c(kstr_slice(s, 6, 11), "world"));
-    ASSERT_TRUE(kstr_starts_with(s, KSTR("hell")));
-    ASSERT_TRUE(kstr_ends_with(s, KSTR("rld")));
-    ASSERT_FALSE(kstr_eq(s, KSTR("hello")));
-    ASSERT_TRUE(kstr_eq(kstr_trim(KSTR("  x\t\r\n")), KSTR("x")));
+    ASSERT_TRUE(ito_eq(ito_slice(s, 0, 5), ITO("hello")));
+    ASSERT_TRUE(ito_eq_c(ito_slice(s, 6, 11), "world"));
+    ASSERT_TRUE(ito_starts_with(s, ITO("hell")));
+    ASSERT_TRUE(ito_ends_with(s, ITO("rld")));
+    ASSERT_FALSE(ito_eq(s, ITO("hello")));
+    ASSERT_TRUE(ito_eq(ito_trim(ITO("  x\t\r\n")), ITO("x")));
 }
 
-UTEST(kstr, line_and_token_iterators) {
-    kstr text = KSTR("a b\tc\r\nsecond line\n\nlast");
-    kstr line = kstr_next_line(&text);
-    ASSERT_TRUE(kstr_eq(line, KSTR("a b\tc"))); /* \r stripped */
-    kstr tok = kstr_next_token(&line);
-    ASSERT_TRUE(kstr_eq(tok, KSTR("a")));
-    tok = kstr_next_token(&line);
-    ASSERT_TRUE(kstr_eq(tok, KSTR("b")));
-    tok = kstr_next_token(&line);
-    ASSERT_TRUE(kstr_eq(tok, KSTR("c")));
-    tok = kstr_next_token(&line);
-    ASSERT_TRUE(kstr_is_empty(tok));
+UTEST(ito, line_and_token_iterators) {
+    ito text = ITO("a b\tc\r\nsecond line\n\nlast");
+    ito line = ito_next_line(&text);
+    ASSERT_TRUE(ito_eq(line, ITO("a b\tc"))); /* \r stripped */
+    ito tok = ito_next_token(&line);
+    ASSERT_TRUE(ito_eq(tok, ITO("a")));
+    tok = ito_next_token(&line);
+    ASSERT_TRUE(ito_eq(tok, ITO("b")));
+    tok = ito_next_token(&line);
+    ASSERT_TRUE(ito_eq(tok, ITO("c")));
+    tok = ito_next_token(&line);
+    ASSERT_TRUE(ito_is_empty(tok));
 
-    ASSERT_TRUE(kstr_eq(kstr_next_line(&text), KSTR("second line")));
-    ASSERT_TRUE(kstr_eq(kstr_next_line(&text), KSTR("")));
-    ASSERT_TRUE(kstr_eq(kstr_next_line(&text), KSTR("last")));
+    ASSERT_TRUE(ito_eq(ito_next_line(&text), ITO("second line")));
+    ASSERT_TRUE(ito_eq(ito_next_line(&text), ITO("")));
+    ASSERT_TRUE(ito_eq(ito_next_line(&text), ITO("last")));
     ASSERT_EQ(0u, (unsigned)text.len);
 }
 
-UTEST(kstr, copy_bounds_and_builder) {
+UTEST(ito, copy_bounds_and_builder) {
     char small[4];
-    ASSERT_FALSE(kstr_copy(small, sizeof(small), KSTR("toolong")));
+    ASSERT_FALSE(ito_copy(small, sizeof(small), ITO("toolong")));
     ASSERT_STREQ("too", small); /* truncated but terminated */
-    ASSERT_TRUE(kstr_copy(small, sizeof(small), KSTR("ok")));
+    ASSERT_TRUE(ito_copy(small, sizeof(small), ITO("ok")));
     ASSERT_STREQ("ok", small);
 
     char storage[16];
-    kstr_buf b;
-    kstr_buf_init(&b, storage, sizeof(storage));
-    kstr_buf_append(&b, KSTR("gcc"));
-    kstr_buf_appendf(&b, " -I%s", "src");
+    ito_buf b;
+    ito_buf_init(&b, storage, sizeof(storage));
+    ito_buf_append(&b, ITO("gcc"));
+    ito_buf_appendf(&b, " -I%s", "src");
     ASSERT_FALSE(b.overflow);
     ASSERT_STREQ("gcc -Isrc", storage);
-    kstr_buf_appendf(&b, " %s", "waaaay too long for this");
+    ito_buf_appendf(&b, " %s", "waaaay too long for this");
     ASSERT_TRUE(b.overflow); /* sticky */
 }
 
@@ -109,7 +109,7 @@ UTEST(parse, targets_vars_tools) {
                                                 : "out_w";
     ASSERT_STREQ(bd, k->builddir);
 
-    kaji_target *t = kaji_find(k, KSTR("game"));
+    kaji_target *t = kaji_find(k, ITO("game"));
     ASSERT_TRUE(t != NULL);
     ASSERT_EQ(KAJI_KIND_DLL, (int)t->kind);
     ASSERT_EQ(1, t->dep_count);
@@ -153,20 +153,22 @@ UTEST(parse, command_assembly) {
 
     char cmd[1024];
     int posix = dodai_is_linux() || dodai_is_macos();
-    kaji_target *o = kaji_find(k, KSTR("obj1"));
+    kaji_target *o = kaji_find(k, ITO("obj1"));
     ASSERT_TRUE(kaji_command_for(k, o, cmd, sizeof(cmd), o->out));
+    /* every path is double-quoted (clone dirs may hold spaces); flags,
+       -D and -l are not paths and stay bare */
     if (posix) {
-        ASSERT_STREQ("gcc -c -fPIC -O1 a.c -Ii1 -o bb/a.o", cmd);
+        ASSERT_STREQ("\"gcc\" -c -fPIC -O1 \"a.c\" -I\"i1\" -o \"bb/a.o\"", cmd);
     } else {
-        ASSERT_STREQ("gcc -c -O1 a.c -Ii1 -o bb/a.o", cmd);
+        ASSERT_STREQ("\"gcc\" -c -O1 \"a.c\" -I\"i1\" -o \"bb/a.o\"", cmd);
     }
 
-    kaji_target *g = kaji_find(k, KSTR("game"));
+    kaji_target *g = kaji_find(k, ITO("game"));
     ASSERT_TRUE(kaji_command_for(k, g, cmd, sizeof(cmd), "TMP"));
     if (posix) {
-        ASSERT_STREQ("gcc -shared -fPIC -g0 -DED=1 u.c bb/a.o -LL1 -lz -o TMP", cmd);
+        ASSERT_STREQ("\"gcc\" -shared -fPIC -g0 -DED=1 \"u.c\" \"bb/a.o\" -L\"L1\" -lz -o \"TMP\"", cmd);
     } else {
-        ASSERT_STREQ("gcc -shared -g0 -DED=1 u.c bb/a.o -LL1 -lz -o TMP", cmd);
+        ASSERT_STREQ("\"gcc\" -shared -g0 -DED=1 \"u.c\" \"bb/a.o\" -L\"L1\" -lz -o \"TMP\"", cmd);
     }
     kaji_free(k);
 }
@@ -199,13 +201,13 @@ UTEST(e2e, graph_build_skip_rebuild) {
     char so_path[256];
     snprintf(so_path, sizeof(so_path), "build/forge/mod%s", kaji_so_ext());
     unsigned long long t1;
-    ASSERT_TRUE(dodai_mtime_ns(so_path, &t1));
+    ASSERT_TRUE(dodai_mtime_ns(ito_from(so_path), &t1));
 
     /* nothing changed: everything skips, artifact untouched */
     settle_ms(30);
     ASSERT_EQ(0, kaji_build(k, "mod", 0));
     unsigned long long t2;
-    ASSERT_TRUE(dodai_mtime_ns(so_path, &t2));
+    ASSERT_TRUE(dodai_mtime_ns(ito_from(so_path), &t2));
     ASSERT_EQ(t1, t2);
 
     /* touching the object's source rebuilds object AND the dll above it */
@@ -213,7 +215,7 @@ UTEST(e2e, graph_build_skip_rebuild) {
     write_file("build/answer.c", "int answer(void) { return 43; }\n");
     ASSERT_EQ(0, kaji_build(k, "mod", 0));
     unsigned long long t3;
-    ASSERT_TRUE(dodai_mtime_ns(so_path, &t3));
+    ASSERT_TRUE(dodai_mtime_ns(ito_from(so_path), &t3));
     ASSERT_NE(t2, t3);
     kaji_free(k);
 }

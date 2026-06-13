@@ -1,5 +1,5 @@
 #include "kaji.h"
-#include "kaji_str.h"
+#include "../ito/ito.h"
 #include "dodai.h"
 
 #include <stdio.h>
@@ -70,9 +70,9 @@ static const char *kaji_exe_ext(void) {
     return kaji_is_posix() ? "" : ".exe";
 }
 
-static const char *kaji_tool(const kaji *k, kstr name) {
+static const char *kaji_tool(const kaji *k, ito name) {
     for (int i = 0; i < k->tool_count; i++) {
-        if (kstr_eq_c(name, k->tool_name[i])) {
+        if (ito_eq_c(name, k->tool_name[i])) {
             return k->tool_cmd[i];
         }
     }
@@ -81,30 +81,30 @@ static const char *kaji_tool(const kaji *k, kstr name) {
 
 /* Expands ${B}, ${SO}, ${EXE} and ${<tool>}. Returns 0 on overflow or
    unknown variable. */
-static int kaji_expand(const kaji *k, kstr in, char *out, size_t out_size) {
-    kstr_buf b;
-    kstr_buf_init(&b, out, out_size);
+static int kaji_expand(const kaji *k, ito in, char *out, size_t out_size) {
+    ito_buf b;
+    ito_buf_init(&b, out, out_size);
     while (in.len) {
         if (in.len >= 2 && in.ptr[0] == '$' && in.ptr[1] == '{') {
-            kstr rest = kstr_slice(in, 2, in.len);
-            int close = kstr_find(rest, '}');
+            ito rest = ito_slice(in, 2, in.len);
+            int close = ito_find(rest, '}');
             if (close < 0) {
                 return 0;
             }
-            kstr var = kstr_slice(rest, 0, (size_t)close);
+            ito var = ito_slice(rest, 0, (size_t)close);
             const char *val;
-            if (kstr_eq(var, KSTR("B")))        val = k->builddir;
-            else if (kstr_eq(var, KSTR("SO")))  val = kaji_so_ext();
-            else if (kstr_eq(var, KSTR("EXE"))) val = kaji_exe_ext();
+            if (ito_eq(var, ITO("B")))        val = k->builddir;
+            else if (ito_eq(var, ITO("SO")))  val = kaji_so_ext();
+            else if (ito_eq(var, ITO("EXE"))) val = kaji_exe_ext();
             else                                val = kaji_tool(k, var);
             if (!val) {
                 return 0;
             }
-            kstr_buf_append_c(&b, val);
-            in = kstr_slice(rest, (size_t)close + 1, rest.len);
+            ito_buf_append_c(&b, val);
+            in = ito_slice(rest, (size_t)close + 1, rest.len);
         } else {
-            kstr_buf_append(&b, kstr_slice(in, 0, 1));
-            in = kstr_slice(in, 1, in.len);
+            ito_buf_append(&b, ito_slice(in, 0, 1));
+            in = ito_slice(in, 1, in.len);
         }
     }
     return !b.overflow;
@@ -113,28 +113,28 @@ static int kaji_expand(const kaji *k, kstr in, char *out, size_t out_size) {
 /* ---- config parser ------------------------------------------------------
    `key value...`; keys may end in _win/_linux to apply on one OS only. */
 
-static kaji_kind kaji_kind_from(kstr s) {
-    if (kstr_eq(s, KSTR("copy")))   return KAJI_KIND_COPY;
-    if (kstr_eq(s, KSTR("shader"))) return KAJI_KIND_SHADER;
-    if (kstr_eq(s, KSTR("object"))) return KAJI_KIND_OBJECT;
-    if (kstr_eq(s, KSTR("pch")))    return KAJI_KIND_PCH;
-    if (kstr_eq(s, KSTR("dll")))    return KAJI_KIND_DLL;
-    if (kstr_eq(s, KSTR("exe")))    return KAJI_KIND_EXE;
+static kaji_kind kaji_kind_from(ito s) {
+    if (ito_eq(s, ITO("copy")))   return KAJI_KIND_COPY;
+    if (ito_eq(s, ITO("shader"))) return KAJI_KIND_SHADER;
+    if (ito_eq(s, ITO("object"))) return KAJI_KIND_OBJECT;
+    if (ito_eq(s, ITO("pch")))    return KAJI_KIND_PCH;
+    if (ito_eq(s, ITO("dll")))    return KAJI_KIND_DLL;
+    if (ito_eq(s, ITO("exe")))    return KAJI_KIND_EXE;
     return KAJI_KIND_NONE;
 }
 
 /* strips a _win/_linux/_mac suffix; returns 0 if the key is for another OS */
-static int kaji_key_applies(kstr *key) {
-    if (kstr_ends_with(*key, KSTR("_win"))) {
-        *key = kstr_slice(*key, 0, key->len - 4);
+static int kaji_key_applies(ito *key) {
+    if (ito_ends_with(*key, ITO("_win"))) {
+        *key = ito_slice(*key, 0, key->len - 4);
         return !kaji_is_posix();
     }
-    if (kstr_ends_with(*key, KSTR("_linux"))) {
-        *key = kstr_slice(*key, 0, key->len - 6);
+    if (ito_ends_with(*key, ITO("_linux"))) {
+        *key = ito_slice(*key, 0, key->len - 6);
         return dodai_is_linux();
     }
-    if (kstr_ends_with(*key, KSTR("_mac"))) {
-        *key = kstr_slice(*key, 0, key->len - 4);
+    if (ito_ends_with(*key, ITO("_mac"))) {
+        *key = ito_slice(*key, 0, key->len - 4);
         return dodai_is_macos();
     }
     return 1;
@@ -148,17 +148,17 @@ typedef struct {
     int err_size;
 } kaji_parse_ctx;
 
-static int kaji_fail(kaji_parse_ctx *ctx, const char *msg, kstr what) {
+static int kaji_fail(kaji_parse_ctx *ctx, const char *msg, ito what) {
     snprintf(ctx->err, (size_t)ctx->err_size, "line %d: %s '%.*s'",
              ctx->line_no, msg, (int)what.len, what.ptr);
     return 0;
 }
 
-static int kaji_append_tokens(kaji_parse_ctx *ctx, kstr values, kstr key,
+static int kaji_append_tokens(kaji_parse_ctx *ctx, ito values, ito key,
                               char *arr, size_t elem_size, int *count, int max) {
     for (;;) {
-        kstr tok = kstr_next_token(&values);
-        if (kstr_is_empty(tok)) {
+        ito tok = ito_next_token(&values);
+        if (ito_is_empty(tok)) {
             return 1;
         }
         if (*count >= max) {
@@ -171,13 +171,13 @@ static int kaji_append_tokens(kaji_parse_ctx *ctx, kstr values, kstr key,
     }
 }
 
-static int kaji_parse_target_key(kaji_parse_ctx *ctx, kstr key, kstr values) {
+static int kaji_parse_target_key(kaji_parse_ctx *ctx, ito key, ito values) {
     kaji_target *t = ctx->t;
     if (!t) {
         return kaji_fail(ctx, "key outside a target:", key);
     }
 #define KAJI_LIST(name, arr, count, max) \
-    if (kstr_eq(key, KSTR(name))) \
+    if (ito_eq(key, ITO(name))) \
         return kaji_append_tokens(ctx, values, key, &t->arr[0][0], sizeof(t->arr[0]), &t->count, max)
     KAJI_LIST("dep", deps, dep_count, KAJI_MAX_DEPS);
     KAJI_LIST("in", ins, in_count, KAJI_MAX_INS);
@@ -190,20 +190,20 @@ static int kaji_parse_target_key(kaji_parse_ctx *ctx, kstr key, kstr values) {
     KAJI_LIST("obj", obj, obj_count, KAJI_MAX_LIST);
 #undef KAJI_LIST
 
-    if (kstr_eq(key, KSTR("out"))) {
-        kstr v = kstr_trim(values);
+    if (ito_eq(key, ITO("out"))) {
+        ito v = ito_trim(values);
         if (!kaji_expand(ctx->k, v, t->out, sizeof(t->out))) {
             return kaji_fail(ctx, "bad ${...} expansion in", v);
         }
         return 1;
     }
-    if (kstr_eq(key, KSTR("post"))) {
-        kstr what = kstr_next_token(&values);
-        kstr from = kstr_next_token(&values);
-        kstr to = kstr_next_token(&values);
-        int is_dir = kstr_eq(what, KSTR("copydir"));
-        if ((!is_dir && !kstr_eq(what, KSTR("copy"))) ||
-            kstr_is_empty(from) || kstr_is_empty(to)) {
+    if (ito_eq(key, ITO("post"))) {
+        ito what = ito_next_token(&values);
+        ito from = ito_next_token(&values);
+        ito to = ito_next_token(&values);
+        int is_dir = ito_eq(what, ITO("copydir"));
+        if ((!is_dir && !ito_eq(what, ITO("copy"))) ||
+            ito_is_empty(from) || ito_is_empty(to)) {
             return kaji_fail(ctx, "post needs copy|copydir <from> <to>, got", what);
         }
         if (t->post_count >= KAJI_MAX_POSTS) {
@@ -220,38 +220,38 @@ static int kaji_parse_target_key(kaji_parse_ctx *ctx, kstr key, kstr values) {
     return kaji_fail(ctx, "unknown key", key);
 }
 
-static int kaji_parse_line(kaji_parse_ctx *ctx, kstr line) {
-    int hash = kstr_find(line, '#');
+static int kaji_parse_line(kaji_parse_ctx *ctx, ito line) {
+    int hash = ito_find(line, '#');
     if (hash >= 0) {
-        line = kstr_slice(line, 0, (size_t)hash);
+        line = ito_slice(line, 0, (size_t)hash);
     }
-    line = kstr_trim(line);
-    if (kstr_is_empty(line)) {
+    line = ito_trim(line);
+    if (ito_is_empty(line)) {
         return 1;
     }
-    kstr values = line;
-    kstr key = kstr_next_token(&values);
+    ito values = line;
+    ito key = ito_next_token(&values);
     if (!kaji_key_applies(&key)) {
         return 1;
     }
     kaji *k = ctx->k;
 
-    if (kstr_eq(key, KSTR("builddir"))) {
-        kstr v = kstr_trim(values);
-        if (!kstr_copy(k->builddir, sizeof(k->builddir), v)) {
+    if (ito_eq(key, ITO("builddir"))) {
+        ito v = ito_trim(values);
+        if (!ito_copy(k->builddir, sizeof(k->builddir), v)) {
             return kaji_fail(ctx, "builddir too long:", v);
         }
         return 1;
     }
-    if (kstr_eq(key, KSTR("tool"))) {
-        kstr name = kstr_next_token(&values);
-        kstr cmd = kstr_trim(values);
-        if (kstr_is_empty(name) || kstr_is_empty(cmd)) {
+    if (ito_eq(key, ITO("tool"))) {
+        ito name = ito_next_token(&values);
+        ito cmd = ito_trim(values);
+        if (ito_is_empty(name) || ito_is_empty(cmd)) {
             return kaji_fail(ctx, "tool needs <name> <command>, got", name);
         }
         int slot = -1;
         for (int i = 0; i < k->tool_count; i++) {
-            if (kstr_eq_c(name, k->tool_name[i])) {
+            if (ito_eq_c(name, k->tool_name[i])) {
                 slot = i;
             }
         }
@@ -260,17 +260,17 @@ static int kaji_parse_line(kaji_parse_ctx *ctx, kstr line) {
                 return kaji_fail(ctx, "too many entries for", key);
             }
             slot = k->tool_count++;
-            kstr_copy(k->tool_name[slot], sizeof(k->tool_name[0]), name);
+            ito_copy(k->tool_name[slot], sizeof(k->tool_name[0]), name);
         }
-        if (!kstr_copy(k->tool_cmd[slot], sizeof(k->tool_cmd[0]), cmd)) {
+        if (!ito_copy(k->tool_cmd[slot], sizeof(k->tool_cmd[0]), cmd)) {
             return kaji_fail(ctx, "tool command too long:", cmd);
         }
         return 1;
     }
-    if (kstr_eq(key, KSTR("target"))) {
-        kstr name = kstr_next_token(&values);
-        kstr kind = kstr_next_token(&values);
-        if (kstr_is_empty(name) || kaji_kind_from(kind) == KAJI_KIND_NONE) {
+    if (ito_eq(key, ITO("target"))) {
+        ito name = ito_next_token(&values);
+        ito kind = ito_next_token(&values);
+        if (ito_is_empty(name) || kaji_kind_from(kind) == KAJI_KIND_NONE) {
             return kaji_fail(ctx, "target needs <name> <copy|shader|object|dll|exe>, got", kind);
         }
         if (k->target_count >= KAJI_MAX_TARGETS) {
@@ -278,14 +278,14 @@ static int kaji_parse_line(kaji_parse_ctx *ctx, kstr line) {
         }
         ctx->t = &k->targets[k->target_count++];
         memset(ctx->t, 0, sizeof(*ctx->t));
-        kstr_copy(ctx->t->name, sizeof(ctx->t->name), name);
+        ito_copy(ctx->t->name, sizeof(ctx->t->name), name);
         ctx->t->kind = kaji_kind_from(kind);
         return 1;
     }
     return kaji_parse_target_key(ctx, key, values);
 }
 
-static int kaji_parse(kaji *k, kstr text, char *err, int err_size) {
+static int kaji_parse(kaji *k, ito text, char *err, int err_size) {
     kaji_parse_ctx ctx = { k, NULL, 0, err, err_size };
 
     /* defaults */
@@ -296,17 +296,17 @@ static int kaji_parse(kaji *k, kstr text, char *err, int err_size) {
 
     /* builddir lines first: ${B} in any target must already resolve to the
        right platform value no matter where the keys sit in the file */
-    kstr rest = text;
+    ito rest = text;
     ctx.line_no = 0;
     while (rest.len) {
-        kstr line = kstr_next_line(&rest);
+        ito line = ito_next_line(&rest);
         ctx.line_no++;
-        kstr values = kstr_trim(line);
-        kstr key = kstr_next_token(&values);
+        ito values = ito_trim(line);
+        ito key = ito_next_token(&values);
         if (!kaji_key_applies(&key)) {
             continue;
         }
-        if (kstr_eq(key, KSTR("builddir"))) {
+        if (ito_eq(key, ITO("builddir"))) {
             if (!kaji_parse_line(&ctx, line)) {
                 return 0;
             }
@@ -316,11 +316,11 @@ static int kaji_parse(kaji *k, kstr text, char *err, int err_size) {
     rest = text;
     ctx.line_no = 0;
     while (rest.len) {
-        kstr line = kstr_next_line(&rest);
+        ito line = ito_next_line(&rest);
         ctx.line_no++;
-        kstr probe = kstr_trim(line);
-        kstr key = kstr_next_token(&probe);
-        if (!kaji_key_applies(&key) || kstr_eq(key, KSTR("builddir"))) {
+        ito probe = ito_trim(line);
+        ito key = ito_next_token(&probe);
+        if (!kaji_key_applies(&key) || ito_eq(key, ITO("builddir"))) {
             continue; /* other-OS keys and the prepass lines */
         }
         if (!kaji_parse_line(&ctx, line)) {
@@ -386,7 +386,7 @@ kaji *kaji_load(const char *config_path, char *err, int err_size) {
         snprintf(err, (size_t)err_size, "out of memory");
         return NULL;
     }
-    kstr view = { text, (size_t)size };
+    ito view = { text, (size_t)size };
     int ok = kaji_parse(k, view, err, err_size);
     free(text);
     if (!ok) {
@@ -402,9 +402,9 @@ void kaji_free(kaji *k) {
 
 /* ---- planning ---------------------------------------------------------- */
 
-static kaji_target *kaji_find(kaji *k, kstr name) {
+static kaji_target *kaji_find(kaji *k, ito name) {
     for (int i = 0; i < k->target_count; i++) {
-        if (kstr_eq_c(name, k->targets[i].name)) {
+        if (ito_eq_c(name, k->targets[i].name)) {
             return &k->targets[i];
         }
     }
@@ -413,24 +413,24 @@ static kaji_target *kaji_find(kaji *k, kstr name) {
 
 static int kaji_target_stale(const kaji_target *t) {
     unsigned long long out_t;
-    if (!dodai_mtime_ns(t->out, &out_t)) {
+    if (!dodai_mtime_ns(ito_from(t->out), &out_t)) {
         return 1;
     }
     for (int i = 0; i < t->in_count; i++) {
         unsigned long long in_t;
-        if (!dodai_mtime_ns(t->ins[i], &in_t) || in_t > out_t) {
+        if (!dodai_mtime_ns(ito_from(t->ins[i]), &in_t) || in_t > out_t) {
             return 1;
         }
     }
     for (int i = 0; i < t->also_count; i++) {
         unsigned long long a_t;
-        if (dodai_mtime_ns(t->also[i], &a_t) && a_t > out_t) {
+        if (dodai_mtime_ns(ito_from(t->also[i]), &a_t) && a_t > out_t) {
             return 1;
         }
     }
     for (int i = 0; i < t->obj_count; i++) {
         unsigned long long o_t;
-        if (dodai_mtime_ns(t->obj[i], &o_t) && o_t > out_t) {
+        if (dodai_mtime_ns(ito_from(t->obj[i]), &o_t) && o_t > out_t) {
             return 1;
         }
     }
@@ -440,37 +440,40 @@ static int kaji_target_stale(const kaji_target *t) {
 /* builds the compile/link command for shader/object/dll/exe targets */
 static int kaji_command_for(kaji *k, const kaji_target *t,
                             char *cmd, size_t cmd_size, const char *out_path) {
-    kstr_buf b;
-    kstr_buf_init(&b, cmd, cmd_size);
+    ito_buf b;
+    ito_buf_init(&b, cmd, cmd_size);
 
+    /* every path is double-quoted: configs may carry absolute paths from
+       user-controlled clone locations (spaces); the shell re-splits the
+       command line, so config-level quoting alone is not enough */
     if (t->kind == KAJI_KIND_SHADER) {
-        const char *glslc = kaji_tool(k, KSTR("glslc"));
+        const char *glslc = kaji_tool(k, ITO("glslc"));
         if (!glslc) {
             return 0;
         }
-        kstr_buf_appendf(&b, "%s %s -o %s", glslc, t->ins[0], out_path);
+        ito_buf_appendf(&b, "\"%s\" \"%s\" -o \"%s\"", glslc, t->ins[0], out_path);
         return !b.overflow;
     }
 
-    kstr_buf_append_c(&b, kaji_tool(k, KSTR("cc")));
+    ito_buf_appendf(&b, "\"%s\"", kaji_tool(k, ITO("cc")));
     if (t->kind == KAJI_KIND_OBJECT) {
-        kstr_buf_append(&b, KSTR(" -c"));
+        ito_buf_append(&b, ITO(" -c"));
     } else if (t->kind == KAJI_KIND_PCH) {
-        kstr_buf_append(&b, KSTR(" -x c-header"));
+        ito_buf_append(&b, ITO(" -x c-header"));
     } else if (t->kind == KAJI_KIND_DLL) {
-        kstr_buf_append(&b, KSTR(" -shared"));
+        ito_buf_append(&b, ITO(" -shared"));
     }
     if (kaji_is_posix() && t->kind != KAJI_KIND_EXE) {
-        kstr_buf_append(&b, KSTR(" -fPIC"));
+        ito_buf_append(&b, ITO(" -fPIC"));
     }
-    for (int i = 0; i < t->flag_count; i++)    kstr_buf_appendf(&b, " %s", t->flag[i]);
-    for (int i = 0; i < t->define_count; i++)  kstr_buf_appendf(&b, " -D%s", t->define[i]);
-    for (int i = 0; i < t->in_count; i++)      kstr_buf_appendf(&b, " %s", t->ins[i]);
-    for (int i = 0; i < t->obj_count; i++)     kstr_buf_appendf(&b, " %s", t->obj[i]);
-    for (int i = 0; i < t->include_count; i++) kstr_buf_appendf(&b, " -I%s", t->include[i]);
-    for (int i = 0; i < t->libdir_count; i++)  kstr_buf_appendf(&b, " -L%s", t->libdir[i]);
-    for (int i = 0; i < t->lib_count; i++)     kstr_buf_appendf(&b, " -l%s", t->lib[i]);
-    kstr_buf_appendf(&b, " -o %s", out_path);
+    for (int i = 0; i < t->flag_count; i++)    ito_buf_appendf(&b, " %s", t->flag[i]);
+    for (int i = 0; i < t->define_count; i++)  ito_buf_appendf(&b, " -D%s", t->define[i]);
+    for (int i = 0; i < t->in_count; i++)      ito_buf_appendf(&b, " \"%s\"", t->ins[i]);
+    for (int i = 0; i < t->obj_count; i++)     ito_buf_appendf(&b, " \"%s\"", t->obj[i]);
+    for (int i = 0; i < t->include_count; i++) ito_buf_appendf(&b, " -I\"%s\"", t->include[i]);
+    for (int i = 0; i < t->libdir_count; i++)  ito_buf_appendf(&b, " -L\"%s\"", t->libdir[i]);
+    for (int i = 0; i < t->lib_count; i++)     ito_buf_appendf(&b, " -l%s", t->lib[i]);
+    ito_buf_appendf(&b, " -o \"%s\"", out_path);
     return !b.overflow;
 }
 
@@ -488,7 +491,7 @@ static int kaji_plan_target(kaji *k, kaji_target *t, kaji_run *run, int *forced)
 
 static int kaji_plan_deps(kaji *k, kaji_target *t, kaji_run *run, int *forced) {
     for (int i = 0; i < t->dep_count; i++) {
-        kaji_target *d = kaji_find(k, kstr_from(t->deps[i]));
+        kaji_target *d = kaji_find(k, ito_from(t->deps[i]));
         if (!kaji_plan_target(k, d, run, forced)) {
             return 0;
         }
@@ -522,7 +525,7 @@ static int kaji_plan_target(kaji *k, kaji_target *t, kaji_run *run, int *forced)
     *forced = 1;
     t->planned = 1;
 
-    dodai_make_dirs_for(t->out);
+    dodai_make_dirs_for(ito_from(t->out));
 
     char cmd[KAJI_RUN_CMD_MAX];
     if (t->kind == KAJI_KIND_COPY) {
@@ -559,18 +562,18 @@ static int kaji_plan_target(kaji *k, kaji_target *t, kaji_run *run, int *forced)
    asset tree must never stall the frame loop), compiles/links as child
    processes -- both polled the same way. Publishes at the end. */
 static int kaji_start_copy(kaji_run *run) {
-    kstr s = kstr_from(run->cmds[run->step]);
-    int sep = kstr_find(s, '|');
+    ito s = ito_from(run->cmds[run->step]);
+    int sep = ito_find(s, '|');
     if (sep < 0) {
         return 0;
     }
     char from[KAJI_PATH_MAX], to[KAJI_PATH_MAX];
-    if (!kstr_copy(from, sizeof(from), kstr_slice(s, 0, (size_t)sep)) ||
-        !kstr_copy(to, sizeof(to), kstr_slice(s, (size_t)sep + 1, s.len))) {
+    if (!ito_copy(from, sizeof(from), ito_slice(s, 0, (size_t)sep)) ||
+        !ito_copy(to, sizeof(to), ito_slice(s, (size_t)sep + 1, s.len))) {
         return 0;
     }
-    dodai_make_dirs_for(to);
-    return dodai_copy_async(from, to,
+    dodai_make_dirs_for(ito_from(to));
+    return dodai_copy_async(ito_from(from), ito_from(to),
                                     run->copy_step[run->step] == 2,
                                     &run->copy_thread);
 }
@@ -580,12 +583,12 @@ static int kaji_advance(kaji_run *run) {
         if (run->copy_step[run->step]) {
             return kaji_start_copy(run);
         }
-        return dodai_spawn(run->cmds[run->step],
-                                   run->log_path[0] ? run->log_path : NULL,
+        return dodai_spawn(ito_from(run->cmds[run->step]),
+                                   ito_from(run->log_path), /* empty = no redirect */
                                    &run->proc);
     }
     if (run->publish_out[0]) {
-        if (!dodai_rename(run->publish_tmp, run->publish_out)) {
+        if (!dodai_rename(ito_from(run->publish_tmp), ito_from(run->publish_out))) {
             return 0;
         }
         run->publish_out[0] = 0; /* publish once */
@@ -597,7 +600,7 @@ int kaji_build_async(kaji *k, const char *target, kaji_run *run, int force) {
     if (run->active) {
         return 0;
     }
-    kaji_target *t = kaji_find(k, kstr_from(target));
+    kaji_target *t = kaji_find(k, ito_from(target));
     if (!t) {
         return 0;
     }
@@ -620,7 +623,7 @@ int kaji_build_async(kaji *k, const char *target, kaji_run *run, int force) {
         t->visiting = 0;
         t->visited = 1;
         t->planned = 1;
-        dodai_make_dirs_for(t->out);
+        dodai_make_dirs_for(ito_from(t->out));
         char cmd[KAJI_RUN_CMD_MAX];
         if (t->kind == KAJI_KIND_COPY) {
             snprintf(cmd, sizeof(cmd), "%s|%s", t->ins[0], t->out);
@@ -652,8 +655,8 @@ int kaji_build_async(kaji *k, const char *target, kaji_run *run, int force) {
     } else if (!kaji_plan_target(k, t, run, &forced)) {
         return 0;
     }
-    dodai_make_dirs_for(run->log_path);
-    dodai_truncate(run->log_path);
+    dodai_make_dirs_for(ito_from(run->log_path));
+    dodai_truncate(ito_from(run->log_path));
     run->active = 1;
     if (!kaji_advance(run)) {
         run->active = 0;

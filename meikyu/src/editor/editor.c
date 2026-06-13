@@ -29,14 +29,16 @@ void editor_frame(PlatformMemory *memory, PlatformApi *api, GameInput *input,
         ed.fps_smoothed = ed.fps_smoothed * 0.95f + (1.0f / input->dt) * 0.05f;
     }
     static char fps_text[32];
-    snprintf(fps_text, sizeof(fps_text), "fps %.0f", ed.fps_smoothed);
+    ito_buf fps;
+    ito_buf_init(&fps, fps_text, sizeof(fps_text));
+    ito_buf_appendf(&fps, "fps %.0f", ed.fps_smoothed);
 
     ui_frame_begin(screen_w, screen_h, input->mouse_x, input->mouse_y,
                    input->mouse_left);
 
-    ui_panel_begin("editor_main", 260.0f);
-        ui_label("EDITOR", 18);
-        ui_label_dim(fps_text, 14);
+    ui_panel_begin(ITO("editor_main"), 260.0f);
+        ui_label(ITO("EDITOR"), 18);
+        ui_label_dim(ito_buf_view(&fps), 14);
         inspector_draw(memory);
         build_panel_draw(api);
     ui_panel_end();

@@ -89,43 +89,49 @@ b32 inspector_init(void) {
     return 1;
 }
 
+/* build a frame-static string into `buf` and hand back the view; clay
+   hashes ids immediately and keeps label slices, so the static storage
+   in `insp` satisfies the until-frame-end lifetime */
+static ito row_text(char *buf, size_t cap, const char *fmt, ito name) {
+    ito_buf b;
+    ito_buf_init(&b, buf, cap);
+    ito_buf_appendf(&b, fmt, name);
+    return ito_buf_view(&b);
+}
+
 static void inspector_scalar_row(InspectorField *f, u32 i, void *hot) {
     char *value = insp.value_text[i];
     char *ids = insp.id_text[i];
     void *p = (u8 *)hot + f->offset;
 
     f32 fstep = 0.1f;
-    snprintf(ids, 96, "insp_row_%s", f->name);
-    ui_row_begin(ids);
-    ui_label(f->name, 14);
+    ito name = ito_from(f->name);
+    ui_row_begin(row_text(ids, 48, "insp_row_%S", name));
+    ui_label(name, 14);
 
     switch (f->type) {
     case ast_float: {
         f32 *v = (f32 *)p;
-        snprintf(ids + 48, 48, "insp_m_%s", f->name);
-        if (ui_button(ids + 48, "-")) *v -= fstep;
-        snprintf(value, 32, "%.2f", *v);
-        ui_label(value, 14);
-        snprintf(ids + 48, 48, "insp_p_%s", f->name);
-        if (ui_button(ids + 48, "+")) *v += fstep;
+        if (ui_button(row_text(ids + 48, 48, "insp_m_%S", name), ITO("-"))) *v -= fstep;
+        ito_buf vb; ito_buf_init(&vb, value, 32); ito_buf_appendf(&vb, "%.2f", *v);
+        ui_label(ito_buf_view(&vb), 14);
+        if (ui_button(row_text(ids + 48, 48, "insp_p_%S", name), ITO("+"))) *v += fstep;
     } break;
     case ast_int: {
         s32 *v = (s32 *)p;
-        snprintf(ids + 48, 48, "insp_m_%s", f->name);
-        if (ui_button(ids + 48, "-")) *v -= 1;
-        snprintf(value, 32, "%d", *v);
-        ui_label(value, 14);
-        snprintf(ids + 48, 48, "insp_p_%s", f->name);
-        if (ui_button(ids + 48, "+")) *v += 1;
+        if (ui_button(row_text(ids + 48, 48, "insp_m_%S", name), ITO("-"))) *v -= 1;
+        ito_buf vb; ito_buf_init(&vb, value, 32); ito_buf_appendf(&vb, "%d", *v);
+        ui_label(ito_buf_view(&vb), 14);
+        if (ui_button(row_text(ids + 48, 48, "insp_p_%S", name), ITO("+"))) *v += 1;
     } break;
     case ast_double: {
         f64 *v = (f64 *)p;
-        snprintf(value, 32, "%.3f", *v);
-        ui_label(value, 14);
+        ito_buf vb; ito_buf_init(&vb, value, 32); ito_buf_appendf(&vb, "%.3f", *v);
+        ui_label(ito_buf_view(&vb), 14);
     } break;
     case ast_char: {
-        snprintf(value, 32, "%d", (int)*(char *)p);
-        ui_label(value, 14);
+        ito_buf vb; ito_buf_init(&vb, value, 32); ito_buf_appendf(&vb, "%d", (int)*(char *)p);
+        ui_label(ito_buf_view(&vb), 14);
     } break;
     default:
         break;
@@ -136,19 +142,21 @@ static void inspector_scalar_row(InspectorField *f, u32 i, void *hot) {
 /* Draws the inspector's widget rows (inside an open panel). */
 void inspector_draw(PlatformMemory *memory) {
     if (!insp.ready) {
-        ui_label_dim("inspector: layout unavailable", 14);
+        ui_label_dim(ITO("inspector: layout unavailable"), 14);
         return;
     }
-    ui_label_dim("hot state", 14);
+    ui_label_dim(ITO("hot state"), 14);
     for (u32 i = 0; i < insp.field_count; i++) {
         InspectorField *f = &insp.fields[i];
         if (f->array_size) {
             /* arrays: name + size only, element editing when it is needed */
-            snprintf(insp.value_text[i], 32, "[%u]", (u32)f->array_size);
-            snprintf(insp.id_text[i], 96, "insp_row_%s", f->name);
-            ui_row_begin(insp.id_text[i]);
-            ui_label(f->name, 14);
-            ui_label_dim(insp.value_text[i], 14);
+            ito name = ito_from(f->name);
+            ito_buf vb;
+            ito_buf_init(&vb, insp.value_text[i], 32);
+            ito_buf_appendf(&vb, "[%u]", (u32)f->array_size);
+            ui_row_begin(row_text(insp.id_text[i], 96, "insp_row_%S", name));
+            ui_label(name, 14);
+            ui_label_dim(ito_buf_view(&vb), 14);
             ui_row_end();
         } else {
             inspector_scalar_row(f, i, memory->hot);

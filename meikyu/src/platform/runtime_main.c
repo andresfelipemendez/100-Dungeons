@@ -32,13 +32,15 @@ int main(int argc, char *argv[]) {
     /* the exe sits at the bundle root; anchor all relative paths there */
     {
         char base[1024];
-        if (dodai_exe_dir(base, sizeof(base)) && !dodai_chdir(base)) {
+        ito_buf bb;
+        ito_buf_init(&bb, base, sizeof(base));
+        if (dodai_exe_dir(&bb) && !dodai_chdir(ito_from(base))) {
             dodai_log("warning: cannot chdir to bundle root '%s'", base);
         }
     }
 
     DodaiVideo video = { 0 };
-    if (!dodai_video_open(GAME_TITLE, 1280, 720, 0, &video)) {
+    if (!dodai_video_open(ito_from(GAME_TITLE), 1280, 720, 0, &video)) {
         return 1; /* dodai_video_open logged the detail */
     }
 

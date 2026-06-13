@@ -9,20 +9,20 @@
 #include "engine/ui/ui.h"
 
 void build_panel_draw(PlatformApi *api) {
-    ui_label_dim("build", 14);
-    ui_row_begin("bld_ship_row");
-    if (ui_button("bld_ship", "S")) {
+    ui_label_dim(ITO("build"), 14);
+    ui_row_begin(ITO("bld_ship_row"));
+    if (ui_button(ITO("bld_ship"), ITO("S"))) {
         if (api->run_build_profile) {
             api->run_build_profile("ship");
         } else {
             api->log("editor: host has no build support");
         }
     }
-    ui_label("ship build", 14);
+    ui_label(ITO("ship build"), 14);
     if (api->build_status) {
         switch (api->build_status()) {
-        case 1:  ui_label_dim("building...", 14); break;
-        case 2:  ui_label_dim("failed (see log)", 14); break;
+        case 1:  ui_label_dim(ITO("building..."), 14); break;
+        case 2:  ui_label_dim(ITO("failed (see log)"), 14); break;
         default: break;
         }
     }
