@@ -1,6 +1,6 @@
 # dungeon1 — game project on the shared hot-reloading engine
 
-Game project consuming the shared engine at `../engine`. Platform exe +
+Game project consuming the shared engine at `../meikyu`. Platform exe +
 reloadable game dll + frozen ABI, with
 [seni](C:/Users/andres/Development/seni) auto-migrating persistent game state
 when its struct layout changes. Edit code or `src/game_state.h`, save, and
@@ -28,12 +28,12 @@ paths in `kansi.cfg` (dll).
 
 ```bat
 bootstrap.bat      rem THE only script: platform exe via cmake (kaji lives inside)
-build\dungeon.exe  rem forges its own first game dll; runs from anywhere
+build\meikyu.exe  rem forges its own first game dll; runs from anywhere
 ```
 
-Everything after bootstrap is a kaji target — `dungeon --build game`,
+Everything after bootstrap is a kaji target — `meikyu --build game`,
 `--build ship`, `--build host` (rebuilds the dev exe itself, beside the
-running one). On Linux: `./bootstrap.sh`, then `./build-linux/dungeon`.
+running one). On Linux: `./bootstrap.sh`, then `./build-linux/meikyu`.
 
 ## Iterate (the whole point)
 
@@ -44,7 +44,7 @@ shaders, cached objects, atomic publish — as non-blocking child processes.
 One kaji.cfg covers Windows and Linux; there are no build scripts. Build
 errors land in the build dir's `kaji_game.log`; the old dll keeps running.
 
-Other targets: `dungeon --build ship` (standalone bundle), or any target
+Other targets: `meikyu --build ship` (standalone bundle), or any target
 name from kaji.cfg — same CLI, same editor button.
 
 - Changed game/engine dll code → dll hot-swapped, state intact.
@@ -59,7 +59,7 @@ name from kaji.cfg — same CLI, same editor button.
 ## Layout
 
 ```
-../engine/src/         shared engine (a game never edits its own copy)
+../meikyu/src/         shared engine (a game never edits its own copy)
   base/                layer zero: types. Compiled into both binaries.
   abi/                 the frozen contract (PlatformMemory, PlatformApi,
                        GameInput, GpuContext). Changing it = restart.
@@ -103,5 +103,5 @@ Rules that keep hot reload honest:
 
 Copy `cmakelists.txt`, `bootstrap.bat`/`bootstrap.sh`, `kaji.cfg`, `kansi.cfg`, and
 `src/{game_state.h, game.c, game_unity.c, shaders/}` into a sibling folder.
-The engine is consumed as source via `-I../engine/src`; nothing else to
+The engine is consumed as source via `-I../meikyu/src`; nothing else to
 wire up.

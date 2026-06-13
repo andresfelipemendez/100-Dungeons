@@ -3,10 +3,10 @@
 
 /* The editor: dev-only tooling compiled into the reloadable unit when
    EDITOR_BUILD is defined (its own object, build/editor.o -- the unity
-   build never includes editor sources). NOTHING under editor/ ships: the
-   ship build links runtime_main + engine + game and this header is never
-   seen. engine/ must never include editor/ -- if a diff shows it, the
-   architecture has been violated.
+   build never includes editor sources). NOTHING under src/editor ships:
+   the ship build links runtime_main + engine + game and this header is
+   never seen. src/engine must never include src/editor -- if a diff
+   shows it, the architecture has been violated.
 
    The editor owns the UI frame: the game calls editor_frame once per frame
    between its 3D draw and rnd_frame_end, and the editor builds every panel

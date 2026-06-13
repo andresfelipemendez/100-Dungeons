@@ -3,7 +3,7 @@
 # (which kaji lives inside; the first run also builds SDL3 from source, a
 # few minutes). Everything else -- the game .so, shaders, ship bundles,
 # even rebuilding the host exe -- is a kaji target:
-#     ./build-linux/dungeon --build <target>     (see kaji.cfg)
+#     ./build-linux/meikyu --build <target>     (see kaji.cfg)
 # The exe forges its own first game .so on launch.
 set -e
 cd "$(dirname "$0")"
@@ -24,4 +24,4 @@ cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_C_COMPILER="$CC" -DCMAKE_BUILD_TYPE=
 cmake --build "$BUILD_DIR" --parallel "$JOBS"
 
 echo
-echo "bootstrap complete. run:  ./$BUILD_DIR/dungeon"
+echo "bootstrap complete. run:  ./$BUILD_DIR/meikyu"

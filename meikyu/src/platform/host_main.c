@@ -3,22 +3,13 @@
    nothing about the game's types beyond the ABI; must never need recompiling
    while iterating on the game.
 
-   One file for every SDL platform: beyond the handful of definitions below
-   (chdir, shared-object names, the migration compile command), everything
-   here is SDL and identical on Windows and Linux. */
+   One file for every platform: all OS services come from dodai (core +
+   dodai_video). The only per-OS text left is path_basename's backslash
+   case -- string parsing, not an OS service. */
 
-#include <SDL3/SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-/* minimal pid include -- dodai owns everything else */
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#else
-#include <unistd.h>
-#endif
 
 #include "base/base_types.h"
 #include "abi/abi_platform.h"
@@ -28,6 +19,7 @@
 #include "kansi.h"
 #include "kaji.h"
 #include "dodai.h"
+#include "dodai_video.h"
 
 #define GAME_DLL_NEW PLATFORM_BUILD_DIR "/game_new" DODAI_DLL_SUFFIX
 /* both configs are platform-neutral now: kansi only watches, kaji carries
@@ -51,18 +43,14 @@ static char g_mig_dll_path[256];
 static char g_mig_err_path[256];
 
 static void instance_paths_init(void) {
-#ifdef _WIN32
-    unsigned long pid = (unsigned long)GetCurrentProcessId();
-#else
-    unsigned long pid = (unsigned long)getpid();
-#endif
-    SDL_snprintf(g_dll_loaded_path, sizeof(g_dll_loaded_path),
+    unsigned long pid = dodai_pid();
+    snprintf(g_dll_loaded_path, sizeof(g_dll_loaded_path),
                  PLATFORM_BUILD_DIR "/game_loaded_%lu" DODAI_DLL_SUFFIX, pid);
-    SDL_snprintf(g_mig_c_path, sizeof(g_mig_c_path),
+    snprintf(g_mig_c_path, sizeof(g_mig_c_path),
                  PLATFORM_BUILD_DIR "/mig_%lu.c", pid);
-    SDL_snprintf(g_mig_dll_path, sizeof(g_mig_dll_path),
+    snprintf(g_mig_dll_path, sizeof(g_mig_dll_path),
                  PLATFORM_BUILD_DIR "/mig_%lu" DODAI_DLL_SUFFIX, pid);
-    SDL_snprintf(g_mig_err_path, sizeof(g_mig_err_path),
+    snprintf(g_mig_err_path, sizeof(g_mig_err_path),
                  PLATFORM_BUILD_DIR "/mig_errors_%lu.log", pid);
 }
 
@@ -92,13 +80,6 @@ typedef struct {
     unsigned long long     src_mtime;  /* mtime of GAME_DLL_NEW when loaded */
 } GameCode;
 
-static void platform_log(const char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    SDL_LogMessageV(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, fmt, args);
-    va_end(args);
-}
-
 static void game_unload(GameCode *code) {
     if (code->lib) {
         dodai_lib_close(code->lib);
@@ -126,13 +107,13 @@ static b32 game_load(GameCode *code) {
         dodai_sleep_ms(100);
     }
     if (!copied) {
-        SDL_Log("reload: cannot copy %s", GAME_DLL_NEW);
+        dodai_log("reload: cannot copy %s", GAME_DLL_NEW);
         return 0;
     }
 
     code->lib = dodai_lib_open(g_dll_loaded_path);
     if (!code->lib) {
-        SDL_Log("reload: dodai_lib_open failed");
+        dodai_log("reload: dodai_lib_open failed");
         return 0;
     }
     code->update = (GameUpdateAndRenderFn *)
@@ -140,7 +121,7 @@ static b32 game_load(GameCode *code) {
     const char **layout_p = (const char **)
         dodai_lib_symbol(code->lib, "seni_layout");
     if (!code->update || !layout_p || !*layout_p) {
-        SDL_Log("reload: missing exports in game dll");
+        dodai_log("reload: missing exports in game dll");
         game_unload(code);
         return 0;
     }
@@ -170,13 +151,13 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
     char *old_copy = arena_copy_string(&a, old_layout, strlen(old_layout));
     char *new_copy = arena_copy_string(&a, new_layout, strlen(new_layout));
     if (!old_copy || !new_copy) {
-        SDL_Log("migrate: arena exhausted");
+        dodai_log("migrate: arena exhausted");
         return 0;
     }
 
     diff_result dr = diff_structs(&a, old_copy, new_copy);
     if (dr.err) {
-        SDL_Log("migrate: diff failed: %s", dr.err);
+        dodai_log("migrate: diff failed: %s", dr.err);
         return 0;
     }
     if (dr.question_count > 0) {
@@ -189,20 +170,20 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
               ? dr.question_count : SENI_STATUS_MAX_QUESTIONS;
         for (u64 q = 0; q < n; q++) {
             SeniQuestion *sq = &status->questions[q];
-            SDL_strlcpy(sq->message, dr.questions[q].message, SENI_STATUS_MSG_MAX);
-            SDL_strlcpy(sq->struct_name, dr.questions[q].struct_name, SENI_STATUS_NAME_MAX);
-            SDL_strlcpy(sq->removed, dr.questions[q].removed, SENI_STATUS_NAME_MAX);
-            SDL_strlcpy(sq->added, dr.questions[q].added, SENI_STATUS_NAME_MAX);
+            snprintf(sq->message, SENI_STATUS_MSG_MAX, "%s", dr.questions[q].message);
+            snprintf(sq->struct_name, SENI_STATUS_NAME_MAX, "%s", dr.questions[q].struct_name);
+            snprintf(sq->removed, SENI_STATUS_NAME_MAX, "%s", dr.questions[q].removed);
+            snprintf(sq->added, SENI_STATUS_NAME_MAX, "%s", dr.questions[q].added);
             sq->answer = SENI_ANSWER_NONE;
-            SDL_Log("migrate: %s", dr.questions[q].message);
+            dodai_log("migrate: %s", dr.questions[q].message);
         }
         if (dr.question_count > n) {
-            SDL_Log("migrate: %llu more questions not shown (panel cap %d)",
+            dodai_log("migrate: %llu more questions not shown (panel cap %d)",
                     (unsigned long long)(dr.question_count - n),
                     SENI_STATUS_MAX_QUESTIONS);
         }
         status->question_count = (u32)n;
-        SDL_Log("migrate: reload refused until questions are answered "
+        dodai_log("migrate: reload refused until questions are answered "
                 "(annotate " GAME_STATE_HDR ")");
         return 0;
     }
@@ -212,24 +193,24 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
 
     generate_result gr = generate_migration(&a, dr.value);
     if (gr.err) {
-        SDL_Log("migrate: codegen failed: %s", gr.err);
+        dodai_log("migrate: codegen failed: %s", gr.err);
         return 0;
     }
 
     if (!dodai_write_file(g_mig_c_path, gr.code, strlen(gr.code))) {
-        SDL_Log("migrate: cannot write %s", g_mig_c_path);
+        dodai_log("migrate: cannot write %s", g_mig_c_path);
         return 0;
     }
     /* dodai_compile_shared removes the lib first (same codesign-vnode rule
        as dodai_copy_file) */
     if (dodai_compile_shared(g_mig_c_path, g_mig_dll_path, g_mig_err_path, NULL) != 0) {
-        SDL_Log("migrate: gcc failed, see the per-instance mig_errors log");
+        dodai_log("migrate: gcc failed, see the per-instance mig_errors log");
         return 0;
     }
 
     void *mig = dodai_lib_open(g_mig_dll_path);
     if (!mig) {
-        SDL_Log("migrate: cannot load %s", g_mig_dll_path);
+        dodai_log("migrate: cannot load %s", g_mig_dll_path);
         return 0;
     }
     typedef void (*migrate_fn)(void *old_p, void *new_p, size_t count);
@@ -240,13 +221,13 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
     const size_t *new_size_p =
         (const size_t *)dodai_lib_symbol(mig, "migrate_game_state_new_size");
     if (!migrate || !new_size_p) {
-        SDL_Log("migrate: missing exports in %s", g_mig_dll_path);
+        dodai_log("migrate: missing exports in %s", g_mig_dll_path);
         dodai_lib_close(mig);
         return 0;
     }
     u64 new_size = (u64)*new_size_p;
     if (new_size == 0 || new_size > hot_size || new_size > scratch_size) {
-        SDL_Log("migrate: new game_state size %llu does not fit (hot %llu, scratch %llu)",
+        dodai_log("migrate: new game_state size %llu does not fit (hot %llu, scratch %llu)",
                 (unsigned long long)new_size, (unsigned long long)hot_size,
                 (unsigned long long)scratch_size);
         dodai_lib_close(mig);
@@ -257,7 +238,7 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
     migrate(hot, scratch, 1);
     memcpy(hot, scratch, new_size);
     dodai_lib_close(mig);
-    SDL_Log("migrate: game_state migrated to new layout (%llu bytes)",
+    dodai_log("migrate: game_state migrated to new layout (%llu bytes)",
             (unsigned long long)new_size);
     return 1;
 }
@@ -285,7 +266,7 @@ static void seni_strip_consumed_was(void) {
         return; /* error or nothing to strip */
     }
     if (dodai_write_file(GAME_STATE_HDR, r.code, strlen(r.code))) {
-        SDL_Log("seni: consumed SENI_WAS annotations stripped from " GAME_STATE_HDR);
+        dodai_log("seni: consumed SENI_WAS annotations stripped from " GAME_STATE_HDR);
     }
 }
 
@@ -310,13 +291,13 @@ static void seni_apply_answers(SeniReloadStatus *status) {
         size_t hdr_len = 0;
         char *hdr = dodai_read_file(GAME_STATE_HDR, &hdr_len);
         if (!hdr) {
-            SDL_Log("seni: cannot read %s", GAME_STATE_HDR);
+            dodai_log("seni: cannot read %s", GAME_STATE_HDR);
             continue;
         }
         char *copy = arena_copy_string(&a, hdr, hdr_len);
         free(hdr);
         if (!copy) {
-            SDL_Log("seni: arena exhausted reading %s", GAME_STATE_HDR);
+            dodai_log("seni: arena exhausted reading %s", GAME_STATE_HDR);
             continue;
         }
 
@@ -327,18 +308,18 @@ static void seni_apply_answers(SeniReloadStatus *status) {
             an = annotate_dropped(&a, copy, sq->struct_name, sq->removed);
         }
         if (an.err) {
-            SDL_Log("seni: %s", an.err);
+            dodai_log("seni: %s", an.err);
             continue;
         }
         if (!dodai_write_file(GAME_STATE_HDR, an.code, strlen(an.code))) {
-            SDL_Log("seni: cannot write %s", GAME_STATE_HDR);
+            dodai_log("seni: cannot write %s", GAME_STATE_HDR);
             continue;
         }
         if (answer == SENI_ANSWER_RENAME) {
-            SDL_Log("seni: answered rename %s.%s <- %s; %s annotated, rebuilding",
+            dodai_log("seni: answered rename %s.%s <- %s; %s annotated, rebuilding",
                     sq->struct_name, sq->added, sq->removed, GAME_STATE_HDR);
         } else {
-            SDL_Log("seni: answered removal of %s.%s; %s annotated, rebuilding",
+            dodai_log("seni: answered removal of %s.%s; %s annotated, rebuilding",
                     sq->struct_name, sq->removed, GAME_STATE_HDR);
         }
     }
@@ -355,10 +336,12 @@ static int g_build_state; /* 0 idle/ok, 1 running, 2 failed */
 
 /* --build [target]: headless CLI mode. Builds the named kaji target
    (default: ship), forwards its exit status, never opens a window:
-       dungeon --build            # ship
-       dungeon --build game       # the reloadable dll */
-static int run_build_cli(int argc, char *argv[]) {
-    const char *target = argc >= 3 ? argv[2] : "ship";
+       meikyu --build             # ship
+       meikyu --build game        # the reloadable dll */
+static int run_build_cli(const char *target) {
+    if (!target) {
+        target = "ship";
+    }
     if (!g_forge) {
         fprintf(stderr, "build: no forge (missing/broken " KAJI_CFG ")\n");
         return 1;
@@ -369,16 +352,16 @@ static int run_build_cli(int argc, char *argv[]) {
 
 static b32 platform_run_build_profile(const char *profile) {
     if (!g_forge) {
-        SDL_Log("build: no forge (missing/broken " KAJI_CFG ")");
+        dodai_log("build: no forge (missing/broken " KAJI_CFG ")");
         return 0;
     }
     if (!kaji_build_async(g_forge, profile, &g_profile_run, 1)) {
-        SDL_Log("build: cannot start '%s' (unknown target or build running?)",
+        dodai_log("build: cannot start '%s' (unknown target or build running?)",
                 profile ? profile : "(null)");
         return 0;
     }
     g_build_state = 1;
-    SDL_Log("build: target '%s' started (log: %s)", profile, g_profile_run.log_path);
+    dodai_log("build: target '%s' started (log: %s)", profile, g_profile_run.log_path);
     return 1;
 }
 
@@ -390,11 +373,11 @@ static void platform_build_poll(void) {
     switch (kaji_run_poll(g_forge, &g_profile_run)) {
     case KAJI_DONE:
         g_build_state = 0;
-        SDL_Log("build: done");
+        dodai_log("build: done");
         break;
     case KAJI_FAILED:
         g_build_state = 2;
-        SDL_Log("build: FAILED (exit %d), see %s",
+        dodai_log("build: FAILED (exit %d), see %s",
                 g_profile_run.exit_code, g_profile_run.log_path);
         break;
     default:
@@ -402,23 +385,244 @@ static void platform_build_poll(void) {
     }
 }
 
-int main(int argc, char *argv[]) {
-    SDL_SetLogPriorities(SDL_LOG_PRIORITY_DEBUG);
+/* ---- project picker ----------------------------------------------------
+   Shown only when no project was found (installed exe, bare .app launch).
+   The host has no renderer -- the dll it would come from loads only after a
+   project is open -- so the picker is native dialogs via dodai_video: a
+   message box listing recent projects as buttons, plus Browse... (native
+   folder dialog). Recents live in <pref dir>/recent_projects.txt, most
+   recent first. */
 
-    /* All paths (dlls, shaders, assets, gcc spawn) are relative to the
-       project root. The exe lives in build/, so anchor the cwd to the exe's
-       parent once -- running via double-click or from any directory then
-       behaves identically to running from dungeon1/. */
-    {
-        const char *base = SDL_GetBasePath(); /* ...\dungeon1\build\ */
-        if (base) {
-            char root[1024];
-            SDL_snprintf(root, sizeof(root), "%s..", base);
-            if (!dodai_chdir(root)) {
-                SDL_Log("warning: cannot chdir to project root '%s'", root);
+#define PICKER_MAX_RECENTS   8
+#define PICKER_SHOWN_RECENTS 4
+
+static char g_recents[PICKER_MAX_RECENTS][1024];
+static int  g_recent_count;
+
+static const char *recents_file(void) {
+    static char path[1024];
+    if (!path[0]) {
+        char pref[900];
+        if (!dodai_pref_path("andres", "meikyu", pref, sizeof(pref))) {
+            return NULL;
+        }
+        snprintf(path, sizeof(path), "%srecent_projects.txt", pref);
+    }
+    return path;
+}
+
+static void recents_load(void) {
+    const char *file = recents_file();
+    g_recent_count = 0;
+    if (!file) {
+        return;
+    }
+    size_t len = 0;
+    char *text = dodai_read_file(file, &len);
+    if (!text) {
+        return;
+    }
+    char *line = text;
+    while (line && *line && g_recent_count < PICKER_MAX_RECENTS) {
+        char *nl = strchr(line, '\n');
+        if (nl) {
+            *nl = 0;
+        }
+        if (*line) {
+            snprintf(g_recents[g_recent_count++], sizeof(g_recents[0]), "%s", line);
+        }
+        line = nl ? nl + 1 : NULL;
+    }
+    free(text);
+}
+
+static void recents_save(void) {
+    const char *file = recents_file();
+    if (!file) {
+        return;
+    }
+    char buf[PICKER_MAX_RECENTS * 1024];
+    size_t off = 0;
+    for (int i = 0; i < g_recent_count; i++) {
+        off += (size_t)snprintf(buf + off, sizeof(buf) - off, "%s\n",
+                                    g_recents[i]);
+    }
+    dodai_write_file(file, buf, off);
+}
+
+static void recents_remove(int idx) {
+    for (int i = idx; i < g_recent_count - 1; i++) {
+        memcpy(g_recents[i], g_recents[i + 1], sizeof(g_recents[0]));
+    }
+    g_recent_count--;
+}
+
+/* Records the project at `dir` (any path; stored absolute) as most recent.
+   Called on every successful open -- picker, --path, or exe anchor. */
+static void recents_add(const char *dir) {
+    char abs[1024];
+    if (dodai_absolute_path(dir, abs, sizeof(abs)) != 0) {
+        return;
+    }
+    for (int i = 0; i < g_recent_count; i++) {
+        if (strcmp(g_recents[i], abs) == 0) {
+            recents_remove(i);
+            break;
+        }
+    }
+    if (g_recent_count == PICKER_MAX_RECENTS) {
+        g_recent_count--;
+    }
+    for (int i = g_recent_count; i > 0; i--) {
+        memcpy(g_recents[i], g_recents[i - 1], sizeof(g_recents[0]));
+    }
+    snprintf(g_recents[0], sizeof(g_recents[0]), "%s", abs);
+    g_recent_count++;
+    recents_save();
+}
+
+static b32 project_dir_valid(const char *dir) {
+    char marker[1100];
+    unsigned long long m;
+    snprintf(marker, sizeof(marker), "%s/" KAJI_CFG, dir);
+    return dodai_mtime_ns(marker, &m) != 0;
+}
+
+static const char *path_basename(const char *path) {
+    const char *slash = strrchr(path, '/');
+#ifdef _WIN32
+    const char *bslash = strrchr(path, '\\');
+    if (!slash || (bslash && bslash > slash)) {
+        slash = bslash;
+    }
+#endif
+    return slash && slash[1] ? slash + 1 : path;
+}
+
+/* Returns 1 with the cwd inside the chosen project; 0 = user quit. */
+static b32 picker_run(void) {
+    const char *note = "";
+    recents_load();
+    for (;;) {
+        /* drop recents that stopped being projects before offering them */
+        for (int i = 0; i < g_recent_count;) {
+            if (!project_dir_valid(g_recents[i])) {
+                recents_remove(i);
+            } else {
+                i++;
+            }
+        }
+
+        int shown = g_recent_count < PICKER_SHOWN_RECENTS
+                  ? g_recent_count : PICKER_SHOWN_RECENTS;
+        const char *btns[PICKER_SHOWN_RECENTS + 2];
+        int nbtns = 0;
+        for (int i = 0; i < shown; i++) {
+            btns[nbtns++] = path_basename(g_recents[i]);
+        }
+        int browse_idx = nbtns;
+        btns[nbtns++] = "Browse...";
+        int quit_idx = nbtns;
+        btns[nbtns++] = "Quit";
+
+        char msg[2048];
+        size_t off = (size_t)snprintf(msg, sizeof(msg),
+            "%sA project is any folder holding a " KAJI_CFG ".\n", note);
+        if (shown) {
+            off += (size_t)snprintf(msg + off, sizeof(msg) - off,
+                                    "\nRecent:\n");
+            for (int i = 0; i < shown; i++) {
+                off += (size_t)snprintf(msg + off, sizeof(msg) - off,
+                                        "  %s\n", g_recents[i]);
+            }
+        }
+
+        int hit = dodai_message_box("meikyu - open project", msg,
+                                    btns, nbtns, browse_idx, quit_idx);
+        if (hit == quit_idx) {
+            return 0; /* closed or Quit */
+        }
+
+        const char *dir;
+        char browse[1024];
+        if (hit == browse_idx) {
+            if (!dodai_folder_dialog(browse, sizeof(browse))) {
+                continue; /* cancelled the folder dialog */
+            }
+            dir = browse;
+        } else {
+            dir = g_recents[hit];
+        }
+
+        if (!project_dir_valid(dir)) {
+            note = "Not a project: no " KAJI_CFG " there.\n\n";
+            continue;
+        }
+        if (!dodai_chdir(dir)) {
+            note = "Cannot enter that folder.\n\n";
+            continue;
+        }
+        return 1;
+    }
+}
+
+int main(int argc, char *argv[]) {
+    /* CLI: meikyu [--path <project>] [--build [target]] */
+    const char *project_path = NULL;
+    const char *build_target = NULL;
+    b32 build_mode = 0;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--path") == 0 && i + 1 < argc) {
+            project_path = argv[++i];
+        } else if (strcmp(argv[i], "--build") == 0) {
+            build_mode = 1;
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+                build_target = argv[++i];
             }
         }
     }
+
+    /* All paths (dlls, shaders, assets, gcc spawn) are relative to the
+       project root. A project is any directory holding a kaji.cfg (the
+       marker, godot's project.godot). --path opens one explicitly; without
+       it the exe anchors to its own parent (it lives in the project's build
+       dir), so double-click and any-cwd launches behave like running from
+       the project dir. */
+    if (project_path) {
+        unsigned long long marker;
+        if (!dodai_chdir(project_path)) {
+            dodai_log("cannot chdir to project '%s'", project_path);
+            return 1;
+        }
+        if (!dodai_mtime_ns(KAJI_CFG, &marker)) {
+            dodai_log("'%s' is not a project (no " KAJI_CFG ")", project_path);
+            return 1;
+        }
+    } else {
+        char base[1024]; /* ...\dungeon1\build\ */
+        if (dodai_exe_dir(base, sizeof(base))) {
+            char root[1100];
+            snprintf(root, sizeof(root), "%s..", base);
+            if (!dodai_chdir(root)) {
+                dodai_log("warning: cannot chdir to project root '%s'", root);
+            }
+        }
+        unsigned long long marker;
+        if (!dodai_mtime_ns(KAJI_CFG, &marker) && !build_mode) {
+            /* no project around the exe: project picker (godot-style).
+               Headless --build skips it and fails through kaji_load's
+               error instead. Init video first -- the folder dialog needs
+               it on some platforms; the later open just refcounts. */
+            dodai_log("no project found beside the exe, opening picker");
+            if (!dodai_video_init()) {
+                return 1; /* dodai_video_init logged the detail */
+            }
+            if (!picker_run()) {
+                return 0; /* user quit the picker */
+            }
+        }
+    }
+    recents_add(".");
 
     instance_paths_init();
 
@@ -426,46 +630,21 @@ int main(int argc, char *argv[]) {
         char kaji_err[256];
         g_forge = kaji_load(KAJI_CFG, kaji_err, sizeof(kaji_err));
         if (!g_forge) {
-            SDL_Log("kaji disabled: %s", kaji_err);
+            dodai_log("kaji disabled: %s", kaji_err);
         }
     }
 
-    if (argc >= 2 && strcmp(argv[1], "--build") == 0) {
-        return run_build_cli(argc, argv);
+    if (build_mode) {
+        return run_build_cli(build_target);
     }
 
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
-        SDL_Log("SDL_Init failed: %s", SDL_GetError());
-        return 1;
-    }
-    SDL_Window *window = SDL_CreateWindow("Dungeon - hot reload", 1280, 720,
-                                          SDL_WINDOW_RESIZABLE);
-    if (!window) {
-        SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
-        return 1;
-    }
-#ifdef __APPLE__
-    /* modern dyld won't find the Vulkan SDK's loader (/usr/local/lib) from
-       a bare dlopen name; point SDL at it explicitly. MoltenVK translates
-       to Metal underneath -- the SPIR-V pipeline stays unchanged. */
-    if (!SDL_GetHint(SDL_HINT_VULKAN_LIBRARY) &&
-        access("/usr/local/lib/libvulkan.dylib", F_OK) == 0) {
-        SDL_SetHint(SDL_HINT_VULKAN_LIBRARY, "/usr/local/lib/libvulkan.dylib");
-    }
-#endif
-    SDL_GPUDevice *device =
-        SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, "vulkan");
-    if (!device) {
-        SDL_Log("SDL_CreateGPUDevice (vulkan) failed: %s", SDL_GetError());
-        return 1;
-    }
-    if (!SDL_ClaimWindowForGPUDevice(device, window)) {
-        SDL_Log("SDL_ClaimWindowForGPUDevice failed: %s", SDL_GetError());
-        return 1;
+    DodaiVideo video = { 0 };
+    if (!dodai_video_open("meikyu - hot reload", 1280, 720, 1, &video)) {
+        return 1; /* dodai_video_open logged the detail */
     }
 
-    GpuContext gpu_context = { window, device };
-    PlatformApi api = { &gpu_context, platform_log,
+    GpuContext gpu_context = { video.window, video.device };
+    PlatformApi api = { &gpu_context, dodai_log,
                         platform_run_build_profile, platform_build_status };
 
     PlatformMemory memory = { 0 };
@@ -474,7 +653,7 @@ int main(int argc, char *argv[]) {
     memory.transient_size = TRANSIENT_SIZE;
     memory.transient = calloc(1, TRANSIENT_SIZE);
     if (!memory.hot || !memory.transient) {
-        SDL_Log("memory allocation failed");
+        dodai_log("memory allocation failed");
         return 1;
     }
 
@@ -487,30 +666,30 @@ int main(int argc, char *argv[]) {
         char kansi_err[256];
         watcher = kansi_start(KANSI_CFG, kansi_err, sizeof(kansi_err));
         if (!watcher) {
-            SDL_Log("kansi disabled: %s", kansi_err);
+            dodai_log("kansi disabled: %s", kansi_err);
         }
     }
-    SDL_Log("forge role: %s", is_builder ? "builder" : "follower (another instance builds)");
+    dodai_log("forge role: %s", is_builder ? "builder" : "follower (another instance builds)");
     instance_litter_sweep();
 
     GameCode game = { 0 };
     if (!game_load(&game)) {
         if (is_builder) {
             /* batteries included: forge the first dll ourselves */
-            SDL_Log("no game dll yet, forging one...");
+            dodai_log("no game dll yet, forging one...");
             if (!g_forge || kaji_build(g_forge, "game", 1) != 0 || !game_load(&game)) {
-                SDL_Log("initial game build failed -- try: dungeon --build game");
+                dodai_log("initial game build failed -- try: meikyu --build game");
                 return 1;
             }
         } else {
             /* the builder is forging it; wait for the publish */
             int waited;
-            SDL_Log("no game dll yet, waiting for the builder...");
+            dodai_log("no game dll yet, waiting for the builder...");
             for (waited = 0; waited < 150 && !game_load(&game); waited++) {
                 dodai_sleep_ms(100);
             }
             if (!game.lib) {
-                SDL_Log("no dll appeared -- is the builder instance stuck?");
+                dodai_log("no dll appeared -- is the builder instance stuck?");
                 return 1;
             }
         }
@@ -518,32 +697,23 @@ int main(int argc, char *argv[]) {
     memory.reloaded = 1;
 
     b32 running = 1;
-    u64 last = SDL_GetPerformanceCounter();
-    u64 freq = SDL_GetPerformanceFrequency();
+    u64 last = dodai_ticks_us();
     u64 last_watch_ms = 0;
 
     while (running) {
-        u64 now = SDL_GetPerformanceCounter();
+        u64 now = dodai_ticks_us();
         GameInput input = { 0 };
-        input.dt = (f32)(now - last) / (f32)freq;
+        input.dt = (f32)(now - last) / 1.0e6f;
         last = now;
-        {
-            float mx = 0, my = 0;
-            SDL_MouseButtonFlags buttons = SDL_GetMouseState(&mx, &my);
-            input.mouse_x = mx;
-            input.mouse_y = my;
-            input.mouse_left = (buttons & SDL_BUTTON_LMASK) != 0;
-        }
 
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_EVENT_QUIT) {
-                running = 0;
-            } else if (event.type == SDL_EVENT_KEY_DOWN &&
-                       event.key.scancode == SDL_SCANCODE_ESCAPE) {
-                running = 0;
-            }
+        DodaiInput in;
+        dodai_video_poll(&in);
+        if (in.quit || in.key_escape) {
+            running = 0;
         }
+        input.mouse_x = in.mouse_x;
+        input.mouse_y = in.mouse_y;
+        input.mouse_left = in.mouse_left;
 
         platform_build_poll();
 
@@ -557,9 +727,9 @@ int main(int argc, char *argv[]) {
                 char kansi_err[256];
                 watcher = kansi_start(KANSI_CFG, kansi_err, sizeof(kansi_err));
                 if (!watcher) {
-                    SDL_Log("kansi disabled: %s", kansi_err);
+                    dodai_log("kansi disabled: %s", kansi_err);
                 }
-                SDL_Log("forge role: promoted to builder");
+                dodai_log("forge role: promoted to builder");
             }
         }
 
@@ -570,19 +740,19 @@ int main(int argc, char *argv[]) {
                 if (g_game_run.active) {
                     /* a rebuild is in flight; kansi will edge again on the
                        next save, and the in-flight result still publishes */
-                    SDL_Log("forge: change during rebuild, finishing current");
+                    dodai_log("forge: change during rebuild, finishing current");
                 } else if (kaji_build_async(g_forge, "game", &g_game_run, 1)) {
-                    SDL_Log("forge: sources changed, rebuilding dll");
+                    dodai_log("forge: sources changed, rebuilding dll");
                 } else {
-                    SDL_Log("forge: cannot start dll rebuild");
+                    dodai_log("forge: cannot start dll rebuild");
                 }
             }
             switch (kaji_run_poll(g_forge, &g_game_run)) {
             case KAJI_DONE:
-                SDL_Log("forge: dll rebuilt");
+                dodai_log("forge: dll rebuilt");
                 break;
             case KAJI_FAILED:
-                SDL_Log("forge: dll build FAILED (exit %d), see %s",
+                dodai_log("forge: dll build FAILED (exit %d), see %s",
                         g_game_run.exit_code, g_game_run.log_path);
                 break;
             default:
@@ -597,19 +767,19 @@ int main(int argc, char *argv[]) {
             unsigned long long mtime = 0;
             dodai_mtime_ns(GAME_DLL_NEW, &mtime);
             if (mtime != 0 && mtime != game.src_mtime) {
-                SDL_Log("reload: %s changed", GAME_DLL_NEW);
+                dodai_log("reload: %s changed", GAME_DLL_NEW);
 
                 size_t hdr_len = 0;
                 char *new_layout = dodai_read_file(GAME_STATE_HDR, &hdr_len);
                 b32 ok = new_layout != NULL;
                 if (!ok) {
-                    SDL_Log("reload: cannot read %s", GAME_STATE_HDR);
+                    dodai_log("reload: cannot read %s", GAME_STATE_HDR);
                 }
                 if (ok && strcmp(game.layout, new_layout) != 0) {
                     /* GPU may still read transient-built resources; the new
                        dll rebuilds them all anyway. Wait so the scratch use
                        below cannot race in-flight frames. */
-                    SDL_WaitForGPUIdle(device);
+                    dodai_gpu_wait_idle(video.device);
                     ok = migrate_hot_memory(game.layout, new_layout,
                                             memory.hot, memory.hot_size,
                                             memory.transient,
@@ -631,10 +801,10 @@ int main(int argc, char *argv[]) {
                     if (game_load(&game)) {
                         memory.reloaded = 1;
                     } else {
-                        SDL_Log("reload: load failed, retrying next frame");
+                        dodai_log("reload: load failed, retrying next frame");
                     }
                 } else {
-                    SDL_Log("reload: aborted, keeping old dll (state intact)");
+                    dodai_log("reload: aborted, keeping old dll (state intact)");
                     game.src_mtime = mtime; /* don't retry until next build */
                 }
             }
@@ -660,10 +830,6 @@ int main(int argc, char *argv[]) {
     kansi_stop(watcher);
     game_unload(&game);
     dodai_remove(g_dll_loaded_path); /* per-pid copy: ours to clean up */
-    SDL_WaitForGPUIdle(device);
-    SDL_ReleaseWindowFromGPUDevice(device, window);
-    SDL_DestroyGPUDevice(device);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
+    dodai_video_close(&video);
     return 0;
 }

@@ -6,8 +6,8 @@
    embedded layout inside the dll -- a second copy of seni, independent of
    the one in the platform exe; they never cross the boundary. */
 
-#include "../../vendor/seni/seni.c"
-#include "../../vendor/seni/arena.c"
+#include "../../../vendor/seni/seni.c"
+#include "../../../vendor/seni/arena.c"
 
 #include "editor.c"
 #include "panels/inspector.c"
