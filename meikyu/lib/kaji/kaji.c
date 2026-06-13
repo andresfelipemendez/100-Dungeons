@@ -116,7 +116,8 @@ static int kaji_expand(const kaji *k, ito in, char *out, size_t out_size) {
 }
 
 /* ---- config parser ------------------------------------------------------
-   `key value...`; keys may end in _win/_linux to apply on one OS only. */
+   `key value...`; keys may end in _win/_linux/_mac/_posix to apply on one OS
+   only (_posix = linux OR mac). */
 
 static kaji_kind kaji_kind_from(ito s) {
     if (ito_eq(s, ITO("copy")))   return KAJI_KIND_COPY;
@@ -141,6 +142,10 @@ static int kaji_key_applies(ito *key) {
     if (ito_ends_with(*key, ITO("_mac"))) {
         *key = ito_slice(*key, 0, key->len - 4);
         return dodai_is_macos();
+    }
+    if (ito_ends_with(*key, ITO("_posix"))) {
+        *key = ito_slice(*key, 0, key->len - 6);
+        return kaji_is_posix();
     }
     return 1;
 }

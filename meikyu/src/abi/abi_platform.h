@@ -80,7 +80,13 @@ typedef struct GameInput {
 
 /* Where per-OS build artifacts (game dll, compiled shaders, migration
    scratch) live, relative to the project root. Windows and Linux must not
-   share a directory: object formats, cmake caches and .gch files collide. */
+   share a directory: object formats, cmake caches and .gch files collide.
+
+   This is the host/engine binary's own compile-time knowledge of its build
+   dir (it loads the dll + shaders from here). build.manifest's per-OS
+   `builddir=` is authoritative for the generated build recipes; the two MUST
+   match -- project_gen enforces it at load (see manifest_load_once). When you
+   add or rename a build dir, change it in BOTH this macro and build.manifest. */
 #ifdef _WIN32
 #define PLATFORM_BUILD_DIR "build"
 #elif defined(__APPLE__)

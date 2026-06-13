@@ -81,6 +81,16 @@ static kaji *load_cfg(const char *content, char *err, int err_size) {
     return kaji_load("build/test_kaji.cfg", err, err_size);
 }
 
+UTEST(os_keys, posix_applies_off_windows) {
+    /* _posix == linux OR mac; on this (posix) host it must apply and strip,
+       while a _win-tagged key must not apply. */
+    ito k_posix = ITO("lib_posix");
+    ito k_win   = ITO("lib_win");
+    ASSERT_TRUE(kaji_key_applies(&k_posix));
+    ASSERT_TRUE(ito_eq(k_posix, ITO("lib")));
+    ASSERT_FALSE(kaji_key_applies(&k_win));
+}
+
 UTEST(parse, targets_vars_tools) {
     char err[256] = { 0 };
     kaji *k = load_cfg(

@@ -1,0 +1,39 @@
+# meikyu build manifest -- the single source of truth for the engine-exe build
+# and per-OS build facts. Read by cmakelists.txt (bootstrap) and the engine
+# host (self-rebuild recipe + project_gen). Flat key-value, '#' comments,
+# blank lines ignored -- same format culture as kaji.cfg / kansi.cfg.
+
+# Host-exe translation units (OS-independent). The per-OS dodai source is the
+# 'dodai=' field of the platform row, appended by both readers.
+host_src      src/platform/host_main.c
+host_src      src/platform/project_gen.c
+host_src      src/platform/seni_answers.c
+host_src      src/platform/build_manifest.c
+host_src      lib/seni/seni.c
+host_src      lib/seni/arena.c
+host_src      lib/kansi/kansi.c
+host_src      lib/kaji/kaji.c
+host_src      lib/dodai/dodai_video_sdl.c
+
+# Include roots (relative to the engine root).
+include_root  src
+include_root  lib/seni
+include_root  lib/kansi
+include_root  lib/kaji
+include_root  lib/dodai
+
+# Toolchain version pins -- one place, every OS.
+sdl_version   release-3.4.10
+vulkan_pin    1.4.341.1
+
+# glslc candidates, in priority order, identical on every machine. $VAR is
+# expanded from the environment. First existing path wins; if none exist the
+# host probes bare 'glslc' on PATH and resolves it to absolute, else refuses.
+glslc_candidate  $VULKAN_SDK/bin/glslc
+glslc_candidate  /opt/homebrew/bin/glslc
+glslc_candidate  /usr/local/bin/glslc
+
+# Per-OS table. key=value pairs; empty values (exe=, rpath=) are valid.
+platform mac     builddir=build-mac    exe=     dll=.so   dodai=dodai_posix.c    rpath=@loader_path  sdl=fetch
+platform linux   builddir=build-linux  exe=     dll=.so   dodai=dodai_posix.c    rpath=$ORIGIN       sdl=fetch
+platform windows builddir=build        exe=.exe dll=.dll  dodai=dodai_windows.c  rpath=             sdl=mingw-prebuilt

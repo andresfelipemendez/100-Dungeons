@@ -35,12 +35,20 @@ jobs:
             sh "meikyu/lib/$d/test.sh"
           done
 
-      - name: Platform unit suite (seni_answers)
-        run: sh meikyu/src/platform/test_seni_answers.sh
+      - name: Platform unit suites
+        run: |
+          sh meikyu/src/platform/test_seni_answers.sh
+          sh meikyu/src/platform/test_build_manifest.sh
 
-      # Bootstraps the engine exe (also builds SDL3 the first time).
+      # Bootstraps the engine exe (reads build.manifest for sources/SDL version;
+      # also builds SDL3 the first time).
       - name: Bootstrap engine
         run: sh meikyu/bootstrap.sh
+
+      # cmake's compiled host sources must equal build.manifest host_src -- the
+      # single-source-of-truth guard. Catches a .c added to one but not the other.
+      - name: Manifest drift guard (cmake == build.manifest)
+        run: sh meikyu/src/platform/test_manifest_drift.sh
 
       # Headless --build: generates the project's kaji cfg and forges each
       # target. kaji's deny_include boundary checks run here -- a layering

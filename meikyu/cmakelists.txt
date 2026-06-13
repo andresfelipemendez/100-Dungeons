@@ -10,22 +10,55 @@ set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 set(VENDOR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vendor")
-set(LIB_DIR    "${CMAKE_CURRENT_SOURCE_DIR}/lib")
-# CACHE so a dev checkout can override: cmake -DSENI_DIR=~/dev/seni ...
-set(SENI_DIR  "${LIB_DIR}/seni"  CACHE PATH "Path to the seni library")
-set(KANSI_DIR "${LIB_DIR}/kansi" CACHE PATH "Path to the kansi library")
-set(KAJI_DIR  "${LIB_DIR}/kaji"  CACHE PATH "Path to the kaji library")
-set(DODAI_DIR "${LIB_DIR}/dodai" CACHE PATH "Path to the dodai library")
-if(WIN32)
-  set(DODAI_PLATFORM "${DODAI_DIR}/dodai_windows.c")
-else()
-  set(DODAI_PLATFORM "${DODAI_DIR}/dodai_posix.c")
+set(DODAI_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/lib/dodai")
+
+# --- build.manifest: single source of truth ------------------------------
+# Host sources, include roots, the per-OS dodai source, and the SDL version
+# all come from build.manifest -- the SAME file project_gen reads at runtime,
+# so the bootstrapped binary and the self-rebuilt one stay TU-for-TU identical.
+# build.manifest is authoritative for these; there is no separate cmake list
+# to drift (that drift is exactly what this whole mechanism prevents).
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/build.manifest" MANIFEST_LINES)
+set(HOST_SOURCES "")
+set(HOST_INCLUDES "")
+set(DODAI_OS_SRC "")
+set(SDL_VERSION "")
+foreach(line IN LISTS MANIFEST_LINES)
+  string(STRIP "${line}" line)
+  if(line STREQUAL "" OR line MATCHES "^#")
+    # blank / comment
+  elseif(line MATCHES "^host_src[ \t]+(.+)$")
+    list(APPEND HOST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/${CMAKE_MATCH_1}")
+  elseif(line MATCHES "^include_root[ \t]+(.+)$")
+    list(APPEND HOST_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/${CMAKE_MATCH_1}")
+  elseif(line MATCHES "^sdl_version[ \t]+(.+)$")
+    set(SDL_VERSION "${CMAKE_MATCH_1}")
+  elseif(line MATCHES "^platform[ \t]+([a-z]+)[ \t]+(.+)$")
+    set(_pname "${CMAKE_MATCH_1}")
+    set(_prest "${CMAKE_MATCH_2}")
+    if( (APPLE AND _pname STREQUAL "mac") OR
+        (WIN32 AND _pname STREQUAL "windows") OR
+        (NOT APPLE AND NOT WIN32 AND _pname STREQUAL "linux") )
+      if(_prest MATCHES "dodai=([^ \t]+)")
+        set(DODAI_OS_SRC "${DODAI_DIR}/${CMAKE_MATCH_1}")
+      endif()
+    endif()
+  endif()
+endforeach()
+
+if(DODAI_OS_SRC STREQUAL "")
+  message(FATAL_ERROR "build.manifest: no platform row matched this OS")
 endif()
+if(SDL_VERSION STREQUAL "")
+  message(FATAL_ERROR "build.manifest: no sdl_version")
+endif()
+list(APPEND HOST_SOURCES "${DODAI_OS_SRC}")
 
 # --- SDL3 ----------------------------------------------------------------
 # Windows: vendored prebuilt MinGW binaries (batteries included).
 # Linux/mac: built from source once via FetchContent (shared, so game dlls
 # resolve SDL symbols from the already-loaded library at dlopen time).
+# The version tag comes from build.manifest (sdl_version), not hardcoded here.
 if(WIN32)
   list(APPEND CMAKE_PREFIX_PATH "${VENDOR_DIR}/SDL3-mingw/x86_64-w64-mingw32")
   find_package(SDL3 CONFIG REQUIRED)
@@ -36,23 +69,14 @@ else()
   set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
   FetchContent_Declare(SDL3
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-    GIT_TAG release-3.4.10
+    GIT_TAG ${SDL_VERSION}
     GIT_SHALLOW TRUE)
   FetchContent_MakeAvailable(SDL3)
 endif()
 
-add_executable(meikyu
-  "src/platform/host_main.c"
-  "src/platform/project_gen.c"
-  "src/platform/seni_answers.c"
-  "${SENI_DIR}/seni.c"
-  "${SENI_DIR}/arena.c"
-  "${KANSI_DIR}/kansi.c"
-  "${KAJI_DIR}/kaji.c"
-  "${DODAI_PLATFORM}"
-  "${DODAI_DIR}/dodai_video_sdl.c")
+add_executable(meikyu ${HOST_SOURCES})
 
-target_include_directories(meikyu PRIVATE src "${SENI_DIR}" "${KANSI_DIR}" "${KAJI_DIR}" "${DODAI_DIR}")
+target_include_directories(meikyu PRIVATE ${HOST_INCLUDES})
 target_link_libraries(meikyu PRIVATE SDL3::SDL3)
 if(NOT WIN32)
   target_link_libraries(meikyu PRIVATE pthread) # dodai's copy worker threads

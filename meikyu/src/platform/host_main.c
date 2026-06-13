@@ -10,6 +10,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef __APPLE__
+#include <sys/stat.h>   /* chmod: restore the bundle exe's exec bit (--install) */
+#endif
 
 #include "base/base_types.h"
 #include "abi/abi_platform.h"
@@ -17,6 +20,7 @@
 
 #include "seni.h"
 #include "platform/seni_answers.h"
+#include "platform/build_manifest.h"
 #include "kansi.h"
 #include "kaji.h"
 #include "dodai.h"
@@ -559,19 +563,155 @@ static b32 picker_run(void) {
     }
 }
 
+/* --print-host-srcs: prints build.manifest's host_src entries, sorted, one per
+   line. The drift guard (test_manifest_drift.sh) diffs this against cmake's
+   compiled source list, catching the "added a .c to one but not the other"
+   divergence this whole mechanism exists to prevent. */
+static int print_host_srcs(void) {
+    michi_buf mb;
+    char up[1024];
+    static char storage[1u << 16];
+    arena a;
+    char *txt;
+    size_t len = 0;
+    ito text, err;
+    BuildManifest m;
+    BuildPlatform bp;
+    ito os;
+    const char *items[BM_MAX_HOST_SRC + 1];
+    int count, i, j;
+
+    michi_buf_reset(&mb);
+    if (!dodai_exe_dir(&mb)) {
+        fprintf(stderr, "cannot locate exe\n");
+        return 1;
+    }
+    snprintf(up, sizeof(up), "%s../build.manifest", michi_cstr(&mb));
+    michi_buf_reset(&mb);
+    if (dodai_absolute_path(michi_from_cstr(up), &mb) != 0) {
+        fprintf(stderr, "cannot resolve %s\n", up);
+        return 1;
+    }
+    txt = dodai_read_file(michi_view(&mb), &len);
+    if (!txt) {
+        fprintf(stderr, "cannot read build.manifest\n");
+        return 1;
+    }
+    create_arena(&a, storage, sizeof(storage));
+    text.ptr = arena_copy_string(&a, txt, len);
+    text.len = text.ptr ? len : 0;
+    free(txt);
+    err.ptr = 0; err.len = 0;
+    if (!build_manifest_parse(&a, text, &m, &err)) {
+        fprintf(stderr, "manifest parse error: %.*s\n", (int)err.len, err.ptr);
+        return 1;
+    }
+    count = 0;
+    for (i = 0; i < m.host_src_count; i++) {
+        items[count++] = arena_copy_string(&a, m.host_src[i].ptr, m.host_src[i].len);
+    }
+    /* the per-OS dodai source is appended (not a host_src line) -- cmake
+       compiles it too, so the drift guard's lists must include it. */
+    os = dodai_is_macos() ? ITO("mac")
+       : dodai_is_linux() ? ITO("linux") : ITO("windows");
+    if (build_manifest_select(&m, os, &bp, &err)) {
+        items[count++] = arena_sprintf(&a, "lib/dodai/%.*s",
+                                       (int)bp.dodai_src.len, bp.dodai_src.ptr);
+    }
+    for (i = 1; i < count; i++) { /* insertion sort, small N */
+        const char *key = items[i];
+        for (j = i - 1; j >= 0 && strcmp(items[j], key) > 0; j--) {
+            items[j + 1] = items[j];
+        }
+        items[j + 1] = key;
+    }
+    for (i = 0; i < count; i++) {
+        printf("%s\n", items[i]);
+    }
+    return 0;
+}
+
+/* --install: build the ship bundle, then assemble a launchable macOS .app in
+   /Applications. The ship dir is already self-contained -- the ship exe chdirs
+   to its own dir and loads assets + build/*.spv from there -- so the .app is
+   that dir dropped under Contents/MacOS plus an Info.plist that makes Finder
+   and Spotlight treat it as an app. */
+static int run_install(void) {
+#ifndef __APPLE__
+    dodai_log("install: only macOS (.app to /Applications) is supported for now; "
+              "ship bundle is at " PLATFORM_BUILD_DIR "/ship");
+    return 1;
+#else
+    const char *name = g_project.name;
+    char ship[512], app[600], macos[680], plist_path[760], seed[760], plist[1200];
+
+    if (run_build_cli("ship") != 0) {
+        return 1; /* build logged the cause */
+    }
+    snprintf(ship, sizeof(ship), "%s/ship", PLATFORM_BUILD_DIR);
+    snprintf(app, sizeof(app), "/Applications/%s.app", name);
+    snprintf(macos, sizeof(macos), "%s/Contents/MacOS", app);
+
+    /* make Contents/MacOS (make_dirs_for builds the chain up to a file), then
+       copy the whole self-contained ship dir into it. */
+    snprintf(seed, sizeof(seed), "%s/.seed", macos);
+    dodai_make_dirs_for(michi_from_cstr(seed));
+    if (!dodai_copy_dir(michi_from_cstr(ship), michi_from_cstr(macos))) {
+        dodai_log("install: cannot copy %s -> %s", ship, macos);
+        return 1;
+    }
+    /* dodai's file copy does not preserve the exec bit; without it launchd
+       refuses to spawn the bundle (Launch failed, errno 111). */
+    {
+        char exe[800];
+        snprintf(exe, sizeof(exe), "%s/%s", macos, name);
+        if (chmod(exe, 0755) != 0) {
+            dodai_log("install: cannot chmod +x %s", exe);
+            return 1;
+        }
+    }
+
+    snprintf(plist_path, sizeof(plist_path), "%s/Contents/Info.plist", app);
+    snprintf(plist, sizeof(plist),
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+        "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" "
+        "\"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
+        "<plist version=\"1.0\">\n<dict>\n"
+        "  <key>CFBundleExecutable</key><string>%s</string>\n"
+        "  <key>CFBundleIdentifier</key><string>com.meikyu.%s</string>\n"
+        "  <key>CFBundleName</key><string>%s</string>\n"
+        "  <key>CFBundlePackageType</key><string>APPL</string>\n"
+        "  <key>CFBundleVersion</key><string>" MEIKYU_VERSION "</string>\n"
+        "  <key>NSHighResolutionCapable</key><true/>\n"
+        "</dict>\n</plist>\n",
+        name, name, name);
+    if (!dodai_write_file(michi_from_cstr(plist_path), plist, strlen(plist))) {
+        dodai_log("install: cannot write %s", plist_path);
+        return 1;
+    }
+    dodai_log("install: %s", app);
+    return 0;
+#endif
+}
+
 int main(int argc, char *argv[]) {
-    /* CLI: meikyu [--path <project>] [--build [target]] */
+    /* CLI: meikyu [--path <project>] [--build [target]] [--install] */
     const char *project_path = NULL;
     const char *build_target = NULL;
     b32 build_mode = 0;
+    b32 install_mode = 0;
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--path") == 0 && i + 1 < argc) {
+        if (strcmp(argv[i], "--print-host-srcs") == 0) {
+            return print_host_srcs(); /* drift guard hook; no window, no project */
+        } else if (strcmp(argv[i], "--path") == 0 && i + 1 < argc) {
             project_path = argv[++i];
         } else if (strcmp(argv[i], "--build") == 0) {
             build_mode = 1;
             if (i + 1 < argc && argv[i + 1][0] != '-') {
                 build_target = argv[++i];
             }
+        } else if (strcmp(argv[i], "--install") == 0) {
+            install_mode = 1; /* headless: build ship + assemble the .app */
         }
     }
 
@@ -592,7 +732,7 @@ int main(int argc, char *argv[]) {
             return 1;
         }
     } else if (!dodai_mtime_ns(PATH(PROJECT_MARKER), &marker)) {
-        if (build_mode) {
+        if (build_mode || install_mode) {
             /* headless: no picker, fail fast */
             fprintf(stderr, "build: no project here (no " PROJECT_MARKER
                     "); run from a project dir or pass --path\n");
@@ -624,6 +764,9 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    if (install_mode) {
+        return run_install();
+    }
     if (build_mode) {
         return run_build_cli(build_target);
     }
