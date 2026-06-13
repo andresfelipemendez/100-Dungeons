@@ -18,6 +18,11 @@
 #define HOT_SIZE       (1u << 20)   /* 1 MB  */
 #define TRANSIENT_SIZE (64u << 20)  /* 64 MB */
 
+/* ship builds inject the project name: define GAME_TITLE=\"<name>\" */
+#ifndef GAME_TITLE
+#define GAME_TITLE "Dungeon"
+#endif
+
 /* statically linked from the game's unity build */
 GAME_UPDATE_AND_RENDER(game_update_and_render);
 
@@ -33,7 +38,7 @@ int main(int argc, char *argv[]) {
     }
 
     DodaiVideo video = { 0 };
-    if (!dodai_video_open("Dungeon", 1280, 720, 0, &video)) {
+    if (!dodai_video_open(GAME_TITLE, 1280, 720, 0, &video)) {
         return 1; /* dodai_video_open logged the detail */
     }
 

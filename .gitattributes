@@ -7,3 +7,4 @@ vendor/** filter=lfs diff=lfs merge=lfs -text
 vendor/seni/** -filter -diff -merge text=auto
 vendor/kansi/** -filter -diff -merge text=auto
 vendor/kaji/** -filter -diff -merge text=auto
+vendor/dodai/** -filter -diff -merge text=auto

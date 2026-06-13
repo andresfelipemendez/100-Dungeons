@@ -1,5 +1,8 @@
-﻿*.DS_Store
-dungeon1/build
-dungeon1/build-linux
-dungeon1/build-mac
+*.DS_Store
 .vs
+
+# build dirs: the engine's own (meikyu/build*) and every project's --
+# all artifacts are engine-generated, never tracked
+build/
+build-linux/
+build-mac/

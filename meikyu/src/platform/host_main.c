@@ -20,12 +20,9 @@
 #include "kaji.h"
 #include "dodai.h"
 #include "dodai_video.h"
+#include "project_gen.h"
 
 #define GAME_DLL_NEW PLATFORM_BUILD_DIR "/game_new" DODAI_DLL_SUFFIX
-/* both configs are platform-neutral now: kansi only watches, kaji carries
-   the per-OS build knowledge internally */
-#define KANSI_CFG       "kansi.cfg"
-#define KAJI_CFG        "kaji.cfg"
 #define GAME_STATE_HDR  "src/game_state.h"
 
 #define HOT_SIZE       (1u << 20)   /* 1 MB  */
@@ -325,10 +322,11 @@ static void seni_apply_answers(SeniReloadStatus *status) {
     }
 }
 
-/* The forge: every build (the dev dll, ship bundles, anything in kaji.cfg)
+/* The forge: every build (the dev dll, ship bundles, any generated target)
    goes through kaji. Two run slots: the dev dll rebuild that kansi's change
    edge triggers, and whatever profile the editor/CLI asked for -- a ship
    build never blocks the gameplay rebuild loop. */
+static Project g_project;
 static kaji *g_forge;
 static kaji_run g_game_run;   /* dev dll rebuilds (kansi edge) */
 static kaji_run g_profile_run; /* editor/CLI requested targets */
@@ -343,7 +341,7 @@ static int run_build_cli(const char *target) {
         target = "ship";
     }
     if (!g_forge) {
-        fprintf(stderr, "build: no forge (missing/broken " KAJI_CFG ")\n");
+        fprintf(stderr, "build: no forge (missing/broken generated config)\n");
         return 1;
     }
     fprintf(stderr, "build: target '%s'\n", target);
@@ -352,7 +350,7 @@ static int run_build_cli(const char *target) {
 
 static b32 platform_run_build_profile(const char *profile) {
     if (!g_forge) {
-        dodai_log("build: no forge (missing/broken " KAJI_CFG ")");
+        dodai_log("build: no forge (missing/broken generated config)");
         return 0;
     }
     if (!kaji_build_async(g_forge, profile, &g_profile_run, 1)) {
@@ -484,7 +482,7 @@ static void recents_add(const char *dir) {
 static b32 project_dir_valid(const char *dir) {
     char marker[1100];
     unsigned long long m;
-    snprintf(marker, sizeof(marker), "%s/" KAJI_CFG, dir);
+    snprintf(marker, sizeof(marker), "%s/" PROJECT_MARKER, dir);
     return dodai_mtime_ns(marker, &m) != 0;
 }
 
@@ -527,7 +525,7 @@ static b32 picker_run(void) {
 
         char msg[2048];
         size_t off = (size_t)snprintf(msg, sizeof(msg),
-            "%sA project is any folder holding a " KAJI_CFG ".\n", note);
+            "%sA project is any folder holding a " PROJECT_MARKER ".\n", note);
         if (shown) {
             off += (size_t)snprintf(msg + off, sizeof(msg) - off,
                                     "\nRecent:\n");
@@ -555,7 +553,7 @@ static b32 picker_run(void) {
         }
 
         if (!project_dir_valid(dir)) {
-            note = "Not a project: no " KAJI_CFG " there.\n\n";
+            note = "Not a project: no " PROJECT_MARKER " there.\n\n";
             continue;
         }
         if (!dodai_chdir(dir)) {
@@ -583,52 +581,49 @@ int main(int argc, char *argv[]) {
     }
 
     /* All paths (dlls, shaders, assets, gcc spawn) are relative to the
-       project root. A project is any directory holding a kaji.cfg (the
-       marker, godot's project.godot). --path opens one explicitly; without
-       it the exe anchors to its own parent (it lives in the project's build
-       dir), so double-click and any-cwd launches behave like running from
-       the project dir. */
+       project root. A project is any directory holding a project.meikyu
+       (the marker, godot's project.godot). Resolution: --path, then the
+       cwd, then the picker. The exe lives in the engine's build dir,
+       never inside a project. */
+    unsigned long long marker;
     if (project_path) {
-        unsigned long long marker;
         if (!dodai_chdir(project_path)) {
             dodai_log("cannot chdir to project '%s'", project_path);
             return 1;
         }
-        if (!dodai_mtime_ns(KAJI_CFG, &marker)) {
-            dodai_log("'%s' is not a project (no " KAJI_CFG ")", project_path);
+        if (!dodai_mtime_ns(PROJECT_MARKER, &marker)) {
+            dodai_log("'%s' is not a project (no " PROJECT_MARKER ")",
+                      project_path);
             return 1;
         }
-    } else {
-        char base[1024]; /* ...\dungeon1\build\ */
-        if (dodai_exe_dir(base, sizeof(base))) {
-            char root[1100];
-            snprintf(root, sizeof(root), "%s..", base);
-            if (!dodai_chdir(root)) {
-                dodai_log("warning: cannot chdir to project root '%s'", root);
-            }
+    } else if (!dodai_mtime_ns(PROJECT_MARKER, &marker)) {
+        if (build_mode) {
+            /* headless: no picker, fail fast */
+            fprintf(stderr, "build: no project here (no " PROJECT_MARKER
+                    "); run from a project dir or pass --path\n");
+            return 1;
         }
-        unsigned long long marker;
-        if (!dodai_mtime_ns(KAJI_CFG, &marker) && !build_mode) {
-            /* no project around the exe: project picker (godot-style).
-               Headless --build skips it and fails through kaji_load's
-               error instead. Init video first -- the folder dialog needs
-               it on some platforms; the later open just refcounts. */
-            dodai_log("no project found beside the exe, opening picker");
-            if (!dodai_video_init()) {
-                return 1; /* dodai_video_init logged the detail */
-            }
-            if (!picker_run()) {
-                return 0; /* user quit the picker */
-            }
+        /* picker (godot-style). Init video first -- the folder dialog
+           needs it on some platforms; the later open just refcounts. */
+        dodai_log("no project in the cwd, opening picker");
+        if (!dodai_video_init()) {
+            return 1; /* dodai_video_init logged the detail */
+        }
+        if (!picker_run()) {
+            return 0; /* user quit the picker */
         }
     }
     recents_add(".");
 
     instance_paths_init();
 
+    if (!project_open(&g_project)) {
+        return 1; /* project_open logged the cause */
+    }
+
     {
         char kaji_err[256];
-        g_forge = kaji_load(KAJI_CFG, kaji_err, sizeof(kaji_err));
+        g_forge = kaji_load(g_project.kaji_cfg, kaji_err, sizeof(kaji_err));
         if (!g_forge) {
             dodai_log("kaji disabled: %s", kaji_err);
         }
@@ -638,8 +633,10 @@ int main(int argc, char *argv[]) {
         return run_build_cli(build_target);
     }
 
+    char title[300];
+    snprintf(title, sizeof(title), "meikyu - %s", g_project.name);
     DodaiVideo video = { 0 };
-    if (!dodai_video_open("meikyu - hot reload", 1280, 720, 1, &video)) {
+    if (!dodai_video_open(title, 1280, 720, 1, &video)) {
         return 1; /* dodai_video_open logged the detail */
     }
 
@@ -664,7 +661,7 @@ int main(int argc, char *argv[]) {
     kansi *watcher = NULL;
     if (is_builder) {
         char kansi_err[256];
-        watcher = kansi_start(KANSI_CFG, kansi_err, sizeof(kansi_err));
+        watcher = kansi_start(g_project.kansi_cfg, kansi_err, sizeof(kansi_err));
         if (!watcher) {
             dodai_log("kansi disabled: %s", kansi_err);
         }
@@ -725,7 +722,7 @@ int main(int argc, char *argv[]) {
             if (forge_lock_try()) {
                 is_builder = 1;
                 char kansi_err[256];
-                watcher = kansi_start(KANSI_CFG, kansi_err, sizeof(kansi_err));
+                watcher = kansi_start(g_project.kansi_cfg, kansi_err, sizeof(kansi_err));
                 if (!watcher) {
                     dodai_log("kansi disabled: %s", kansi_err);
                 }
@@ -741,6 +738,8 @@ int main(int argc, char *argv[]) {
                     /* a rebuild is in flight; kansi will edge again on the
                        next save, and the in-flight result still publishes */
                     dodai_log("forge: change during rebuild, finishing current");
+                } else if (!project_regen_unity(&g_project)) {
+                    dodai_log("forge: unity regen failed, skipping rebuild");
                 } else if (kaji_build_async(g_forge, "game", &g_game_run, 1)) {
                     dodai_log("forge: sources changed, rebuilding dll");
                 } else {
