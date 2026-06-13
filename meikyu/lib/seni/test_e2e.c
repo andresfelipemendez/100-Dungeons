@@ -698,6 +698,105 @@ UTEST(e2e, rename_via_annotation) {
     dodai_lib_close(mod);
 }
 
+UTEST(e2e, ambiguous_raises_question) {
+    char buf[16384];
+    arena a;
+    create_arena(&a, buf, sizeof(buf));
+    /* same-type field removed + added in one struct -> rename-or-drop? */
+    diff_result d = diff_structs(&a,
+        "typedef struct { float x; int health; } unit;",
+        "typedef struct { float x; int armor; } unit;");
+    ASSERT_FALSE(d.err);
+    ASSERT_EQ((size_t)1, d.question_count);
+    ASSERT_STREQ("unit", d.questions[0].struct_name);
+    ASSERT_STREQ("health", d.questions[0].removed);
+    ASSERT_STREQ("armor", d.questions[0].added);
+}
+
+UTEST(e2e, answer_rename_moves_data) {
+    char buf[16384];
+    arena a;
+    create_arena(&a, buf, sizeof(buf));
+    /* multi-line struct: the real game_state.h shape (one field per line) */
+    const char *old_lit = "typedef struct {\n    float x;\n    int health;\n} unit;\n";
+    const char *new_lit = "typedef struct {\n    float x;\n    int armor;\n} unit;\n";
+    char *old_h = arena_copy_string(&a, old_lit, strlen(old_lit));
+    char *new_h = arena_copy_string(&a, new_lit, strlen(new_lit));
+    /* answer "rename": annotate the new header, re-diff -> unambiguous */
+    annotate_result an = annotate_rename(&a, new_h, "unit", "health", "armor");
+    ASSERT_FALSE(an.err);
+    diff_result d = diff_structs(&a, old_h, an.code);
+    ASSERT_FALSE(d.err);
+    ASSERT_EQ((size_t)0, d.question_count);
+    generate_result g = generate_migration(&a, d.value);
+    ASSERT_FALSE(g.err);
+    void *mod = compile_migration_and_load(g.code, "ans_rename");
+    ASSERT_TRUE(mod != NULL);
+    migrate_fn fn = (migrate_fn)dodai_lib_symbol(mod, "migrate_unit");
+    ASSERT_TRUE(fn != NULL);
+    typedef struct { float x; int health; } unit_v1;
+    typedef struct { float x; int armor; } unit_v2;
+    unit_v1 oldb[2] = { {1.0f, 30}, {2.0f, 40} };
+    unit_v2 newb[2];
+    memset(newb, 0xCD, sizeof(newb));
+    fn(oldb, newb, 2);
+    for (int i = 0; i < 2; i++) {
+        ASSERT_EQ(oldb[i].x, newb[i].x);
+        ASSERT_EQ(oldb[i].health, newb[i].armor); /* data MOVED */
+    }
+    dodai_lib_close(mod);
+}
+
+UTEST(e2e, answer_drop_zeroes_data) {
+    char buf[16384];
+    arena a;
+    create_arena(&a, buf, sizeof(buf));
+    /* multi-line struct: the real game_state.h shape (one field per line) */
+    const char *old_lit = "typedef struct {\n    float x;\n    int health;\n} unit;\n";
+    const char *new_lit = "typedef struct {\n    float x;\n    int armor;\n} unit;\n";
+    char *old_h = arena_copy_string(&a, old_lit, strlen(old_lit));
+    char *new_h = arena_copy_string(&a, new_lit, strlen(new_lit));
+    /* answer "drop": annotate the removed field as dropped, re-diff clean */
+    annotate_result an = annotate_dropped(&a, new_h, "unit", "health");
+    ASSERT_FALSE(an.err);
+    diff_result d = diff_structs(&a, old_h, an.code);
+    ASSERT_FALSE(d.err);
+    ASSERT_EQ((size_t)0, d.question_count);
+    generate_result g = generate_migration(&a, d.value);
+    ASSERT_FALSE(g.err);
+    void *mod = compile_migration_and_load(g.code, "ans_drop");
+    ASSERT_TRUE(mod != NULL);
+    migrate_fn fn = (migrate_fn)dodai_lib_symbol(mod, "migrate_unit");
+    ASSERT_TRUE(fn != NULL);
+    typedef struct { float x; int health; } unit_v1;
+    typedef struct { float x; int armor; } unit_v2;
+    unit_v1 oldb[2] = { {1.0f, 30}, {2.0f, 40} };
+    unit_v2 newb[2];
+    memset(newb, 0xCD, sizeof(newb));
+    fn(oldb, newb, 2);
+    for (int i = 0; i < 2; i++) {
+        ASSERT_EQ(oldb[i].x, newb[i].x);
+        ASSERT_EQ(0, newb[i].armor); /* new field zeroed, old data DIED */
+    }
+    dodai_lib_close(mod);
+}
+
+UTEST(e2e, strip_was_clears_consumed) {
+    char buf[16384];
+    arena a;
+    create_arena(&a, buf, sizeof(buf));
+    const char *lit =
+        "typedef struct { float x; int armor SENI_WAS(health); } unit;";
+    char *annotated = arena_copy_string(&a, lit, strlen(lit));
+    annotate_result s = strip_was(&a, annotated);
+    ASSERT_FALSE(s.err);
+    ASSERT_TRUE(strstr(s.code, "SENI_WAS") == NULL); /* annotation gone */
+    /* the stripped header diffed against itself stays clean */
+    diff_result d = diff_structs(&a, s.code, s.code);
+    ASSERT_FALSE(d.err);
+    ASSERT_EQ((size_t)0, d.question_count);
+}
+
 UTEST(e2e, identical) {
     char buf[16384];
     arena a;

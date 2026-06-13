@@ -1,0 +1,66 @@
+name: ci
+
+# Linux gate for the meikyu engine: builds the engine + a sample project's
+# game/ship targets (which run kaji's boundary deny_include checks), and runs
+# every library + platform unit suite. macOS/Windows are built locally; this
+# guards the cross-machine Linux path.
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # SDL3 is built from source via FetchContent on first bootstrap; it needs
+      # the X11/Wayland/audio dev headers present.
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake ninja-build git \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
+            libxi-dev libxfixes-dev libwayland-dev libxkbcommon-dev \
+            libegl1-mesa-dev libgl1-mesa-dev libasound2-dev libpulse-dev
+
+      # Library suites are self-contained gcc + utest.h scripts; run them first
+      # since they need no SDL and fail fast on a broken lib.
+      - name: Library unit suites
+        run: |
+          for d in ito michi seni kansi kaji; do
+            echo "=== lib/$d ==="
+            sh "meikyu/lib/$d/test.sh"
+          done
+
+      - name: Platform unit suite (seni_answers)
+        run: sh meikyu/src/platform/test_seni_answers.sh
+
+      # Bootstraps the engine exe (also builds SDL3 the first time).
+      - name: Bootstrap engine
+        run: sh meikyu/bootstrap.sh
+
+      # Headless --build: generates the project's kaji cfg and forges each
+      # target. kaji's deny_include boundary checks run here -- a layering
+      # violation fails the build, so a green run is also a boundary pass.
+      - name: Build sample project (game + ship)
+        run: |
+          ./meikyu/build-linux/meikyu --path dungeon1 --build game
+          ./meikyu/build-linux/meikyu --path dungeon1 --build ship
+
+      # Negative test: a planted layering violation MUST be rejected by kaji.
+      - name: Boundary gate rejects a violation
+        run: |
+          UNITY=meikyu/src/engine/engine_unity.c
+          cp "$UNITY" /tmp/engine_unity.bak
+          # engine must never include dodai -- plant the forbidden include
+          printf '#include "dodai.h"\n' | cat - "$UNITY" > /tmp/u && mv /tmp/u "$UNITY"
+          if ./meikyu/build-linux/meikyu --path dungeon1 --build game; then
+            echo "FAIL: kaji accepted an engine->dodai include"
+            cp /tmp/engine_unity.bak "$UNITY"
+            exit 1
+          fi
+          echo "OK: kaji rejected the planted violation"
+          cp /tmp/engine_unity.bak "$UNITY"

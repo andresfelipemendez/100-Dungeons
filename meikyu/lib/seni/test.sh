@@ -1,5 +1,6 @@
 #!/bin/sh
 set -e
+cd "$(dirname "$0")"
 # library must be strict c89; test harness uses utest.h (default std)
 gcc -std=c89 -pedantic -Wall -Werror -fsyntax-only seni.c arena.c
 gcc test.c -o test.out

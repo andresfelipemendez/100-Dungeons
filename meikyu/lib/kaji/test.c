@@ -125,6 +125,46 @@ UTEST(parse, targets_vars_tools) {
     kaji_free(k);
 }
 
+UTEST(boundary, deny_include_parse) {
+    char err[256] = { 0 };
+    kaji *k = load_cfg("builddir b\ndeny_include some/dir forbidden_h\n",
+                       err, sizeof(err));
+    ASSERT_TRUE_MSG(k != NULL, err);
+    kaji_free(k);
+
+    /* one token -> parse error with a line number */
+    ASSERT_TRUE(load_cfg("builddir b\ndeny_include onlyonedir\n",
+                         err, sizeof(err)) == NULL);
+    ASSERT_TRUE(strstr(err, "line 2") != NULL);
+    ASSERT_TRUE(strstr(err, "deny_include") != NULL);
+}
+
+UTEST(boundary, check_flags_forbidden_include) {
+    test_mkdir("build");
+    test_mkdir("build/btest");
+    write_file("build/btest/ok.c",
+               "#include \"render.h\"\n/* mentions dodai.h in a comment */\n"
+               "int ok(void){return 0;}\n");
+    char err[256] = { 0 };
+    kaji *k = load_cfg("builddir b\ndeny_include build/btest dodai.h\n",
+                       err, sizeof(err));
+    ASSERT_TRUE_MSG(k != NULL, err);
+
+    char berr[512] = { 0 };
+    /* clean: the comment mentioning dodai.h is not an #include line */
+    ASSERT_TRUE(kaji_check_boundaries(k, berr, sizeof(berr)));
+
+    /* now plant a real forbidden include */
+    write_file("build/btest/bad.c", "#include \"dodai.h\"\nint bad(void){return 1;}\n");
+    ASSERT_FALSE(kaji_check_boundaries(k, berr, sizeof(berr)));
+    ASSERT_TRUE(strstr(berr, "bad.c") != NULL);
+    ASSERT_TRUE(strstr(berr, "dodai.h") != NULL);
+
+    remove("build/btest/bad.c");
+    remove("build/btest/ok.c");
+    kaji_free(k);
+}
+
 UTEST(parse, errors_carry_line_numbers) {
     char err[256] = { 0 };
     ASSERT_TRUE(load_cfg("target a copy\n  in x\n  out y\n  bogus v\n",

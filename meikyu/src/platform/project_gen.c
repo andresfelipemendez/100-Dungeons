@@ -343,6 +343,17 @@ static b32 kaji_emit_and_write(const Project *p, b32 *changed) {
          "do not edit\n", p->name);
     emit("builddir %s\n\n", B);
 
+    /* boundary rules: kaji rejects the build if any source under these dirs
+       #includes the forbidden substring. mechanical layering enforcement. */
+    emit("deny_include \"%s/src/engine\"   editor.h\n", g_engine);
+    emit("deny_include \"%s/src/engine\"   dodai\n", g_engine);
+    emit("deny_include \"%s/src/editor\"   dodai\n", g_engine);
+    emit("deny_include \"%s/src/platform\" engine/\n", g_engine);
+    emit("deny_include \"%s/src/abi\"      dodai\n", g_engine);
+    emit("deny_include \"%s/src/abi\"      SDL3\n", g_engine);
+    emit("deny_include \"%s/lib/seni\"     ito.h\n", g_engine);
+    emit("deny_include src dodai\n\n");
+
     /* tool value runs to end of line in kaji's parser: no quotes here,
        the command builder quotes it for the shell */
     emit("tool glslc %s\n\n", g_glslc);
@@ -442,7 +453,8 @@ static b32 kaji_emit_and_write(const Project *p, b32 *changed) {
     /* the engine exe rebuilds itself; lands beside the running exe */
     emit("target host exe\n"
          "  in \"%s/src/platform/host_main.c\" "
-              "\"%s/src/platform/project_gen.c\"\n"
+              "\"%s/src/platform/project_gen.c\" "
+              "\"%s/src/platform/seni_answers.c\"\n"
          "  in \"%s/lib/seni/seni.c\" \"%s/lib/seni/arena.c\"\n"
          "  in \"%s/lib/kansi/kansi.c\" \"%s/lib/kaji/kaji.c\"\n"
          "  in \"%s/lib/dodai/dodai_video_sdl.c\"\n"
@@ -451,7 +463,7 @@ static b32 kaji_emit_and_write(const Project *p, b32 *changed) {
          "  flag -g -O0 -Wall -Wextra -std=c99\n"
          "  include \"%s/src\" \"%s/lib/seni\" \"%s/lib/kansi\" \"%s/lib/kaji\" "
               "\"%s/lib/dodai\" \"%s" SDL_MINGW "/include\"\n",
-         g_engine, g_engine, g_engine, g_engine, g_engine, g_engine,
+         g_engine, g_engine, g_engine, g_engine, g_engine, g_engine, g_engine,
          g_engine, g_engine, win ? "dodai_windows.c" : "dodai_posix.c",
          g_engine, B,
          g_engine, g_engine, g_engine, g_engine, g_engine, g_vendor);

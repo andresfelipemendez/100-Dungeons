@@ -4,8 +4,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define KAJI_MAX_TARGETS 32
+#define KAJI_MAX_DENY    16
 #define KAJI_MAX_DEPS    16
 #define KAJI_MAX_INS     16
 #define KAJI_MAX_LIST    32
@@ -54,6 +56,9 @@ struct kaji {
     int  tool_count;
     kaji_target targets[KAJI_MAX_TARGETS];
     int  target_count;
+    char deny_dir[KAJI_MAX_DENY][KAJI_PATH_MAX];
+    char deny_sub[KAJI_MAX_DENY][64];
+    int  deny_count;
 };
 
 /* ---- vars -------------------------------------------------------------- */
@@ -241,6 +246,20 @@ static int kaji_parse_line(kaji_parse_ctx *ctx, ito line) {
         if (!ito_copy(k->builddir, sizeof(k->builddir), v)) {
             return kaji_fail(ctx, "builddir too long:", v);
         }
+        return 1;
+    }
+    if (ito_eq(key, ITO("deny_include"))) {
+        ito dir = ito_next_token(&values);
+        ito sub = ito_next_token(&values);
+        if (ito_is_empty(dir) || ito_is_empty(sub)) {
+            return kaji_fail(ctx, "deny_include needs <dir> <substr>, got", dir);
+        }
+        if (k->deny_count >= KAJI_MAX_DENY) {
+            return kaji_fail(ctx, "too many deny_include entries", dir);
+        }
+        ito_copy(k->deny_dir[k->deny_count], sizeof(k->deny_dir[0]), dir);
+        ito_copy(k->deny_sub[k->deny_count], sizeof(k->deny_sub[0]), sub);
+        k->deny_count++;
         return 1;
     }
     if (ito_eq(key, ITO("tool"))) {
@@ -596,8 +615,78 @@ static int kaji_advance(kaji_run *run) {
     return 1;
 }
 
+/* boundary enforcement: no .c/.h under deny_dir may #include the substr.
+   matches only #include lines, so a comment mentioning the name is fine. */
+typedef struct {
+    const char *sub;
+    int  found;
+    char *err;
+    int  err_size;
+} kaji_deny_ctx;
+
+static void kaji_deny_cb(michi path, unsigned long long mtime,
+                         unsigned long long size, void *user) {
+    (void)mtime; (void)size;
+    kaji_deny_ctx *c = (kaji_deny_ctx *)user;
+    if (c->found) {
+        return;
+    }
+    char p[KAJI_PATH_MAX];
+    if (!ito_copy(p, sizeof(p), path.s)) {
+        return;
+    }
+    size_t L = strlen(p);
+    if (L < 3 || (strcmp(p + L - 2, ".c") != 0 && strcmp(p + L - 2, ".h") != 0)) {
+        return;
+    }
+    size_t len = 0;
+    char *txt = dodai_read_file(path, &len);
+    if (!txt) {
+        return;
+    }
+    ito rest = { txt, len };
+    int line_no = 0;
+    while (rest.len) {
+        ito line = ito_trim(ito_next_line(&rest));
+        line_no++;
+        if (!ito_starts_with(line, ITO("#include"))) {
+            continue;
+        }
+        char lbuf[1024];
+        ito_copy(lbuf, sizeof(lbuf), line);
+        if (strstr(lbuf, c->sub)) {
+            snprintf(c->err, (size_t)c->err_size,
+                     "boundary: %s:%d: includes '%s' (forbidden)",
+                     p, line_no, c->sub);
+            c->found = 1;
+            break;
+        }
+    }
+    free(txt);
+}
+
+static int kaji_check_boundaries(kaji *k, char *err, int err_size) {
+    for (int i = 0; i < k->deny_count; i++) {
+        kaji_deny_ctx c;
+        c.sub = k->deny_sub[i];
+        c.found = 0;
+        c.err = err;
+        c.err_size = err_size;
+        dodai_walk(michi_from_cstr(k->deny_dir[i]), kaji_deny_cb, &c);
+        if (c.found) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 int kaji_build_async(kaji *k, const char *target, kaji_run *run, int force) {
     if (run->active) {
+        return 0;
+    }
+    char boundary_err[512];
+    if (!kaji_check_boundaries(k, boundary_err, sizeof(boundary_err))) {
+        fprintf(stderr, "kaji: %s\n", boundary_err);
         return 0;
     }
     kaji_target *t = kaji_find(k, ito_from(target));

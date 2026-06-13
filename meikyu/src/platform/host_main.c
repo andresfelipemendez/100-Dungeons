@@ -16,6 +16,7 @@
 #include "abi/abi_gpu.h"
 
 #include "seni.h"
+#include "platform/seni_answers.h"
 #include "kansi.h"
 #include "kaji.h"
 #include "dodai.h"
@@ -163,23 +164,16 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
            guess silently loses data, so the platform refuses the reload and
            parks the questions for the seni UI panel. the developer answers
            in the state header; the rebuild retries the reload. */
-        u64 n = dr.question_count < SENI_STATUS_MAX_QUESTIONS
-              ? dr.question_count : SENI_STATUS_MAX_QUESTIONS;
-        for (u64 q = 0; q < n; q++) {
-            SeniQuestion *sq = &status->questions[q];
-            snprintf(sq->message, SENI_STATUS_MSG_MAX, "%s", dr.questions[q].message);
-            snprintf(sq->struct_name, SENI_STATUS_NAME_MAX, "%s", dr.questions[q].struct_name);
-            snprintf(sq->removed, SENI_STATUS_NAME_MAX, "%s", dr.questions[q].removed);
-            snprintf(sq->added, SENI_STATUS_NAME_MAX, "%s", dr.questions[q].added);
-            sq->answer = SENI_ANSWER_NONE;
-            dodai_log("migrate: %s", dr.questions[q].message);
+        u32 n = seni_fill_questions(status, dr.questions, dr.question_count);
+        u32 q;
+        for (q = 0; q < n; q++) {
+            dodai_log("migrate: %s", status->questions[q].message);
         }
         if (dr.question_count > n) {
             dodai_log("migrate: %llu more questions not shown (panel cap %d)",
                     (unsigned long long)(dr.question_count - n),
                     SENI_STATUS_MAX_QUESTIONS);
         }
-        status->question_count = (u32)n;
         dodai_log("migrate: reload refused until questions are answered "
                 "(annotate " GAME_STATE_HDR ")");
         return 0;
@@ -298,12 +292,8 @@ static void seni_apply_answers(SeniReloadStatus *status) {
             continue;
         }
 
-        annotate_result an;
-        if (answer == SENI_ANSWER_RENAME) {
-            an = annotate_rename(&a, copy, sq->struct_name, sq->removed, sq->added);
-        } else {
-            an = annotate_dropped(&a, copy, sq->struct_name, sq->removed);
-        }
+        annotate_result an = seni_answer_annotate(&a, answer, sq->struct_name,
+                                                  sq->removed, sq->added, copy);
         if (an.err) {
             dodai_log("seni: %s", an.err);
             continue;

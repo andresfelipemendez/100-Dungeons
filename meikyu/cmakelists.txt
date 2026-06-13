@@ -44,6 +44,7 @@ endif()
 add_executable(meikyu
   "src/platform/host_main.c"
   "src/platform/project_gen.c"
+  "src/platform/seni_answers.c"
   "${SENI_DIR}/seni.c"
   "${SENI_DIR}/arena.c"
   "${KANSI_DIR}/kansi.c"
