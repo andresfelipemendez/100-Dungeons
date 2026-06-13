@@ -6,3 +6,6 @@
 build/
 build-linux/
 build-mac/
+
+# compiled test binaries (kaji/seni test runners emit these)
+*.out

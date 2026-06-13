@@ -100,7 +100,7 @@ int dodai_copy_file(michi from, michi to) {
 
 static int copy_dir_recursive(const char *from, const char *to) {
     CreateDirectoryA(to, NULL);
-    char pattern[MAX_PATH * 2];
+    char pattern[MICHI_MAX + 4]; /* michi path + "\*" */
     snprintf(pattern, sizeof(pattern), "%s\\*", from);
     WIN32_FIND_DATAA fd;
     HANDLE h = FindFirstFileA(pattern, &fd);
@@ -112,7 +112,7 @@ static int copy_dir_recursive(const char *from, const char *to) {
         if (strcmp(fd.cFileName, ".") == 0 || strcmp(fd.cFileName, "..") == 0) {
             continue;
         }
-        char src[MAX_PATH * 2], dst[MAX_PATH * 2];
+        char src[MICHI_MAX + MAX_PATH + 4], dst[MICHI_MAX + MAX_PATH + 4];
         snprintf(src, sizeof(src), "%s\\%s", from, fd.cFileName);
         snprintf(dst, sizeof(dst), "%s\\%s", to, fd.cFileName);
         if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
@@ -229,7 +229,7 @@ int dodai_write_file(michi path, const void *data, size_t len) {
 }
 
 static int walk_recursive(const char *dir, dodai_walk_fn fn, void *user) {
-    char pattern[MAX_PATH * 2];
+    char pattern[MICHI_MAX + 4]; /* michi path + "\*" */
     snprintf(pattern, sizeof(pattern), "%s\\*", dir);
 
     WIN32_FIND_DATAA fd;
@@ -241,7 +241,7 @@ static int walk_recursive(const char *dir, dodai_walk_fn fn, void *user) {
         if (strcmp(fd.cFileName, ".") == 0 || strcmp(fd.cFileName, "..") == 0) {
             continue;
         }
-        char path[MAX_PATH * 2];
+        char path[MICHI_MAX + MAX_PATH + 4];
         snprintf(path, sizeof(path), "%s\\%s", dir, fd.cFileName);
         if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
             walk_recursive(path, fn, user);
@@ -487,23 +487,6 @@ void dodai_lib_close(void *lib) {
 
 const char *dodai_lib_extension(void) {
     return "dll";
-}
-
-/* ---- shared-library compile ----------------------------------------------- */
-
-int dodai_compile_shared(michi src, michi lib, michi err_log,
-                         const char *extra_flags) {
-    char srcc[MICHI_MAX], libc[MICHI_MAX], errc[MICHI_MAX];
-    if (!ito_copy(srcc, sizeof(srcc), src.s) ||
-        !ito_copy(libc, sizeof(libc), lib.s) ||
-        !ito_copy(errc, sizeof(errc), err_log.s)) {
-        return 1;
-    }
-    char cmd[2048];
-    DeleteFileA(libc); /* fresh vnode: see header */
-    snprintf(cmd, sizeof(cmd), "gcc -shared" DODAI_PIC " %s %s -o %s 2> %s",
-             extra_flags ? extra_flags : "", srcc, libc, errc);
-    return system(cmd);
 }
 
 /* ---- lock file ------------------------------------------------------------ */

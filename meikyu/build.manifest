@@ -9,6 +9,7 @@ host_src      src/platform/host_main.c
 host_src      src/platform/project_gen.c
 host_src      src/platform/seni_answers.c
 host_src      src/platform/build_manifest.c
+host_src      src/platform/migrate_core.c
 host_src      lib/seni/seni.c
 host_src      lib/seni/arena.c
 host_src      lib/kansi/kansi.c
@@ -32,6 +33,12 @@ vulkan_pin    1.4.341.1
 glslc_candidate  $VULKAN_SDK/bin/glslc
 glslc_candidate  /opt/homebrew/bin/glslc
 glslc_candidate  /usr/local/bin/glslc
+
+# C compiler candidates, ordered, $VAR-expanded. seni's .incbin needs GNU gcc.
+cc_candidate  $CC
+cc_candidate  /opt/homebrew/bin/gcc
+cc_candidate  /usr/local/bin/gcc
+cc_candidate  /usr/bin/gcc
 
 # Per-OS table. key=value pairs; empty values (exe=, rpath=) are valid.
 platform mac     builddir=build-mac    exe=     dll=.so   dodai=dodai_posix.c    rpath=@loader_path  sdl=fetch

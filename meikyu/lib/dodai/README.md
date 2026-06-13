@@ -26,13 +26,14 @@ keeps SDL for window/GPU/input only.
 - **Codesign vnode rule (macOS):** the kernel validates Mach-O signatures
   per vnode. Overwriting a previously-mapped dylib in place poisons it —
   the next dlopen is SIGKILLed with "code signature invalid". Therefore
-  `dodai_copy_file` and `dodai_compile_shared` remove their destination
-  first; a fresh vnode per publish. Harmless on linux/windows.
+  `dodai_copy_file` removes its destination first; a fresh vnode per
+  publish (kaji applies the same rule when it compiles). Harmless on
+  linux/windows.
 - **Watch on macOS declines:** `dodai_watch_begin` returns 0 (no FSEvents
   backend yet); callers (kansi) fall back to throttled polling rescans.
 - **`dodai_mtime_ns` units differ per OS** (POSIX epoch ns vs Windows
   FILETIME ticks). Values are only ever compared against same-OS values
   (staleness checks), never across machines.
 - Conventions: 1 = success / 0 = failure unless documented otherwise
-  (`dodai_make_dir`, `dodai_absolute_path`, `dodai_compile_shared` keep
-  their inherited 0-on-success); nothing blocks; callers log and continue.
+  (`dodai_make_dir`, `dodai_absolute_path` keep their inherited
+  0-on-success); nothing blocks; callers log and continue.

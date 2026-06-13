@@ -21,6 +21,7 @@
 #include "seni.h"
 #include "platform/seni_answers.h"
 #include "platform/build_manifest.h"
+#include "platform/migrate_core.h"
 #include "kansi.h"
 #include "kaji.h"
 #include "dodai.h"
@@ -29,6 +30,10 @@
 
 #define GAME_DLL_NEW PLATFORM_BUILD_DIR "/game_new" DODAI_DLL_SUFFIX
 #define GAME_STATE_HDR  "src/game_state.h"
+
+/* the forge, defined below; migrate_hot_memory (above its definition) compiles
+   the migration through it so kaji owns all compilation. */
+static kaji *g_forge;
 
 #define HOT_SIZE       (1u << 20)   /* 1 MB  */
 #define TRANSIENT_SIZE (64u << 20)  /* 64 MB */
@@ -140,7 +145,7 @@ static b32 game_load(GameCode *code) {
 static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
                               void *hot, u64 hot_size,
                               void *scratch, u64 scratch_size,
-                              SeniReloadStatus *status) {
+                              SeniReloadStatus *status, u32 override) {
     static char arena_buf[1u << 20];
     arena a;
     create_arena(&a, arena_buf, sizeof(arena_buf));
@@ -162,12 +167,15 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
         dodai_log("migrate: diff failed: %s", dr.err);
         return 0;
     }
-    if (dr.question_count > 0) {
+    switch (migrate_decide(&dr, override)) {
+    case MIG_NOOP:
+        return 1; /* layouts differ textually but not structurally */
+    case MIG_REFUSE_QUESTIONS: {
         /* the diff is ambiguous (possible renames). seni's questions are
            advisory -- the ops would zero the new fields -- but acting on a
            guess silently loses data, so the platform refuses the reload and
            parks the questions for the seni UI panel. the developer answers
-           in the state header; the rebuild retries the reload. */
+           in the state header (or uses the panel / --on-ambiguous escape). */
         u32 n = seni_fill_questions(status, dr.questions, dr.question_count);
         u32 q;
         for (q = 0; q < n; q++) {
@@ -179,11 +187,53 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
                     SENI_STATUS_MAX_QUESTIONS);
         }
         dodai_log("migrate: reload refused until questions are answered "
-                "(annotate " GAME_STATE_HDR ")");
+                "(annotate " GAME_STATE_HDR ", or use the panel / --on-ambiguous)");
         return 0;
     }
-    if (dr.value.struct_count == 0) {
-        return 1; /* layouts differ textually but not structurally */
+    case MIG_RELOAD_COLD:
+        memset(hot, 0, hot_size);
+        status->question_count = 0;
+        dodai_log("migrate: ambiguous reload -- hot state discarded, loading "
+                  "new layout cold (escape hatch)");
+        return 1;
+    case MIG_DROP_ALL: {
+        /* answer every question as a drop on a scratch copy of the new header
+           (never the on-disk file -- a teammate's escape must not rewrite
+           shared source). Iterate the full diff question list, not the
+           16-clamped mailbox, so truncation cannot hide a dropped field. */
+        char *dropped = new_copy;
+        size_t i;
+        for (i = 0; i < dr.question_count; i++) {
+            annotate_result an = seni_answer_annotate(&a, SENI_ANSWER_DROPPED,
+                    dr.questions[i].struct_name, dr.questions[i].removed, "",
+                    dropped);
+            if (an.err) {
+                dodai_log("migrate: drop-all annotate failed: %s", an.err);
+                return 0;
+            }
+            dropped = an.code;
+        }
+        dr = diff_structs(&a, old_copy, dropped);
+        if (dr.err) {
+            dodai_log("migrate: drop-all re-diff failed: %s", dr.err);
+            return 0;
+        }
+        if (dr.question_count > 0) {
+            dodai_log("migrate: drop-all still ambiguous (%llu) -- aborting",
+                    (unsigned long long)dr.question_count);
+            return 0;
+        }
+        status->question_count = 0;
+        dodai_log("migrate: ambiguous reload -- dropped %llu ambiguous field(s), "
+                  "migrating the rest (escape hatch)", (unsigned long long)i);
+        if (dr.value.struct_count == 0) {
+            return 1; /* everything dropped to a textual-only change */
+        }
+        break; /* fall through to generate + run with the re-diffed result */
+    }
+    case MIG_PROCEED:
+    default:
+        break; /* fall through to generate + run */
     }
 
     generate_result gr = generate_migration(&a, dr.value);
@@ -196,10 +246,15 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
         dodai_log("migrate: cannot write %s", g_mig_c_path);
         return 0;
     }
-    /* dodai_compile_shared removes the lib first (same codesign-vnode rule
-       as dodai_copy_file) */
-    if (dodai_compile_shared(michi_from_cstr(g_mig_c_path), michi_from_cstr(g_mig_dll_path), michi_from_cstr(g_mig_err_path), NULL) != 0) {
-        dodai_log("migrate: gcc failed, see the per-instance mig_errors log");
+    /* kaji owns compilation: it uses the project's resolved cc tool and
+       removes the lib first (codesign-vnode rule). */
+    if (!g_forge) {
+        dodai_log("migrate: no forge -- cannot compile the migration");
+        return 0;
+    }
+    if (kaji_compile_shared(g_forge, g_mig_c_path, g_mig_dll_path,
+                            g_mig_err_path, NULL) != 0) {
+        dodai_log("migrate: compile failed, see the per-instance mig_errors log");
         return 0;
     }
 
@@ -221,7 +276,7 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
         return 0;
     }
     u64 new_size = (u64)*new_size_p;
-    if (new_size == 0 || new_size > hot_size || new_size > scratch_size) {
+    if (!migrate_size_fits(new_size, hot_size, scratch_size)) {
         dodai_log("migrate: new game_state size %llu does not fit (hot %llu, scratch %llu)",
                 (unsigned long long)new_size, (unsigned long long)hot_size,
                 (unsigned long long)scratch_size);
@@ -325,6 +380,7 @@ static kaji *g_forge;
 static kaji_run g_game_run;   /* dev dll rebuilds (kansi edge) */
 static kaji_run g_profile_run; /* editor/CLI requested targets */
 static int g_build_state; /* 0 idle/ok, 1 running, 2 failed */
+static u32 g_on_ambiguous = SENI_OVERRIDE_NONE; /* --on-ambiguous session policy */
 
 /* --build [target]: headless CLI mode. Builds the named kaji target
    (default: ship), forwards its exit status, never opens a window:
@@ -712,6 +768,16 @@ int main(int argc, char *argv[]) {
             }
         } else if (strcmp(argv[i], "--install") == 0) {
             install_mode = 1; /* headless: build ship + assemble the .app */
+        } else if (strncmp(argv[i], "--on-ambiguous=", 15) == 0) {
+            const char *v = argv[i] + 15;
+            if (strcmp(v, "cold") == 0) {
+                g_on_ambiguous = SENI_OVERRIDE_RELOAD_COLD;
+            } else if (strcmp(v, "drop") == 0) {
+                g_on_ambiguous = SENI_OVERRIDE_DROP_ALL;
+            } else {
+                fprintf(stderr, "--on-ambiguous: expected 'cold' or 'drop', got '%s'\n", v);
+                return 1;
+            }
         }
     }
 
@@ -951,11 +1017,14 @@ int main(int argc, char *argv[]) {
                        dll rebuilds them all anyway. Wait so the scratch use
                        below cannot race in-flight frames. */
                     dodai_gpu_wait_idle(video.device);
+                    u32 eff = memory.seni.override ? memory.seni.override
+                                                   : g_on_ambiguous;
                     ok = migrate_hot_memory(game.layout, new_layout,
                                             memory.hot, memory.hot_size,
                                             memory.transient,
                                             memory.transient_size,
-                                            &memory.seni);
+                                            &memory.seni, eff);
+                    memory.seni.override = SENI_OVERRIDE_NONE; /* one-shot */
                     if (ok && is_builder) {
                         /* shared-file edit: one writer only */
                         seni_strip_consumed_was();

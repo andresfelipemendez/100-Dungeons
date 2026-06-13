@@ -67,6 +67,39 @@ static int kaji_is_posix(void) {
     return dodai_is_linux() || dodai_is_macos();
 }
 
+typedef enum { KAJI_CC_GCC, KAJI_CC_MSVC, KAJI_CC_TCC } kaji_cc_kind;
+
+/* infer the compiler family from the cc tool's basename. Only the gcc family
+   is translated today; msvc/tcc are recognized so the translator can grow. */
+static kaji_cc_kind kaji_cc_kind_from_name(const char *cc) {
+    const char *base = cc;
+    const char *p;
+    for (p = cc; *p; p++) {
+        if (*p == '/' || *p == '\\') base = p + 1;
+    }
+    if (base[0] == 'c' && base[1] == 'l') return KAJI_CC_MSVC; /* cl / cl.exe */
+    if (strstr(base, "tcc") != NULL)      return KAJI_CC_TCC;
+    return KAJI_CC_GCC;
+}
+
+/* translate compiler-agnostic opts to the backend's flag tokens. Each token
+   carries a leading space so the caller can concatenate directly. */
+static void kaji_opts_to_flags(kaji_cc_kind kind, const kaji_compile_opts *opts,
+                               char *buf, size_t cap) {
+    ito_buf b;
+    ito_buf_init(&b, buf, cap);
+    if (!opts) { if (cap) buf[0] = 0; return; }
+    /* gcc family is the only translated backend today; msvc/tcc extend here */
+    (void)kind;
+    switch (opts->std) {
+    case KAJI_C89: ito_buf_append(&b, ITO(" -std=c89")); break;
+    case KAJI_C99: ito_buf_append(&b, ITO(" -std=c99")); break;
+    case KAJI_C11: ito_buf_append(&b, ITO(" -std=c11")); break;
+    case KAJI_STD_DEFAULT: default: break;
+    }
+    if (opts->pedantic) ito_buf_append(&b, ITO(" -pedantic -Wall -Wextra"));
+}
+
 static const char *kaji_so_ext(void) {
     return kaji_is_posix() ? ".so" : ".dll";
 }
@@ -309,14 +342,18 @@ static int kaji_parse_line(kaji_parse_ctx *ctx, ito line) {
     return kaji_parse_target_key(ctx, key, values);
 }
 
-static int kaji_parse(kaji *k, ito text, char *err, int err_size) {
-    kaji_parse_ctx ctx = { k, NULL, 0, err, err_size };
-
-    /* defaults */
+/* post-calloc defaults shared by kaji_load (before parsing) and kaji_new. */
+static void kaji_init_defaults(kaji *k) {
     snprintf(k->builddir, sizeof(k->builddir), "build");
     snprintf(k->tool_name[0], sizeof(k->tool_name[0]), "cc");
     snprintf(k->tool_cmd[0], sizeof(k->tool_cmd[0]), "gcc");
     k->tool_count = 1;
+}
+
+static int kaji_parse(kaji *k, ito text, char *err, int err_size) {
+    kaji_parse_ctx ctx = { k, NULL, 0, err, err_size };
+
+    kaji_init_defaults(k);
 
     /* builddir lines first: ${B} in any target must already resolve to the
        right platform value no matter where the keys sit in the file */
@@ -422,6 +459,40 @@ kaji *kaji_load(const char *config_path, char *err, int err_size) {
 
 void kaji_free(kaji *k) {
     free(k);
+}
+
+kaji *kaji_new(void) {
+    kaji *k = (kaji *)calloc(1, sizeof(kaji));
+    if (!k) return NULL;
+    kaji_init_defaults(k);
+    return k;
+}
+
+int kaji_compile_shared(kaji *k, const char *src, const char *out_lib,
+                        const char *err_log, const kaji_compile_opts *opts) {
+    const char *cc = kaji_tool(k, ITO("cc"));
+    char flags[256];
+    char cmd[KAJI_RUN_CMD_MAX];
+    ito_buf b;
+    void *proc = NULL;
+    int code = 1;
+
+    if (!cc) return 1;
+    kaji_opts_to_flags(kaji_cc_kind_from_name(cc), opts, flags, sizeof(flags));
+
+    ito_buf_init(&b, cmd, sizeof(cmd));
+    ito_buf_appendf(&b, "\"%s\" -shared", cc);
+    if (kaji_is_posix()) ito_buf_append(&b, ITO(" -fPIC"));
+    ito_buf_appendf(&b, "%s \"%s\" -o \"%s\"", flags, src, out_lib);
+    if (b.overflow) return 1;
+
+    dodai_remove(michi_from_cstr(out_lib)); /* fresh vnode (macOS codesign) */
+    if (!dodai_spawn(ito_from(cmd), michi_from_cstr(err_log), &proc)) return 1;
+    while (!dodai_proc_poll(proc, &code)) {
+        dodai_sleep_ms(1);
+    }
+    dodai_proc_close(proc);
+    return code;
 }
 
 /* ---- planning ---------------------------------------------------------- */

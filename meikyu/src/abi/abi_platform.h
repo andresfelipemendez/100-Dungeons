@@ -31,6 +31,15 @@ enum {
     SENI_ANSWER_APPLIED = 3  /* platform wrote the annotation; rebuild pending */
 };
 
+/* Whole-migration escape hatch for an ambiguous (question-raising) reload.
+   Set by the seni panel (one-shot) or the --on-ambiguous CLI policy
+   (session). Consumed by the platform reload loop. */
+enum {
+    SENI_OVERRIDE_NONE = 0,
+    SENI_OVERRIDE_RELOAD_COLD = 1, /* discard hot state, load new dll, no migrate */
+    SENI_OVERRIDE_DROP_ALL = 2     /* drop every ambiguous field, migrate the rest */
+};
+
 typedef struct SeniQuestion {
     char message[SENI_STATUS_MSG_MAX];          /* preformatted, multi-line */
     char struct_name[SENI_STATUS_NAME_MAX];
@@ -41,6 +50,7 @@ typedef struct SeniQuestion {
 
 typedef struct SeniReloadStatus {
     u32 question_count; /* 0 = nothing pending, reloads flow */
+    u32 override;       /* SENI_OVERRIDE_*; UI/CLI writes, platform consumes + resets */
     SeniQuestion questions[SENI_STATUS_MAX_QUESTIONS];
 } SeniReloadStatus;
 

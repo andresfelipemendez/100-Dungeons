@@ -542,23 +542,6 @@ const char *dodai_lib_extension(void) {
     return "so";
 }
 
-/* ---- shared-library compile ----------------------------------------------- */
-
-int dodai_compile_shared(michi src, michi lib, michi err_log,
-                         const char *extra_flags) {
-    char srcc[MICHI_MAX], libc[MICHI_MAX], errc[MICHI_MAX];
-    if (!ito_copy(srcc, sizeof(srcc), src.s) ||
-        !ito_copy(libc, sizeof(libc), lib.s) ||
-        !ito_copy(errc, sizeof(errc), err_log.s)) {
-        return 1;
-    }
-    char cmd[2048];
-    remove(libc); /* fresh vnode: see header (macOS codesign) */
-    snprintf(cmd, sizeof(cmd), "gcc -shared" DODAI_PIC " %s %s -o %s 2> %s",
-             extra_flags ? extra_flags : "", srcc, libc, errc);
-    return system(cmd);
-}
-
 /* ---- lock file ------------------------------------------------------------ */
 
 int dodai_lockfile_try(michi path, void **out_handle) {

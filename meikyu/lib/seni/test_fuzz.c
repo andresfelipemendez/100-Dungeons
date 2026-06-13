@@ -15,8 +15,20 @@
 #else
 #include "../dodai/dodai_posix.c"
 #endif
+#include "../kaji/kaji.c"   /* all compilation goes through kaji */
 #include "utest.h"
 #include "seni.h"
+
+/* compile a seni-generated migration through kaji, C89-pinned. */
+static int seni_test_compile(const char *src, const char *lib, const char *err) {
+    kaji *k = kaji_new();
+    int rc;
+    if (!k) return 1;
+    rc = kaji_compile_shared(k, src, lib, err,
+                             &(kaji_compile_opts){ KAJI_C89, 1 });
+    kaji_free(k);
+    return rc;
+}
 #include "arena.h"
 #include "arena.c"
 #include "seni.c"
@@ -362,7 +374,7 @@ static void *compile_and_load_fz(const char* code, const char* name) {
     if (seni_dump_migration(code, name, src_path, sizeof(src_path)) != 0) return NULL;
     sprintf(lib_path, "build/%s.%s", name, dodai_lib_extension());
     sprintf(err_path, "build/%s.err", name);
-    if (dodai_compile_shared(michi_from_cstr(src_path), michi_from_cstr(lib_path), michi_from_cstr(err_path), "-std=c89 -pedantic") != 0) {
+    if (seni_test_compile(src_path, lib_path, err_path) != 0) {
         fprintf(stderr, "gcc failed for %s, generated code:\n%s\n", src_path, code);
         return NULL;
     }

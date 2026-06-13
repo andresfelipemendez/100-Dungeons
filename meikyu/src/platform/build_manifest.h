@@ -43,6 +43,7 @@ typedef struct {
     ito sdl_version;
     ito vulkan_pin;
     ito glslc_candidate[BM_MAX_GLSLC];      int glslc_count;
+    ito cc_candidate[BM_MAX_GLSLC];         int cc_count;
     struct { ito name, builddir, exe, dll, dodai, rpath, sdl; } platform[BM_MAX_PLATFORM];
     int platform_count;
 } BuildManifest;
@@ -64,5 +65,11 @@ b32 build_manifest_resolve_glslc(const BuildManifest *m,
                                  const char *(*getenv_fn)(const char *name),
                                  b32 (*exists_fn)(const char *path),
                                  char *out_buf, size_t cap);
+
+/* Same, for the C compiler (cc_candidate list). */
+b32 build_manifest_resolve_cc(const BuildManifest *m,
+                              const char *(*getenv_fn)(const char *name),
+                              b32 (*exists_fn)(const char *path),
+                              char *out_buf, size_t cap);
 
 #endif /* BUILD_MANIFEST_H */

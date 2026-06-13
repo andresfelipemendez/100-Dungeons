@@ -6,10 +6,23 @@
 #else
 #include "../dodai/dodai_posix.c"
 #endif
+#include "../kaji/kaji.c"   /* all compilation goes through kaji */
 #include "utest.h"
 #include "seni.h"
 #include "arena.h"
 #include "arena.c"
+
+/* compile a seni-generated migration through kaji, pinning C89 so the test
+   still validates that seni's codegen is strict-C89-clean. */
+static int seni_test_compile(const char *src, const char *lib, const char *err) {
+    kaji *k = kaji_new();
+    int rc;
+    if (!k) return 1;
+    rc = kaji_compile_shared(k, src, lib, err,
+                             &(kaji_compile_opts){ KAJI_C89, 1 });
+    kaji_free(k);
+    return rc;
+}
 #include "seni.c"
 #include "seni_dump.h"
 #include "seni_registry.h"
@@ -44,7 +57,7 @@ static void *compile_src_and_load(const char* src_path, const char* code, const 
     char lib_path[256], err_path[256];
     snprintf(lib_path, sizeof(lib_path), "build/%s.%s", name, dodai_lib_extension());
     snprintf(err_path, sizeof(err_path), "build/%s.err", name);
-    if (dodai_compile_shared(michi_from_cstr(src_path), michi_from_cstr(lib_path), michi_from_cstr(err_path), "-std=c89 -pedantic") != 0) {
+    if (seni_test_compile(src_path, lib_path, err_path) != 0) {
         fprintf(stderr, "gcc failed for %s\ngenerated code:\n%s\n", src_path, code);
         FILE* e = fopen(err_path, "rb");
         if (e) {
@@ -779,6 +792,37 @@ UTEST(e2e, answer_drop_zeroes_data) {
         ASSERT_EQ(0, newb[i].armor); /* new field zeroed, old data DIED */
     }
     dodai_lib_close(mod);
+}
+
+/* the platform's MIG_DROP_ALL escape: answer every ambiguity as a drop on a
+   scratch header copy, re-diff -> unambiguous, dropped field marked dead. */
+UTEST(e2e, force_drop_clears_questions) {
+    static char buf[1u << 20];
+    arena a;
+    create_arena(&a, buf, sizeof(buf));
+
+    const char *old_lit = "typedef struct {\n    float x;\n    int health;\n} unit;\n";
+    const char *new_lit = "typedef struct {\n    float x;\n    int armor;\n} unit;\n";
+    char *old_h = arena_copy_string(&a, old_lit, strlen(old_lit));
+    char *new_h = arena_copy_string(&a, new_lit, strlen(new_lit));
+
+    diff_result d0 = diff_structs(&a, old_h, new_h);
+    ASSERT_TRUE(d0.err == NULL);
+    ASSERT_TRUE(d0.question_count >= 1); /* ambiguous: health->armor? */
+
+    char *dropped = new_h;
+    size_t i;
+    for (i = 0; i < d0.question_count; i++) {
+        annotate_result an = annotate_dropped(&a, dropped,
+                d0.questions[i].struct_name, d0.questions[i].removed);
+        ASSERT_TRUE(an.err == NULL);
+        dropped = an.code;
+    }
+
+    diff_result d1 = diff_structs(&a, old_h, dropped);
+    ASSERT_TRUE(d1.err == NULL);
+    ASSERT_EQ((size_t)0, d1.question_count); /* unambiguous after drop */
+    ASSERT_TRUE(strstr(dropped, "SENI_DROPPED(health)") != NULL);
 }
 
 UTEST(e2e, strip_was_clears_consumed) {

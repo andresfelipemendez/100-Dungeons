@@ -54,6 +54,11 @@ b32 build_manifest_parse(arena *a, ito text, BuildManifest *out, ito *err) {
                 set_err(a, err, "too many glslc_candidate"); return 0;
             }
             out->glslc_candidate[out->glslc_count++] = rest;
+        } else if (ito_eq_c(key, "cc_candidate")) {
+            if (out->cc_count >= BM_MAX_GLSLC) {
+                set_err(a, err, "too many cc_candidate"); return 0;
+            }
+            out->cc_candidate[out->cc_count++] = rest;
         } else if (ito_eq_c(key, "platform")) {
             int idx;
             if (out->platform_count >= BM_MAX_PLATFORM) {
@@ -135,18 +140,35 @@ static void expand_dollar(ito cand, const char *(*getenv_fn)(const char *),
     }
 }
 
-b32 build_manifest_resolve_glslc(const BuildManifest *m,
-                                 const char *(*getenv_fn)(const char *),
-                                 b32 (*exists_fn)(const char *),
-                                 char *out_buf, size_t cap) {
+/* walk a candidate list: expand each, take the first that exists. */
+static b32 resolve_candidates(const ito *cands, int n,
+                              const char *(*getenv_fn)(const char *),
+                              b32 (*exists_fn)(const char *),
+                              char *out_buf, size_t cap) {
     int i;
-    for (i = 0; i < m->glslc_count; i++) {
+    for (i = 0; i < n; i++) {
         char probe[1024];
-        expand_dollar(m->glslc_candidate[i], getenv_fn, probe, sizeof(probe));
+        expand_dollar(cands[i], getenv_fn, probe, sizeof(probe));
         if (probe[0] && exists_fn(probe)) {
             snprintf(out_buf, cap, "%s", probe);
             return 1;
         }
     }
     return 0;
+}
+
+b32 build_manifest_resolve_glslc(const BuildManifest *m,
+                                 const char *(*getenv_fn)(const char *),
+                                 b32 (*exists_fn)(const char *),
+                                 char *out_buf, size_t cap) {
+    return resolve_candidates(m->glslc_candidate, m->glslc_count,
+                              getenv_fn, exists_fn, out_buf, cap);
+}
+
+b32 build_manifest_resolve_cc(const BuildManifest *m,
+                              const char *(*getenv_fn)(const char *),
+                              b32 (*exists_fn)(const char *),
+                              char *out_buf, size_t cap) {
+    return resolve_candidates(m->cc_candidate, m->cc_count,
+                              getenv_fn, exists_fn, out_buf, cap);
 }

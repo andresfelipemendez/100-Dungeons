@@ -10,8 +10,7 @@
    are `ito_buf` builders (first-party string lib). The implementations are
    the one place a C string is materialized -- each copies its ito args into
    a NUL char[MICHI_MAX] local at the syscall boundary. Non-path
-   strings stay const char*: dodai_lib_symbol's name (a C identifier),
-   dodai_compile_shared's extra_flags (optional, NULL = none), and
+   strings stay const char*: dodai_lib_symbol's name (a C identifier) and
    dodai_log's format literal.
 
    Conventions (inherited from the kansi/kaji platform layers):
@@ -121,13 +120,6 @@ void *dodai_lib_open(michi path);
 void *dodai_lib_symbol(void *lib, const char *name);
 void  dodai_lib_close(void *lib);
 const char *dodai_lib_extension(void); /* "so" / "dll", no dot */
-
-/* ---- shared-library compile (seni e2e harness, engine mig compile) -----
-   gcc -shared [DODAI_PIC] [extra_flags] src -o lib, stderr to err_log.
-   Removes lib first (same codesign-vnode rule as dodai_copy_file).
-   extra_flags may be NULL. Returns 0 on success (system() convention). */
-int  dodai_compile_shared(michi src, michi lib, michi err_log,
-                          const char *extra_flags);
 
 /* ---- lock file (engine forge lock) -------------------------------------
    Held until release or process death -- flock on POSIX, delete-on-close

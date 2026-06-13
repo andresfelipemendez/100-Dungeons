@@ -85,4 +85,24 @@ kaji_status kaji_run_poll(kaji *k, kaji_run *run);
 /* Blocking build for CLI use. Returns 0 on success, 1 on failure. */
 int kaji_build(kaji *k, const char *target, int force);
 
+/* Compiler-agnostic compile options. kaji translates these to the active
+   backend's flags (gcc today; msvc/tcc later) -- callers never pass raw
+   flag strings. */
+typedef enum { KAJI_STD_DEFAULT, KAJI_C89, KAJI_C99, KAJI_C11 } kaji_cstd;
+
+typedef struct {
+    kaji_cstd std;      /* gcc: -std=c89 ; msvc: /std:c11 ; tcc: -std=... */
+    int       pedantic; /* gcc: -pedantic -Wall -Wextra ; msvc: /W4 */
+} kaji_compile_opts;
+
+/* A cfg-less kaji with default tools (cc=gcc), for ad-hoc compiles that are
+   not config targets. Free with kaji_free. NULL on OOM. */
+kaji *kaji_new(void);
+
+/* Compile one source to a shared object using k's `cc` tool. Synchronous.
+   Removes out_lib first (vnode rule). opts may be NULL (all defaults).
+   Returns 0 on success (nonzero on failure, system()-style). */
+int kaji_compile_shared(kaji *k, const char *src, const char *out_lib,
+                        const char *err_log, const kaji_compile_opts *opts);
+
 #endif /* KAJI_H */

@@ -30,6 +30,7 @@
 static char g_engine[PATH_CAP];   /* <repo>/meikyu, absolute */
 static char g_vendor[PATH_CAP];   /* <repo>/vendor, absolute */
 static char g_glslc[PATH_CAP];    /* resolved shader compiler */
+static char g_cc[PATH_CAP];       /* resolved C compiler (kaji's cc tool) */
 static char g_sources[MAX_SOURCES][PATH_CAP]; /* src/... relative */
 static int  g_source_count;
 static char g_shaders[MAX_SHADERS][PATH_CAP]; /* src/shaders/... relative */
@@ -247,17 +248,18 @@ static ito current_os(void) {
 /* getenv with the const-qualified signature build_manifest_resolve_glslc wants */
 static const char *env_get(const char *name) { return getenv(name); }
 
-/* Last resort when no manifest candidate exists: find bare `glslc` on PATH and
-   resolve it to an ABSOLUTE path, so the "glslc: <path>" log line makes
-   machine-to-machine divergence visible rather than silent. 0 = not found. */
-static b32 glslc_from_path(char *out, size_t cap) {
+/* Last resort when no manifest candidate exists: find a bare tool (`glslc`,
+   `gcc`) on PATH and resolve it to an ABSOLUTE path, so the logged tool path
+   makes machine-to-machine divergence visible rather than silent. On Windows
+   the `.exe` suffix is added. 0 = not found. */
+static b32 tool_from_path(const char *name, char *out, size_t cap) {
     const char *path = getenv("PATH");
 #ifdef _WIN32
     const char sep = ';';
-    const char *exe = "glslc.exe";
+    const char *suffix = ".exe";
 #else
     const char sep = ':';
-    const char *exe = "glslc";
+    const char *suffix = "";
 #endif
     if (!path) {
         return 0;
@@ -270,8 +272,9 @@ static b32 glslc_from_path(char *out, size_t cap) {
             end++;
         }
         dirlen = (size_t)(end - path);
-        if (dirlen && dirlen + 2 + strlen(exe) < sizeof(probe)) {
-            snprintf(probe, sizeof(probe), "%.*s/%s", (int)dirlen, path, exe);
+        if (dirlen && dirlen + 2 + strlen(name) + strlen(suffix) < sizeof(probe)) {
+            snprintf(probe, sizeof(probe), "%.*s/%s%s",
+                     (int)dirlen, path, name, suffix);
             if (file_exists(probe)) {
                 snprintf(out, cap, "%s", probe);
                 return 1;
@@ -329,8 +332,14 @@ static b32 manifest_load_once(void) {
     }
     if (!build_manifest_resolve_glslc(&g_manifest, env_get, file_exists,
                                       g_glslc, sizeof(g_glslc))) {
-        if (!glslc_from_path(g_glslc, sizeof(g_glslc))) {
+        if (!tool_from_path("glslc", g_glslc, sizeof(g_glslc))) {
             g_glslc[0] = 0;
+        }
+    }
+    if (!build_manifest_resolve_cc(&g_manifest, env_get, file_exists,
+                                   g_cc, sizeof(g_cc))) {
+        if (!tool_from_path("gcc", g_cc, sizeof(g_cc))) {
+            g_cc[0] = 0;
         }
     }
     g_manifest_loaded = 1;
@@ -437,8 +446,10 @@ static b32 kaji_emit_and_write(const Project *p, b32 *changed) {
     emit("deny_include src dodai\n\n");
 
     /* tool value runs to end of line in kaji's parser: no quotes here,
-       the command builder quotes it for the shell */
-    emit("tool glslc %s\n\n", g_glslc);
+       the command builder quotes it for the shell. cc is the resolved C
+       compiler -- the game dll build and the migration both use it. */
+    emit("tool glslc %s\n", g_glslc);
+    emit("tool cc %s\n\n", g_cc);
 
     /* hot-state snapshot: #include and seni's .incbin must read the same
        bytes even if src/game_state.h is saved mid-compile */
@@ -615,11 +626,12 @@ b32 project_open(Project *p) {
     gen_paths_init();
     snprintf(p->kaji_cfg, sizeof(p->kaji_cfg), "%s", g_kaji_gen);
     snprintf(p->kansi_cfg, sizeof(p->kansi_cfg), "%s", g_kansi_gen);
-    if (!g_glslc[0]) {
-        dodai_log("project_gen: no shader compiler found -- set VULKAN_SDK or "
-                  "install glslc (looked at build.manifest glslc_candidate list "
-                  "and PATH); refusing to generate a build that would silently "
-                  "use the wrong SPIR-V");
+    if (!g_glslc[0] || !g_cc[0]) {
+        dodai_log("project_gen: missing toolchain -- glslc:%s cc:%s. Install the "
+                  "missing tool, set $VULKAN_SDK / $CC, or add a candidate to "
+                  "build.manifest; refusing to open a project that cannot build "
+                  "or hot-reload.",
+                  g_glslc[0] ? "ok" : "MISSING", g_cc[0] ? "ok" : "MISSING");
         return 0;
     }
     marker_parse(p);

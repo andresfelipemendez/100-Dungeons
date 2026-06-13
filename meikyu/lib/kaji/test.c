@@ -25,6 +25,29 @@ static void settle_ms(int ms) {
 
 /* ---- ito ---- */
 
+UTEST(compile, opts_to_flags_gcc) {
+    char b[256];
+    kaji_compile_opts c89 = { KAJI_C89, 1 };
+    kaji_opts_to_flags(KAJI_CC_GCC, &c89, b, sizeof(b));
+    ASSERT_TRUE(strstr(b, "-std=c89") != NULL);
+    ASSERT_TRUE(strstr(b, "-pedantic") != NULL);
+
+    kaji_compile_opts deflt = { KAJI_STD_DEFAULT, 0 };
+    kaji_opts_to_flags(KAJI_CC_GCC, &deflt, b, sizeof(b));
+    ASSERT_TRUE(strstr(b, "-std=") == NULL);
+    ASSERT_TRUE(strstr(b, "-pedantic") == NULL);
+
+    kaji_opts_to_flags(KAJI_CC_GCC, NULL, b, sizeof(b)); /* NULL -> empty */
+    ASSERT_EQ((size_t)0, strlen(b));
+}
+
+UTEST(compile, cc_kind_from_name) {
+    ASSERT_EQ((int)KAJI_CC_GCC,  (int)kaji_cc_kind_from_name("gcc"));
+    ASSERT_EQ((int)KAJI_CC_GCC,  (int)kaji_cc_kind_from_name("/opt/homebrew/bin/gcc"));
+    ASSERT_EQ((int)KAJI_CC_MSVC, (int)kaji_cc_kind_from_name("cl.exe"));
+    ASSERT_EQ((int)KAJI_CC_TCC,  (int)kaji_cc_kind_from_name("/usr/bin/tcc"));
+}
+
 UTEST(ito, views_and_compare) {
     ito s = ITO("hello world");
     ASSERT_EQ(11u, (unsigned)s.len);

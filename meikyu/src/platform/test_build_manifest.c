@@ -19,6 +19,8 @@ static const char *MANIFEST =
     "glslc_candidate  $VULKAN_SDK/bin/glslc\n"
     "glslc_candidate  /opt/homebrew/bin/glslc\n"
     "glslc_candidate  /usr/local/bin/glslc\n"
+    "cc_candidate  $CC\n"
+    "cc_candidate  /usr/bin/gcc\n"
     "platform mac    builddir=build-mac   exe=     dll=.so  dodai=dodai_posix.c   rpath=@loader_path sdl=fetch\n"
     "platform windows builddir=build       exe=.exe dll=.dll dodai=dodai_windows.c rpath=            sdl=mingw-prebuilt\n";
 
@@ -84,8 +86,10 @@ UTEST(manifest, select_unknown_os_errs) {
 /* injected probes */
 static const char *fake_getenv(const char *name) {
     if (strcmp(name, "VULKAN_SDK") == 0) return "/sdk";
+    if (strcmp(name, "CC") == 0) return "/sdk";
     return NULL;
 }
+static b32 cc_is_sdk(const char *path) { return strcmp(path, "/sdk") == 0; }
 static b32 only_homebrew(const char *path) {
     return strcmp(path, "/opt/homebrew/bin/glslc") == 0;
 }
@@ -118,4 +122,22 @@ UTEST(manifest, glslc_none_returns_false) {
     create_arena(&a, buf, sizeof(buf));
     ASSERT_TRUE(load(&a, &m, &err));
     ASSERT_FALSE(build_manifest_resolve_glslc(&m, fake_getenv, none_exist, out, sizeof(out)));
+}
+
+UTEST(manifest, parse_cc_candidates) {
+    static char buf[1u << 16];
+    arena a; BuildManifest m; ito err = {0,0};
+    create_arena(&a, buf, sizeof(buf));
+    ASSERT_TRUE(load(&a, &m, &err));
+    ASSERT_EQ(2, m.cc_count);
+}
+
+UTEST(manifest, cc_env_wins_first) {
+    static char buf[1u << 16];
+    arena a; BuildManifest m; ito err = {0,0}; char out[512];
+    create_arena(&a, buf, sizeof(buf));
+    ASSERT_TRUE(load(&a, &m, &err));
+    /* $CC expands to /sdk (fake_getenv), cc_is_sdk makes it the first hit */
+    ASSERT_TRUE(build_manifest_resolve_cc(&m, fake_getenv, cc_is_sdk, out, sizeof(out)));
+    ASSERT_STREQ("/sdk", out);
 }

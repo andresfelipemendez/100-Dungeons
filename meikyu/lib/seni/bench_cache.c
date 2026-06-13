@@ -11,7 +11,19 @@
 #else
 #include "../dodai/dodai_posix.c"
 #endif
+#include "../kaji/kaji.c"   /* all compilation goes through kaji */
 #include "seni.h"
+
+/* compile a seni-generated migration through kaji, C89-pinned. */
+static int seni_test_compile(const char *src, const char *lib, const char *err) {
+    kaji *k = kaji_new();
+    int rc;
+    if (!k) return 1;
+    rc = kaji_compile_shared(k, src, lib, err,
+                             &(kaji_compile_opts){ KAJI_C89, 1 });
+    kaji_free(k);
+    return rc;
+}
 #include "arena.h"
 #include "arena.c"
 #include "seni.c"
@@ -91,7 +103,7 @@ int main(void) {
     if (seni_dump_migration(g.code, "bench_cache", src_path, sizeof(src_path)) != 0) return 1;
     sprintf(lib_path, "build/bench_cache.%s", dodai_lib_extension());
     sprintf(err_path, "build/bench_cache.err");
-    if (dodai_compile_shared(michi_from_cstr(src_path), michi_from_cstr(lib_path), michi_from_cstr(err_path), "-std=c89 -pedantic") != 0) return 1;
+    if (seni_test_compile(src_path, lib_path, err_path) != 0) return 1;
     mod = dodai_lib_open(michi_from_cstr(lib_path));
     if (!mod) return 1;
     fn = (migrate_fn)dodai_lib_symbol(mod, "migrate_enemy");

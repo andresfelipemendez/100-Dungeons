@@ -35,9 +35,20 @@ meikyu --build host     # rebuild this engine exe, beside the running one
 ```
 
 Requirements: gcc (MinGW on Windows — seni's layout embedding uses GNU
-`.incbin`), CMake + Ninja (bootstrap only), Vulkan SDK (`glslc`; resolved at
-generation time, falls back across `$VULKAN_SDK`, `/usr/local/bin`,
-`/opt/homebrew/bin`). GPU is Vulkan/SPIR-V — MoltenVK on macOS.
+`.incbin`), CMake + Ninja (bootstrap only), Vulkan SDK (`glslc`). Both `cc` and
+`glslc` are resolved to absolute paths at project open from `build.manifest`'s
+ordered candidate lists (then `$CC`/`$VULKAN_SDK`/`PATH`); a project refuses to
+open if either is missing, so a GUI launch with a minimal PATH fails loudly at
+launch rather than dead-ending at the first reload. All compilation goes
+through kaji. GPU is Vulkan/SPIR-V — MoltenVK on macOS.
+
+### Platform support
+
+- **macOS, Linux:** built and run.
+- **Windows:** compiles (CI mingw syntax-check of `dodai_windows.c`) and its
+  path buffers are audited against `MICHI_MAX`, but the build has never been
+  executed on Windows. `ReadDirectoryChangesW` semantics are unvalidated —
+  running it needs a Windows host.
 
 ## A project
 
