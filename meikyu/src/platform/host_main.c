@@ -55,8 +55,8 @@ static void instance_paths_init(void) {
    quit removes its own). Sweep what is deletable; files a live instance
    still holds just refuse and stay. */
 static void instance_litter_sweep(void) {
-    dodai_remove_prefixed(ITO(PLATFORM_BUILD_DIR), ITO("game_loaded_"));
-    dodai_remove_prefixed(ITO(PLATFORM_BUILD_DIR), ITO("mig_"));
+    dodai_remove_prefixed(PATH(PLATFORM_BUILD_DIR), ITO("game_loaded_"));
+    dodai_remove_prefixed(PATH(PLATFORM_BUILD_DIR), ITO("mig_"));
 }
 
 /* The forge lock: held for the holder's lifetime, vanishes with the process
@@ -67,7 +67,7 @@ static b32 forge_lock_try(void) {
     if (g_forge_lock) {
         return 1;
     }
-    return dodai_lockfile_try(ITO(PLATFORM_BUILD_DIR "/.forge.lock"), &g_forge_lock);
+    return dodai_lockfile_try(PATH(PLATFORM_BUILD_DIR "/.forge.lock"), &g_forge_lock);
 }
 
 typedef struct {
@@ -88,7 +88,7 @@ static void game_unload(GameCode *code) {
 static b32 game_load(GameCode *code) {
     memset(code, 0, sizeof(*code));
     unsigned long long mtime = 0;
-    dodai_mtime_ns(ITO(GAME_DLL_NEW), &mtime);
+    dodai_mtime_ns(PATH(GAME_DLL_NEW), &mtime);
 
     /* Copy so the compiler can overwrite GAME_DLL_NEW while we run. dodai
        removes the old copy first: macOS validates code signatures per vnode,
@@ -97,7 +97,7 @@ static b32 game_load(GameCode *code) {
        copy avoids that; harmless on the other platforms. */
     b32 copied = 0;
     for (int attempt = 0; attempt < 10; attempt++) {
-        if (dodai_copy_file(ITO(GAME_DLL_NEW), ito_from(g_dll_loaded_path))) {
+        if (dodai_copy_file(PATH(GAME_DLL_NEW), michi_from_cstr(g_dll_loaded_path))) {
             copied = 1;
             break;
         }
@@ -108,7 +108,7 @@ static b32 game_load(GameCode *code) {
         return 0;
     }
 
-    code->lib = dodai_lib_open(ito_from(g_dll_loaded_path));
+    code->lib = dodai_lib_open(michi_from_cstr(g_dll_loaded_path));
     if (!code->lib) {
         dodai_log("reload: dodai_lib_open failed");
         return 0;
@@ -194,18 +194,18 @@ static b32 migrate_hot_memory(const char *old_layout, const char *new_layout,
         return 0;
     }
 
-    if (!dodai_write_file(ito_from(g_mig_c_path), gr.code, strlen(gr.code))) {
+    if (!dodai_write_file(michi_from_cstr(g_mig_c_path), gr.code, strlen(gr.code))) {
         dodai_log("migrate: cannot write %s", g_mig_c_path);
         return 0;
     }
     /* dodai_compile_shared removes the lib first (same codesign-vnode rule
        as dodai_copy_file) */
-    if (dodai_compile_shared(ito_from(g_mig_c_path), ito_from(g_mig_dll_path), ito_from(g_mig_err_path), NULL) != 0) {
+    if (dodai_compile_shared(michi_from_cstr(g_mig_c_path), michi_from_cstr(g_mig_dll_path), michi_from_cstr(g_mig_err_path), NULL) != 0) {
         dodai_log("migrate: gcc failed, see the per-instance mig_errors log");
         return 0;
     }
 
-    void *mig = dodai_lib_open(ito_from(g_mig_dll_path));
+    void *mig = dodai_lib_open(michi_from_cstr(g_mig_dll_path));
     if (!mig) {
         dodai_log("migrate: cannot load %s", g_mig_dll_path);
         return 0;
@@ -248,7 +248,7 @@ static void seni_strip_consumed_was(void) {
     static char arena_buf[1u << 20];
     arena a;
     size_t len = 0;
-    char *hdr = dodai_read_file(ITO(GAME_STATE_HDR), &len);
+    char *hdr = dodai_read_file(PATH(GAME_STATE_HDR), &len);
     if (!hdr) {
         return;
     }
@@ -262,7 +262,7 @@ static void seni_strip_consumed_was(void) {
     if (r.err || r.code == copy) {
         return; /* error or nothing to strip */
     }
-    if (dodai_write_file(ITO(GAME_STATE_HDR), r.code, strlen(r.code))) {
+    if (dodai_write_file(PATH(GAME_STATE_HDR), r.code, strlen(r.code))) {
         dodai_log("seni: consumed SENI_WAS annotations stripped from " GAME_STATE_HDR);
     }
 }
@@ -286,7 +286,7 @@ static void seni_apply_answers(SeniReloadStatus *status) {
         create_arena(&a, arena_buf, sizeof(arena_buf));
 
         size_t hdr_len = 0;
-        char *hdr = dodai_read_file(ITO(GAME_STATE_HDR), &hdr_len);
+        char *hdr = dodai_read_file(PATH(GAME_STATE_HDR), &hdr_len);
         if (!hdr) {
             dodai_log("seni: cannot read %s", GAME_STATE_HDR);
             continue;
@@ -308,7 +308,7 @@ static void seni_apply_answers(SeniReloadStatus *status) {
             dodai_log("seni: %s", an.err);
             continue;
         }
-        if (!dodai_write_file(ITO(GAME_STATE_HDR), an.code, strlen(an.code))) {
+        if (!dodai_write_file(PATH(GAME_STATE_HDR), an.code, strlen(an.code))) {
             dodai_log("seni: cannot write %s", GAME_STATE_HDR);
             continue;
         }
@@ -400,13 +400,12 @@ static int  g_recent_count;
 static const char *recents_file(void) {
     static char path[1024];
     if (!path[0]) {
-        char pref[900];
-        ito_buf pb;
-        ito_buf_init(&pb, pref, sizeof(pref));
+        michi_buf pb;
+        michi_buf_reset(&pb);
         if (!dodai_pref_path(ITO("andres"), ITO("meikyu"), &pb)) {
             return NULL;
         }
-        snprintf(path, sizeof(path), "%srecent_projects.txt", pref);
+        snprintf(path, sizeof(path), "%srecent_projects.txt", michi_cstr(&pb));
     }
     return path;
 }
@@ -418,7 +417,7 @@ static void recents_load(void) {
         return;
     }
     size_t len = 0;
-    char *text = dodai_read_file(ito_from(file), &len);
+    char *text = dodai_read_file(michi_from_cstr(file), &len);
     if (!text) {
         return;
     }
@@ -443,7 +442,7 @@ static void recents_save(void) {
     for (int i = 0; i < g_recent_count; i++) {
         ito_buf_appendf(&b, ITO_FMT "\n", ITO_ARG(ito_from(g_recents[i])));
     }
-    dodai_write_file(ito_from(file), b.buf, b.len);
+    dodai_write_file(michi_from_cstr(file), b.buf, b.len);
 }
 
 static void recents_remove(int idx) {
@@ -456,12 +455,12 @@ static void recents_remove(int idx) {
 /* Records the project at `dir` (any path; stored absolute) as most recent.
    Called on every successful open -- picker, --path, or exe anchor. */
 static void recents_add(const char *dir) {
-    char abs[1024];
-    ito_buf ab;
-    ito_buf_init(&ab, abs, sizeof(abs));
-    if (dodai_absolute_path(ito_from(dir), &ab) != 0) {
+    michi_buf ab;
+    michi_buf_reset(&ab);
+    if (dodai_absolute_path(michi_from_cstr(dir), &ab) != 0) {
         return;
     }
+    const char *abs = michi_cstr(&ab);
     for (int i = 0; i < g_recent_count; i++) {
         if (strcmp(g_recents[i], abs) == 0) {
             recents_remove(i);
@@ -483,7 +482,7 @@ static b32 project_dir_valid(const char *dir) {
     char marker[1100];
     unsigned long long m;
     snprintf(marker, sizeof(marker), "%s/" PROJECT_MARKER, dir);
-    return dodai_mtime_ns(ito_from(marker), &m) != 0;
+    return dodai_mtime_ns(michi_from_cstr(marker), &m) != 0;
 }
 
 static const char *path_basename(const char *path) {
@@ -523,7 +522,9 @@ static b32 picker_run(void) {
         int quit_idx = nbtns;
         btns[nbtns++] = "Quit";
 
-        char msg[2048];
+        /* fits up to PICKER_SHOWN_RECENTS absolute paths (~1KB each) plus
+           the header; matches dodai_message_box's msg cap */
+        char msg[5120];
         size_t off = (size_t)snprintf(msg, sizeof(msg),
             "%sA project is any folder holding a " PROJECT_MARKER ".\n", note);
         if (shown) {
@@ -545,11 +546,12 @@ static b32 picker_run(void) {
         const char *dir;
         char browse[1024];
         if (hit == browse_idx) {
-            ito_buf bb;
-            ito_buf_init(&bb, browse, sizeof(browse));
+            michi_buf bb;
+            michi_buf_reset(&bb);
             if (!dodai_folder_dialog(&bb)) {
                 continue; /* cancelled the folder dialog */
             }
+            snprintf(browse, sizeof(browse), "%s", michi_cstr(&bb));
             dir = browse;
         } else {
             dir = g_recents[hit];
@@ -559,7 +561,7 @@ static b32 picker_run(void) {
             note = "Not a project: no " PROJECT_MARKER " there.\n\n";
             continue;
         }
-        if (!dodai_chdir(ito_from(dir))) {
+        if (!dodai_chdir(michi_from_cstr(dir))) {
             note = "Cannot enter that folder.\n\n";
             continue;
         }
@@ -590,16 +592,16 @@ int main(int argc, char *argv[]) {
        never inside a project. */
     unsigned long long marker;
     if (project_path) {
-        if (!dodai_chdir(ito_from(project_path))) {
+        if (!dodai_chdir(michi_from_cstr(project_path))) {
             dodai_log("cannot chdir to project '%s'", project_path);
             return 1;
         }
-        if (!dodai_mtime_ns(ITO(PROJECT_MARKER), &marker)) {
+        if (!dodai_mtime_ns(PATH(PROJECT_MARKER), &marker)) {
             dodai_log("'%s' is not a project (no " PROJECT_MARKER ")",
                       project_path);
             return 1;
         }
-    } else if (!dodai_mtime_ns(ITO(PROJECT_MARKER), &marker)) {
+    } else if (!dodai_mtime_ns(PATH(PROJECT_MARKER), &marker)) {
         if (build_mode) {
             /* headless: no picker, fail fast */
             fprintf(stderr, "build: no project here (no " PROJECT_MARKER
@@ -801,12 +803,12 @@ int main(int argc, char *argv[]) {
         if (game.lib && ticks - last_watch_ms > 30) {
             last_watch_ms = ticks;
             unsigned long long mtime = 0;
-            dodai_mtime_ns(ITO(GAME_DLL_NEW), &mtime);
+            dodai_mtime_ns(PATH(GAME_DLL_NEW), &mtime);
             if (mtime != 0 && mtime != game.src_mtime) {
                 dodai_log("reload: %s changed", GAME_DLL_NEW);
 
                 size_t hdr_len = 0;
-                char *new_layout = dodai_read_file(ITO(GAME_STATE_HDR), &hdr_len);
+                char *new_layout = dodai_read_file(PATH(GAME_STATE_HDR), &hdr_len);
                 b32 ok = new_layout != NULL;
                 if (!ok) {
                     dodai_log("reload: cannot read %s", GAME_STATE_HDR);
@@ -865,7 +867,7 @@ int main(int argc, char *argv[]) {
 
     kansi_stop(watcher);
     game_unload(&game);
-    dodai_remove(ito_from(g_dll_loaded_path)); /* per-pid copy: ours to clean up */
+    dodai_remove(michi_from_cstr(g_dll_loaded_path)); /* per-pid copy: ours to clean up */
     dodai_video_close(&video);
     return 0;
 }

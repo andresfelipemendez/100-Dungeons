@@ -239,11 +239,11 @@ static unsigned long long kansi_fnv(const char *s) {
     return h;
 }
 
-static void kansi_scan_file(ito path_v, unsigned long long mtime,
+static void kansi_scan_file(michi path_v, unsigned long long mtime,
                             unsigned long long size, void *user) {
     kansi_scan_ctx *ctx = (kansi_scan_ctx *)user;
-    char path[DODAI_PATH_MAX];
-    if (!ito_copy(path, sizeof(path), path_v)) {
+    char path[MICHI_MAX];
+    if (!ito_copy(path, sizeof(path), path_v.s)) {
         return;
     }
     if (!kansi_has_ext(ctx->cfg, path)) {
@@ -258,7 +258,7 @@ static void kansi_scan_file(ito path_v, unsigned long long mtime,
 static unsigned long long kansi_compute_stamp(const kansi_cfg *cfg) {
     kansi_scan_ctx ctx = { cfg, 0 };
     for (int i = 0; i < cfg->watch_count; i++) {
-        dodai_walk(ito_from(cfg->watch[i]), kansi_scan_file, &ctx);
+        dodai_walk(michi_from_cstr(cfg->watch[i]), kansi_scan_file, &ctx);
     }
     return ctx.stamp;
 }
@@ -273,10 +273,10 @@ static int kansi_step_skippable(const kansi_cfg *cfg, int step) {
         return 0;
     }
     unsigned long long in_t, out_t;
-    if (!dodai_mtime_ns(ito_from(cfg->pre_in[step]), &in_t)) {
+    if (!dodai_mtime_ns(michi_from_cstr(cfg->pre_in[step]), &in_t)) {
         return 0; /* missing input: run the step, let it fail loudly */
     }
-    if (!dodai_mtime_ns(ito_from(cfg->pre_out[step]), &out_t)) {
+    if (!dodai_mtime_ns(michi_from_cstr(cfg->pre_out[step]), &out_t)) {
         return 0; /* no output yet */
     }
     return out_t >= in_t;
@@ -296,7 +296,7 @@ static int kansi_spawn_step(kansi *k) {
         }
         to_run = cmd;
     }
-    return dodai_spawn(ito_from(to_run), ito_from(k->cfg.log), /* empty = no redirect */
+    return dodai_spawn(ito_from(to_run), michi_from_cstr(k->cfg.log), /* empty = no redirect */
                        &k->proc.handle);
 }
 
@@ -350,10 +350,10 @@ kansi *kansi_start(const char *config_path, char *err, int err_size) {
 
 /* Event callback: an empty path means the OS event buffer overflowed --
    treat it as a change so nothing is missed. */
-static void kansi_on_notify(ito path_v, void *user) {
+static void kansi_on_notify(michi path_v, void *user) {
     kansi *k = (kansi *)user;
-    char path[DODAI_PATH_MAX];
-    if (!ito_copy(path, sizeof(path), path_v)) {
+    char path[MICHI_MAX];
+    if (!ito_copy(path, sizeof(path), path_v.s)) {
         return;
     }
     if (!path[0] || kansi_has_ext(&k->cfg, path)) {
@@ -401,7 +401,7 @@ kansi_status kansi_update(kansi *k) {
         /* all steps done: publish the dll */
         k->state = k->rebuild_queued ? KANSI_STATE_WAITING : KANSI_STATE_IDLE;
         k->rebuild_queued = 0;
-        if (!dodai_rename(ito_from(k->cfg.tmp), ito_from(k->cfg.out))) {
+        if (!dodai_rename(michi_from_cstr(k->cfg.tmp), michi_from_cstr(k->cfg.out))) {
             k->state = KANSI_STATE_IDLE;
             return KANSI_ERROR;
         }

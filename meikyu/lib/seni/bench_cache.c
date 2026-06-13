@@ -91,8 +91,8 @@ int main(void) {
     if (seni_dump_migration(g.code, "bench_cache", src_path, sizeof(src_path)) != 0) return 1;
     sprintf(lib_path, "build/bench_cache.%s", dodai_lib_extension());
     sprintf(err_path, "build/bench_cache.err");
-    if (dodai_compile_shared(ito_from(src_path), ito_from(lib_path), ito_from(err_path), "-std=c89 -pedantic") != 0) return 1;
-    mod = dodai_lib_open(ito_from(lib_path));
+    if (dodai_compile_shared(michi_from_cstr(src_path), michi_from_cstr(lib_path), michi_from_cstr(err_path), "-std=c89 -pedantic") != 0) return 1;
+    mod = dodai_lib_open(michi_from_cstr(lib_path));
     if (!mod) return 1;
     fn = (migrate_fn)dodai_lib_symbol(mod, "migrate_enemy");
     if (!fn) return 1;

@@ -22,7 +22,10 @@ int dodai_video_init(void) {
 int dodai_video_open(ito title, int w, int h, int debug_gpu,
                      DodaiVideo *out) {
     char title_c[256];
-    ito_copy(title_c, sizeof(title_c), title);
+    if (!ito_copy(title_c, sizeof(title_c), title)) {
+        SDL_Log("dodai_video_open: window title truncated to %zu bytes",
+                sizeof(title_c) - 1);
+    }
     if (!SDL_Init(SDL_INIT_VIDEO)) { /* refcounts if already up */
         SDL_Log("dodai_video_open: SDL_Init failed: %s", SDL_GetError());
         return 0;
@@ -121,26 +124,28 @@ void dodai_log(const char *fmt, ...) {
                    "%s", ito_buf_cstr(&b));
 }
 
-int dodai_pref_path(ito org, ito app, ito_buf *out) {
+int dodai_pref_path(ito org, ito app, michi_buf *out) {
     char orgc[128], appc[128];
-    ito_copy(orgc, sizeof(orgc), org);
-    ito_copy(appc, sizeof(appc), app);
+    if (!ito_copy(orgc, sizeof(orgc), org) ||
+        !ito_copy(appc, sizeof(appc), app)) {
+        SDL_Log("dodai_pref_path: org/app too long, settings dir may be wrong");
+    }
     char *pref = SDL_GetPrefPath(orgc, appc);
     if (!pref) {
         return 0;
     }
-    ito_buf_append_c(out, pref);
+    ito_buf_append_c(&out->b, pref);
     SDL_free(pref);
-    return !out->overflow;
+    return !out->b.overflow;
 }
 
-int dodai_exe_dir(ito_buf *out) {
+int dodai_exe_dir(michi_buf *out) {
     const char *base = SDL_GetBasePath();
     if (!base) {
         return 0;
     }
-    ito_buf_append_c(out, base);
-    return !out->overflow;
+    ito_buf_append_c(&out->b, base);
+    return !out->b.overflow;
 }
 
 #define DODAI_MSGBOX_MAX_BUTTONS 16
@@ -148,9 +153,11 @@ int dodai_exe_dir(ito_buf *out) {
 int dodai_message_box(ito title, ito msg,
                       const char *const *buttons, int n,
                       int default_idx, int cancel_idx) {
-    char title_c[256], msg_c[2048];
-    ito_copy(title_c, sizeof(title_c), title);
-    ito_copy(msg_c, sizeof(msg_c), msg);
+    char title_c[256], msg_c[5120];
+    if (!ito_copy(title_c, sizeof(title_c), title) ||
+        !ito_copy(msg_c, sizeof(msg_c), msg)) {
+        SDL_Log("dodai_message_box: title/message truncated");
+    }
     SDL_MessageBoxButtonData btns[DODAI_MSGBOX_MAX_BUTTONS];
     if (n > DODAI_MSGBOX_MAX_BUTTONS) {
         /* never clamp silently: a dropped button whose index is default_idx
@@ -200,7 +207,7 @@ static void SDLCALL folder_pick_cb(void *userdata,
     SDL_SetAtomicInt(&p->done, 1);
 }
 
-int dodai_folder_dialog(ito_buf *out) {
+int dodai_folder_dialog(michi_buf *out) {
     FolderPick pick = { { 0 }, { 0 } };
     SDL_ShowOpenFolderDialog(folder_pick_cb, &pick, NULL, NULL, false);
     while (!SDL_GetAtomicInt(&pick.done)) {
@@ -210,6 +217,6 @@ int dodai_folder_dialog(ito_buf *out) {
     if (!pick.dir[0]) {
         return 0;
     }
-    ito_buf_append_c(out, pick.dir);
-    return !out->overflow;
+    ito_buf_append_c(&out->b, pick.dir);
+    return !out->b.overflow;
 }

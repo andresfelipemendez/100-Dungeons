@@ -413,24 +413,24 @@ static kaji_target *kaji_find(kaji *k, ito name) {
 
 static int kaji_target_stale(const kaji_target *t) {
     unsigned long long out_t;
-    if (!dodai_mtime_ns(ito_from(t->out), &out_t)) {
+    if (!dodai_mtime_ns(michi_from_cstr(t->out), &out_t)) {
         return 1;
     }
     for (int i = 0; i < t->in_count; i++) {
         unsigned long long in_t;
-        if (!dodai_mtime_ns(ito_from(t->ins[i]), &in_t) || in_t > out_t) {
+        if (!dodai_mtime_ns(michi_from_cstr(t->ins[i]), &in_t) || in_t > out_t) {
             return 1;
         }
     }
     for (int i = 0; i < t->also_count; i++) {
         unsigned long long a_t;
-        if (dodai_mtime_ns(ito_from(t->also[i]), &a_t) && a_t > out_t) {
+        if (dodai_mtime_ns(michi_from_cstr(t->also[i]), &a_t) && a_t > out_t) {
             return 1;
         }
     }
     for (int i = 0; i < t->obj_count; i++) {
         unsigned long long o_t;
-        if (dodai_mtime_ns(ito_from(t->obj[i]), &o_t) && o_t > out_t) {
+        if (dodai_mtime_ns(michi_from_cstr(t->obj[i]), &o_t) && o_t > out_t) {
             return 1;
         }
     }
@@ -525,7 +525,7 @@ static int kaji_plan_target(kaji *k, kaji_target *t, kaji_run *run, int *forced)
     *forced = 1;
     t->planned = 1;
 
-    dodai_make_dirs_for(ito_from(t->out));
+    dodai_make_dirs_for(michi_from_cstr(t->out));
 
     char cmd[KAJI_RUN_CMD_MAX];
     if (t->kind == KAJI_KIND_COPY) {
@@ -572,8 +572,8 @@ static int kaji_start_copy(kaji_run *run) {
         !ito_copy(to, sizeof(to), ito_slice(s, (size_t)sep + 1, s.len))) {
         return 0;
     }
-    dodai_make_dirs_for(ito_from(to));
-    return dodai_copy_async(ito_from(from), ito_from(to),
+    dodai_make_dirs_for(michi_from_cstr(to));
+    return dodai_copy_async(michi_from_cstr(from), michi_from_cstr(to),
                                     run->copy_step[run->step] == 2,
                                     &run->copy_thread);
 }
@@ -584,11 +584,11 @@ static int kaji_advance(kaji_run *run) {
             return kaji_start_copy(run);
         }
         return dodai_spawn(ito_from(run->cmds[run->step]),
-                                   ito_from(run->log_path), /* empty = no redirect */
+                                   michi_from_cstr(run->log_path), /* empty = no redirect */
                                    &run->proc);
     }
     if (run->publish_out[0]) {
-        if (!dodai_rename(ito_from(run->publish_tmp), ito_from(run->publish_out))) {
+        if (!dodai_rename(michi_from_cstr(run->publish_tmp), michi_from_cstr(run->publish_out))) {
             return 0;
         }
         run->publish_out[0] = 0; /* publish once */
@@ -623,7 +623,7 @@ int kaji_build_async(kaji *k, const char *target, kaji_run *run, int force) {
         t->visiting = 0;
         t->visited = 1;
         t->planned = 1;
-        dodai_make_dirs_for(ito_from(t->out));
+        dodai_make_dirs_for(michi_from_cstr(t->out));
         char cmd[KAJI_RUN_CMD_MAX];
         if (t->kind == KAJI_KIND_COPY) {
             snprintf(cmd, sizeof(cmd), "%s|%s", t->ins[0], t->out);
@@ -655,8 +655,8 @@ int kaji_build_async(kaji *k, const char *target, kaji_run *run, int force) {
     } else if (!kaji_plan_target(k, t, run, &forced)) {
         return 0;
     }
-    dodai_make_dirs_for(ito_from(run->log_path));
-    dodai_truncate(ito_from(run->log_path));
+    dodai_make_dirs_for(michi_from_cstr(run->log_path));
+    dodai_truncate(michi_from_cstr(run->log_path));
     run->active = 1;
     if (!kaji_advance(run)) {
         run->active = 0;

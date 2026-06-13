@@ -72,15 +72,15 @@ static b32 write_if_changed(const char *path, b32 *changed) {
         return 0;
     }
     size_t old_len = 0;
-    char *old = dodai_read_file(ito_from(path), &old_len);
+    char *old = dodai_read_file(michi_from_cstr(path), &old_len);
     b32 same = old && old_len == g_emit.len &&
                memcmp(old, g_emit.buf, g_emit.len) == 0;
     free(old);
     if (same) {
         return 1;
     }
-    dodai_make_dirs_for(ito_from(path));
-    if (!dodai_write_file(ito_from(path), g_emit.buf, g_emit.len)) {
+    dodai_make_dirs_for(michi_from_cstr(path));
+    if (!dodai_write_file(michi_from_cstr(path), g_emit.buf, g_emit.len)) {
         dodai_log("project_gen: cannot write %s", path);
         return 0;
     }
@@ -98,12 +98,12 @@ typedef struct {
     const char *ext_a, *ext_b; /* ".c" / ".vert"+".frag" */
 } Collect;
 
-static void collect_cb(ito path_v, unsigned long long mtime,
+static void collect_cb(michi path_v, unsigned long long mtime,
                        unsigned long long size, void *user) {
     (void)mtime; (void)size;
     Collect *c = (Collect *)user;
     char path[PATH_CAP];
-    if (!ito_copy(path, sizeof(path), path_v)) {
+    if (!ito_copy(path, sizeof(path), path_v.s)) {
         return;
     }
     const char *dot = strrchr(path, '.');
@@ -126,12 +126,12 @@ static int cmp_path(const void *a, const void *b) {
 
 static void discover(void) {
     Collect src = { g_sources, 0, MAX_SOURCES, ".c", NULL };
-    dodai_walk(ITO("src"), collect_cb, &src);
+    dodai_walk(PATH("src"), collect_cb, &src);
     qsort(g_sources, (size_t)src.count, PATH_CAP, cmp_path);
     g_source_count = src.count;
 
     Collect sh = { g_shaders, 0, MAX_SHADERS, ".vert", ".frag" };
-    dodai_walk(ITO("src/shaders"), collect_cb, &sh);
+    dodai_walk(PATH("src/shaders"), collect_cb, &sh);
     qsort(g_shaders, (size_t)sh.count, PATH_CAP, cmp_path);
     g_shader_count = sh.count;
 }
@@ -143,7 +143,7 @@ static void marker_parse(Project *p) {
     snprintf(p->assets, sizeof(p->assets), "../assets");
 
     size_t len = 0;
-    char *text = dodai_read_file(ITO(PROJECT_MARKER), &len);
+    char *text = dodai_read_file(PATH(PROJECT_MARKER), &len);
     ito rest = { text, text ? len : 0 };
     while (rest.len) {
         ito line = ito_trim(ito_next_line(&rest));
@@ -171,13 +171,14 @@ static void marker_parse(Project *p) {
 
     if (!p->name[0]) {
         /* fall back to the folder's basename */
-        char abs[PATH_CAP];
-        ito_buf ab;
-        ito_buf_init(&ab, abs, sizeof(abs));
-        if (dodai_absolute_path(ITO("."), &ab) == 0) {
-            const char *slash = strrchr(abs, '/');
-            snprintf(p->name, sizeof(p->name), "%s",
-                     slash && slash[1] ? slash + 1 : "game");
+        michi_buf ab;
+        michi_buf_reset(&ab);
+        ito base = michi_base(michi_view(&ab)).s; /* default: empty */
+        if (dodai_absolute_path(PATH("."), &ab) == 0) {
+            base = michi_base(michi_view(&ab)).s;
+        }
+        if (base.len) {
+            ito_copy(p->name, sizeof(p->name), base);
         } else {
             snprintf(p->name, sizeof(p->name), "game");
         }
@@ -201,33 +202,35 @@ static void marker_parse(Project *p) {
 /* ---- roots + tools ------------------------------------------------------- */
 
 static b32 roots_resolve(void) {
-    char exe_dir[PATH_CAP], up[PATH_CAP + 16];
-    ito_buf eb;
-    ito_buf_init(&eb, exe_dir, sizeof(exe_dir));
-    if (!dodai_exe_dir(&eb)) {
+    char up[PATH_CAP + 16];
+    michi_buf mb;
+
+    michi_buf_reset(&mb);
+    if (!dodai_exe_dir(&mb)) {
         dodai_log("project_gen: cannot locate the exe");
         return 0;
     }
-    snprintf(up, sizeof(up), "%s..", exe_dir); /* exe_dir ends with sep */
-    ito_buf engb;
-    ito_buf_init(&engb, g_engine, sizeof(g_engine));
-    if (dodai_absolute_path(ito_from(up), &engb) != 0) {
+    snprintf(up, sizeof(up), "%s..", michi_cstr(&mb)); /* dir ends with sep */
+    michi_buf_reset(&mb);
+    if (dodai_absolute_path(michi_from_cstr(up), &mb) != 0) {
         dodai_log("project_gen: cannot resolve engine root from '%s'", up);
         return 0;
     }
+    snprintf(g_engine, sizeof(g_engine), "%s", michi_cstr(&mb));
+
     snprintf(up, sizeof(up), "%s/../vendor", g_engine);
-    ito_buf venb;
-    ito_buf_init(&venb, g_vendor, sizeof(g_vendor));
-    if (dodai_absolute_path(ito_from(up), &venb) != 0) {
+    michi_buf_reset(&mb);
+    if (dodai_absolute_path(michi_from_cstr(up), &mb) != 0) {
         dodai_log("project_gen: no vendor/ beside the engine ('%s')", up);
         return 0;
     }
+    snprintf(g_vendor, sizeof(g_vendor), "%s", michi_cstr(&mb));
     return 1;
 }
 
 static b32 file_exists(const char *path) {
     unsigned long long m;
-    return dodai_mtime_ns(ito_from(path), &m) != 0;
+    return dodai_mtime_ns(michi_from_cstr(path), &m) != 0;
 }
 
 /* GUI launches (Spotlight, .app, explorer) get a minimal PATH where glslc
@@ -277,14 +280,13 @@ static b32 unity_emit_and_write(void) {
     emit("#include \"%s/lib/seni/seni_panel.c\" "
          "/* seni's reload-question panel */\n\n", g_engine);
     for (int i = 0; i < g_source_count; i++) {
-        char abs[PATH_CAP];
-        ito_buf ab;
-        ito_buf_init(&ab, abs, sizeof(abs));
-        if (dodai_absolute_path(ito_from(g_sources[i]), &ab) != 0) {
+        michi_buf ab;
+        michi_buf_reset(&ab);
+        if (dodai_absolute_path(michi_from_cstr(g_sources[i]), &ab) != 0) {
             dodai_log("project_gen: cannot resolve '%s'", g_sources[i]);
             return 0;
         }
-        emit("#include \"%s\"\n", abs);
+        emit("#include \"%s\"\n", michi_cstr(&ab));
     }
     return write_if_changed(UNITY_GEN, NULL);
 }

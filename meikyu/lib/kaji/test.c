@@ -201,13 +201,13 @@ UTEST(e2e, graph_build_skip_rebuild) {
     char so_path[256];
     snprintf(so_path, sizeof(so_path), "build/forge/mod%s", kaji_so_ext());
     unsigned long long t1;
-    ASSERT_TRUE(dodai_mtime_ns(ito_from(so_path), &t1));
+    ASSERT_TRUE(dodai_mtime_ns(michi_from_cstr(so_path), &t1));
 
     /* nothing changed: everything skips, artifact untouched */
     settle_ms(30);
     ASSERT_EQ(0, kaji_build(k, "mod", 0));
     unsigned long long t2;
-    ASSERT_TRUE(dodai_mtime_ns(ito_from(so_path), &t2));
+    ASSERT_TRUE(dodai_mtime_ns(michi_from_cstr(so_path), &t2));
     ASSERT_EQ(t1, t2);
 
     /* touching the object's source rebuilds object AND the dll above it */
@@ -215,7 +215,7 @@ UTEST(e2e, graph_build_skip_rebuild) {
     write_file("build/answer.c", "int answer(void) { return 43; }\n");
     ASSERT_EQ(0, kaji_build(k, "mod", 0));
     unsigned long long t3;
-    ASSERT_TRUE(dodai_mtime_ns(ito_from(so_path), &t3));
+    ASSERT_TRUE(dodai_mtime_ns(michi_from_cstr(so_path), &t3));
     ASSERT_NE(t2, t3);
     kaji_free(k);
 }

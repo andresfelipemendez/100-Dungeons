@@ -247,9 +247,9 @@ UTEST(watch_only, parse_and_changed_edge) {
 /* ---- event-based watch ---- */
 
 static char watch_seen[1024];
-static void watch_capture(ito path, void *user) {
+static void watch_capture(michi path, void *user) {
     (void)user;
-    snprintf(watch_seen, sizeof(watch_seen), "%.*s", ITO_ARG(path));
+    snprintf(watch_seen, sizeof(watch_seen), "%.*s", ITO_ARG(path.s));
 }
 
 UTEST(watch, event_notification_delivers_filename) {

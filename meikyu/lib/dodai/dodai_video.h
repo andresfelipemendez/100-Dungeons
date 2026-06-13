@@ -17,6 +17,7 @@
 
 #include <stddef.h>
 #include "../ito/ito.h"
+#include "../michi/michi.h"
 
 /* ---- lifecycle --------------------------------------------------------- */
 /* The opened window/device pair, passed as a unit so the two void*s can
@@ -60,10 +61,10 @@ unsigned long long dodai_ticks_us(void);
    Supports an extra %S conversion consuming an ito by value (see
    ito_buf_vappendf); standard conversions work as usual. */
 void dodai_log(const char *fmt, ...);
-/* Per-user writable settings dir for org/app, trailing separator included. */
-int  dodai_pref_path(ito org, ito app, ito_buf *out);
+/* Per-user writable settings dir for org/app (a path; trailing separator). */
+int  dodai_pref_path(ito org, ito app, michi_buf *out);
 /* Directory containing the running exe, trailing separator included. */
-int  dodai_exe_dir(ito_buf *out);
+int  dodai_exe_dir(michi_buf *out);
 
 /* ---- modal dialogs (project picker) -------------------------------------*/
 /* Native message box with one button per buttons[i] (buttons stay C
@@ -74,6 +75,6 @@ int  dodai_message_box(ito title, ito msg,
                        const char *const *buttons, int n,
                        int default_idx, int cancel_idx);
 /* Native folder picker. Blocks, pumping events internally; 0 = cancelled. */
-int  dodai_folder_dialog(ito_buf *out);
+int  dodai_folder_dialog(michi_buf *out);
 
 #endif /* DODAI_VIDEO_H */

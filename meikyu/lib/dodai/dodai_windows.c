@@ -2,7 +2,7 @@
    platform_windows.c files (kaji, kansi, seni).
 
    Path params arrive as `ito` views; each public entry copies them into a
-   NUL char[DODAI_PATH_MAX] local via ED_COPY before the Win32 call.
+   NUL char[MICHI_MAX] local via ED_COPY before the Win32 call.
    Internal helpers keep char*. (Untested box -- mirrors dodai_posix.c.) */
 
 #include "dodai.h"
@@ -14,22 +14,19 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* copy an ito path into a NUL local `name`; `on_overflow` is the value the
-   enclosing function returns when the path does not fit */
-#define ED_COPY(name, src, on_overflow)                     \
-    char name[DODAI_PATH_MAX];                              \
-    if (!ito_copy(name, sizeof(name), (src))) {             \
-        return on_overflow;                                 \
-    }
+/* ED_COPY (ito path -> NUL local, logs + bails on overflow) lives in dodai.h */
 
 /* ---- process -------------------------------------------------------------- */
 
-int dodai_spawn(ito cmdline, ito log_path, void **out_handle) {
-    ED_COPY(cmd, cmdline, 0);
+int dodai_spawn(ito cmdline, michi log_path, void **out_handle) {
+    char cmd[4096];
+    if (!ito_copy(cmd, sizeof(cmd), cmdline)) {
+        return 0;
+    }
     char full[4096];
-    if (log_path.len) {
-        char log[DODAI_PATH_MAX];
-        if (!ito_copy(log, sizeof(log), log_path)) {
+    if (log_path.s.len) {
+        char log[MICHI_MAX];
+        if (!ito_copy(log, sizeof(log), log_path.s)) {
             return 0;
         }
         snprintf(full, sizeof(full), "cmd /c \"%s >> \"%s\" 2>&1\"", cmd, log);
@@ -69,7 +66,7 @@ void dodai_proc_close(void *handle) {
 
 /* ---- files ---------------------------------------------------------------- */
 
-void dodai_truncate(ito path) {
+void dodai_truncate(michi path) {
     ED_COPY(p, path, );
     FILE *f = fopen(p, "w");
     if (f) {
@@ -77,7 +74,7 @@ void dodai_truncate(ito path) {
     }
 }
 
-int dodai_mtime_ns(ito path, unsigned long long *out) {
+int dodai_mtime_ns(michi path, unsigned long long *out) {
     ED_COPY(p, path, 0);
     WIN32_FILE_ATTRIBUTE_DATA fa;
     if (!GetFileAttributesExA(p, GetFileExInfoStandard, &fa)) {
@@ -95,7 +92,7 @@ static int copy_file_c(const char *from, const char *to) {
     return CopyFileA(from, to, FALSE) != 0;
 }
 
-int dodai_copy_file(ito from, ito to) {
+int dodai_copy_file(michi from, michi to) {
     ED_COPY(f, from, 0);
     ED_COPY(t, to, 0);
     return copy_file_c(f, t);
@@ -128,20 +125,20 @@ static int copy_dir_recursive(const char *from, const char *to) {
     return ok;
 }
 
-int dodai_copy_dir(ito from, ito to) {
+int dodai_copy_dir(michi from, michi to) {
     ED_COPY(f, from, 0);
     ED_COPY(t, to, 0);
     return copy_dir_recursive(f, t);
 }
 
-int dodai_remove(ito path) {
+int dodai_remove(michi path) {
     ED_COPY(p, path, 0);
     return DeleteFileA(p) != 0;
 }
 
-void dodai_remove_prefixed(ito dir, ito prefix) {
-    char dirc[DODAI_PATH_MAX], pre[256];
-    if (!ito_copy(dirc, sizeof(dirc), dir) ||
+void dodai_remove_prefixed(michi dir, ito prefix) {
+    char dirc[MICHI_MAX], pre[256];
+    if (!ito_copy(dirc, sizeof(dirc), dir.s) ||
         !ito_copy(pre, sizeof(pre), prefix)) {
         return;
     }
@@ -162,15 +159,17 @@ void dodai_remove_prefixed(ito dir, ito prefix) {
     FindClose(h);
 }
 
-int dodai_make_dir(ito path) {
+int dodai_make_dir(michi path) {
     ED_COPY(p, path, 1);
     if (CreateDirectoryA(p, NULL)) return 0;
     return GetLastError() == ERROR_ALREADY_EXISTS ? 0 : 1;
 }
 
-void dodai_make_dirs_for(ito path) {
-    char buf[DODAI_PATH_MAX];
-    if (!ito_copy(buf, sizeof(buf), path)) {
+void dodai_make_dirs_for(michi path) {
+    char buf[MICHI_MAX];
+    if (!ito_copy(buf, sizeof(buf), path.s)) {
+        fprintf(stderr, "dodai: path too long (%d-byte cap), dirs not made: "
+                "%.96s...\n", MICHI_MAX, buf);
         return;
     }
     for (char *p = buf; *p; p++) {
@@ -182,15 +181,15 @@ void dodai_make_dirs_for(ito path) {
     }
 }
 
-int dodai_rename(ito from, ito to) {
+int dodai_rename(michi from, michi to) {
     ED_COPY(f, from, 0);
     ED_COPY(t, to, 0);
     return MoveFileExA(f, t, MOVEFILE_REPLACE_EXISTING) != 0;
 }
 
-void *dodai_read_file(ito path, size_t *len) {
-    char p[DODAI_PATH_MAX];
-    if (!ito_copy(p, sizeof(p), path)) {
+void *dodai_read_file(michi path, size_t *len) {
+    char p[MICHI_MAX];
+    if (!ito_copy(p, sizeof(p), path.s)) {
         return NULL;
     }
     FILE *f = fopen(p, "rb");
@@ -218,7 +217,7 @@ void *dodai_read_file(ito path, size_t *len) {
     return buf;
 }
 
-int dodai_write_file(ito path, const void *data, size_t len) {
+int dodai_write_file(michi path, const void *data, size_t len) {
     ED_COPY(p, path, 0);
     FILE *f = fopen(p, "wb");
     if (!f) {
@@ -252,21 +251,21 @@ static int walk_recursive(const char *dir, dodai_walk_fn fn, void *user) {
             mtime.HighPart = fd.ftLastWriteTime.dwHighDateTime;
             size.LowPart = fd.nFileSizeLow;
             size.HighPart = fd.nFileSizeHigh;
-            fn(ito_from(path), mtime.QuadPart, size.QuadPart, user);
+            fn(michi_from_cstr(path), mtime.QuadPart, size.QuadPart, user);
         }
     } while (FindNextFileA(h, &fd));
     FindClose(h);
     return 1;
 }
 
-int dodai_walk(ito dir, dodai_walk_fn fn, void *user) {
+int dodai_walk(michi dir, dodai_walk_fn fn, void *user) {
     ED_COPY(d, dir, 0);
     return walk_recursive(d, fn, user);
 }
 
-int dodai_absolute_path(ito rel, ito_buf *out) {
+int dodai_absolute_path(michi rel, michi_buf *out) {
     ED_COPY(relc, rel, 1);
-    char full[DODAI_PATH_MAX];
+    char full[MICHI_MAX];
     char *p;
     DWORD n = GetFullPathNameA(relc, (DWORD)sizeof(full), full, NULL);
     if (n == 0 || n >= sizeof(full)) {
@@ -279,11 +278,11 @@ int dodai_absolute_path(ito rel, ito_buf *out) {
     for (p = full; *p; p++) {
         if (*p == '\\') *p = '/';
     }
-    ito_buf_append_c(out, full);
-    return out->overflow ? 1 : 0;
+    ito_buf_append_c(&out->b, full);
+    return out->b.overflow ? 1 : 0;
 }
 
-int dodai_chdir(ito path) {
+int dodai_chdir(michi path) {
     ED_COPY(p, path, 0);
     return _chdir(p) == 0;
 }
@@ -307,13 +306,13 @@ static DWORD WINAPI copy_worker(LPVOID arg) {
     return 0;
 }
 
-int dodai_copy_async(ito from, ito to, int is_dir, void **out_handle) {
+int dodai_copy_async(michi from, michi to, int is_dir, void **out_handle) {
     dodai_copy_job *job = (dodai_copy_job *)calloc(1, sizeof(*job));
     if (!job) {
         return 0;
     }
-    if (!ito_copy(job->from, sizeof(job->from), from) ||
-        !ito_copy(job->to, sizeof(job->to), to)) {
+    if (!ito_copy(job->from, sizeof(job->from), from.s) ||
+        !ito_copy(job->to, sizeof(job->to), to.s)) {
         free(job);
         return 0;
     }
@@ -424,7 +423,7 @@ int dodai_watch_poll(dodai_watch *w, dodai_notify_fn fn, void *user) {
                     path, sizeof(path) - 1, NULL, NULL);
                 path[n > 0 ? n : 0] = 0;
                 if (fn && n > 0) {
-                    fn(ito_from(path), user);
+                    fn(michi_from_cstr(path), user);
                 }
                 delivered++;
                 if (info->NextEntryOffset == 0) {
@@ -436,7 +435,7 @@ int dodai_watch_poll(dodai_watch *w, dodai_notify_fn fn, void *user) {
             /* overflow (bytes == 0): events were dropped; report a generic
                change so the caller still reacts */
             if (fn) {
-                fn(ito_from(""), user);
+                fn(michi_from_cstr(""), user);
             }
             delivered++;
         }
@@ -466,7 +465,7 @@ void dodai_watch_end(dodai_watch *w) {
 
 /* ---- dynamic libraries ---------------------------------------------------- */
 
-void *dodai_lib_open(ito path) {
+void *dodai_lib_open(michi path) {
     ED_COPY(p, path, NULL);
     HMODULE m = LoadLibraryA(p);
     if (!m) {
@@ -492,12 +491,12 @@ const char *dodai_lib_extension(void) {
 
 /* ---- shared-library compile ----------------------------------------------- */
 
-int dodai_compile_shared(ito src, ito lib, ito err_log,
+int dodai_compile_shared(michi src, michi lib, michi err_log,
                          const char *extra_flags) {
-    char srcc[DODAI_PATH_MAX], libc[DODAI_PATH_MAX], errc[DODAI_PATH_MAX];
-    if (!ito_copy(srcc, sizeof(srcc), src) ||
-        !ito_copy(libc, sizeof(libc), lib) ||
-        !ito_copy(errc, sizeof(errc), err_log)) {
+    char srcc[MICHI_MAX], libc[MICHI_MAX], errc[MICHI_MAX];
+    if (!ito_copy(srcc, sizeof(srcc), src.s) ||
+        !ito_copy(libc, sizeof(libc), lib.s) ||
+        !ito_copy(errc, sizeof(errc), err_log.s)) {
         return 1;
     }
     char cmd[2048];
@@ -509,7 +508,7 @@ int dodai_compile_shared(ito src, ito lib, ito err_log,
 
 /* ---- lock file ------------------------------------------------------------ */
 
-int dodai_lockfile_try(ito path, void **out_handle) {
+int dodai_lockfile_try(michi path, void **out_handle) {
     ED_COPY(p, path, 0);
     HANDLE h = CreateFileA(p, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
                            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE,

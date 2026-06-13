@@ -362,11 +362,11 @@ static void *compile_and_load_fz(const char* code, const char* name) {
     if (seni_dump_migration(code, name, src_path, sizeof(src_path)) != 0) return NULL;
     sprintf(lib_path, "build/%s.%s", name, dodai_lib_extension());
     sprintf(err_path, "build/%s.err", name);
-    if (dodai_compile_shared(ito_from(src_path), ito_from(lib_path), ito_from(err_path), "-std=c89 -pedantic") != 0) {
+    if (dodai_compile_shared(michi_from_cstr(src_path), michi_from_cstr(lib_path), michi_from_cstr(err_path), "-std=c89 -pedantic") != 0) {
         fprintf(stderr, "gcc failed for %s, generated code:\n%s\n", src_path, code);
         return NULL;
     }
-    return dodai_lib_open(ito_from(lib_path));
+    return dodai_lib_open(michi_from_cstr(lib_path));
 }
 
 /* a handful of random survivors all the way through gcc + dlopen + run */

@@ -44,7 +44,7 @@ static void *compile_src_and_load(const char* src_path, const char* code, const 
     char lib_path[256], err_path[256];
     snprintf(lib_path, sizeof(lib_path), "build/%s.%s", name, dodai_lib_extension());
     snprintf(err_path, sizeof(err_path), "build/%s.err", name);
-    if (dodai_compile_shared(ito_from(src_path), ito_from(lib_path), ito_from(err_path), "-std=c89 -pedantic") != 0) {
+    if (dodai_compile_shared(michi_from_cstr(src_path), michi_from_cstr(lib_path), michi_from_cstr(err_path), "-std=c89 -pedantic") != 0) {
         fprintf(stderr, "gcc failed for %s\ngenerated code:\n%s\n", src_path, code);
         FILE* e = fopen(err_path, "rb");
         if (e) {
@@ -54,14 +54,14 @@ static void *compile_src_and_load(const char* src_path, const char* code, const 
         }
         return NULL;
     }
-    return dodai_lib_open(ito_from(lib_path));
+    return dodai_lib_open(michi_from_cstr(lib_path));
 }
 
 // writes code to build/<name>.c, compiles, loads. for hand-written sources
 // (game dlls); generated migrations go through compile_migration_and_load.
 static void *compile_and_load(const char* code, const char* name) {
     char src_path[256];
-    dodai_make_dir(ITO("build"));
+    dodai_make_dir(PATH("build"));
     snprintf(src_path, sizeof(src_path), "build/%s.c", name);
     FILE* f = fopen(src_path, "wb");
     if (!f) { fprintf(stderr, "cannot write %s\n", src_path); return NULL; }
@@ -102,12 +102,14 @@ static int copy_file(const char* src, const char* dst) {
 // relative to the compiler's cwd, not the source file.
 static int snapshot_layout(const char* header_path, const char* name, char* abs_out, size_t cap) {
     char copy_path[256];
-    dodai_make_dir(ITO("build"));
+    dodai_make_dir(PATH("build"));
     snprintf(copy_path, sizeof(copy_path), "build/%s_layout.h", name);
     if (copy_file(header_path, copy_path) != 0) return 1;
-    ito_buf ab;
-    ito_buf_init(&ab, abs_out, cap);
-    return dodai_absolute_path(ito_from(copy_path), &ab);
+    michi_buf ab;
+    michi_buf_reset(&ab);
+    int rc = dodai_absolute_path(michi_from_cstr(copy_path), &ab);
+    ito_copy(abs_out, cap, michi_view(&ab).s);
+    return rc;
 }
 
 typedef void (*migrate_fn)(void* old_p, void* new_p, size_t count);
@@ -432,7 +434,7 @@ UTEST(e2e, full_hot_reload) {
     /* 1. working header starts at v1 */
     char* v1_header = read_file(&a, "fixtures/game_v1.h");
     ASSERT_TRUE(v1_header != NULL);
-    dodai_make_dir(ITO("build"));
+    dodai_make_dir(PATH("build"));
     ASSERT_EQ(0, write_file("build/game_current.h", v1_header));
 
     /* 2. build + load game v1, init, tick twice */
@@ -579,7 +581,7 @@ UTEST(e2e, registry_driven_reload) {
     /* 1. working header at v1; host inits an empty self-describing block */
     char* v1_header = read_file(&a, "fixtures/game_v1.h");
     ASSERT_TRUE(v1_header != NULL);
-    dodai_make_dir(ITO("build"));
+    dodai_make_dir(PATH("build"));
     ASSERT_EQ(0, write_file("build/game_current.h", v1_header));
     seni_registry_init(old_block, cap);
 

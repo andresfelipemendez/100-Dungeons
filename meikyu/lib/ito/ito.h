@@ -356,4 +356,18 @@ static const char *ito_buf_cstr(const ito_buf *b) {
     return b->buf;
 }
 
+/* format once into a caller buffer and return the view -- the common
+   "build a small frame-static string for clay / a label" idiom. The view
+   points into `buf`, which must outlive the use. Overflow truncates (the
+   view is just shorter); use ito_buf directly when overflow must be seen. */
+static ito ito_format(char *buf, size_t cap, const char *fmt, ...) {
+    ito_buf b;
+    va_list args;
+    ito_buf_init(&b, buf, cap);
+    va_start(args, fmt);
+    ito_buf_vappendf(&b, fmt, args);
+    va_end(args);
+    return ito_buf_view(&b);
+}
+
 #endif /* ITO_H */

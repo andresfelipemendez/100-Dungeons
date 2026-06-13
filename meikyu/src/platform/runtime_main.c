@@ -31,11 +31,10 @@ int main(int argc, char *argv[]) {
 
     /* the exe sits at the bundle root; anchor all relative paths there */
     {
-        char base[1024];
-        ito_buf bb;
-        ito_buf_init(&bb, base, sizeof(base));
-        if (dodai_exe_dir(&bb) && !dodai_chdir(ito_from(base))) {
-            dodai_log("warning: cannot chdir to bundle root '%s'", base);
+        michi_buf bb;
+        michi_buf_reset(&bb);
+        if (dodai_exe_dir(&bb) && !dodai_chdir(michi_view(&bb))) {
+            dodai_log("warning: cannot chdir to bundle root '%s'", michi_cstr(&bb));
         }
     }
 
