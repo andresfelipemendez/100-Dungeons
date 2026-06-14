@@ -195,7 +195,12 @@ int horu_mesh_from_polys(const horu_poly *polys, int npoly,
 
 /* ---- PART 2: BSP boolean (exact CSG) ------------------------------------ */
 
-#define HORU_NODE_POLYS 8     /* coplanar polys held at one node */
+/* coplanar polys held at one node. Must hold the CLIPPED result of a node's
+   faces, which splits into more pieces than were built (measured up to ~12 for
+   box-minus-sphere); too small drops polygons and punches moving holes in the
+   surface. 32 gives margin. (A dynamic per-node pool would remove the cap
+   entirely -- the robust follow-up.) */
+#define HORU_NODE_POLYS 32
 #define HORU_BSP_NODES  256   /* node pool per tree */
 #define HORU_SPLIT_CAP  64    /* per-recursion split scratch */
 

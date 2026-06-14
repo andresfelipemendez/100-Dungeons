@@ -160,18 +160,39 @@ static void csg_half(const game_state *gs, int node, f32 *hx, f32 *hy, f32 *hz) 
     }
 }
 
-/* pick targets = the primitive leaves (ops aren't draggable). */
+/* Pick targets for primitive leaves. id encodes node*4 + slot: slot 0 = the
+   body (free drag, axis -1); slots 1/2/3 = the X/Y/Z arrow handles (axis-
+   locked), built only for the SELECTED node (those are the gizmo arrows). */
+#define GIZ_LEN  0.7f   /* arrow half-length along its axis */
+#define GIZ_R    0.22f  /* arrow pick radius */
+
 static int csg_targets(const game_state *gs, tsu_target *t, int cap) {
-    int i, n = 0;
-    for (i = 0; i < gs->csg_count && n < cap; i++) {
-        if (!csg_is_op(gs->csg_kind[i])) {
-            f32 hx, hy, hz;
-            csg_half(gs, i, &hx, &hy, &hz);
-            t[n].id = i;
-            t[n].center.x = gs->csg_x[i];
-            t[n].center.y = gs->csg_y[i];
-            t[n].center.z = gs->csg_z[i];
-            t[n].half.x = hx; t[n].half.y = hy; t[n].half.z = hz;
+    int i, a, n = 0;
+    for (i = 0; i < gs->csg_count; i++) {
+        tsu_v3 c;
+        f32 hx, hy, hz;
+        if (csg_is_op(gs->csg_kind[i]) || n >= cap) {
+            continue;
+        }
+        c.x = gs->csg_x[i]; c.y = gs->csg_y[i]; c.z = gs->csg_z[i];
+        csg_half(gs, i, &hx, &hy, &hz);
+        t[n].id = i * 4; t[n].center = c; t[n].origin = c; t[n].axis = -1;
+        t[n].half.x = hx; t[n].half.y = hy; t[n].half.z = hz;
+        n++;
+        if (i != gs->csg_selected) {
+            continue;
+        }
+        for (a = 0; a < 3 && n < cap; a++) { /* the three axis arrows */
+            tsu_v3 ac = c;
+            if (a == 0) ac.x += GIZ_LEN; else if (a == 1) ac.y += GIZ_LEN;
+            else ac.z += GIZ_LEN;
+            t[n].id = i * 4 + a + 1;
+            t[n].center = ac;
+            t[n].origin = c;
+            t[n].axis = a;
+            t[n].half.x = (a == 0) ? GIZ_LEN : GIZ_R;
+            t[n].half.y = (a == 1) ? GIZ_LEN : GIZ_R;
+            t[n].half.z = (a == 2) ? GIZ_LEN : GIZ_R;
             n++;
         }
     }
@@ -474,13 +495,14 @@ GAME_EXPORT GAME_UPDATE_AND_RENDER(game_update_and_render) {
         nt = csg_targets(gs, targets, 32);
         mouse = (input->mouse_left && input->mouse_x > 215.0f) ? 1 : 0;
         if (tsu_gizmo_update(&es->gizmo, ray, mouse, tf, targets, nt, &out_id, &mv)) {
-            gs->csg_x[out_id] = mv.x;
-            gs->csg_y[out_id] = mv.y;
-            gs->csg_z[out_id] = mv.z;
+            int node = out_id / 4; /* id = node*4 + slot */
+            gs->csg_x[node] = mv.x;
+            gs->csg_y[node] = mv.y;
+            gs->csg_z[node] = mv.z;
             gs->csg_dirty = 1;
         }
         if (es->gizmo.selected >= 0) {
-            gs->csg_selected = es->gizmo.selected;
+            gs->csg_selected = es->gizmo.selected / 4;
         }
     }
 

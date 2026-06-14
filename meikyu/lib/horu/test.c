@@ -36,6 +36,26 @@ static float poly_soup_volume(const horu_poly *p, int n) {
 
 static int vol_eq(float a, float b) { return (float)fabs(a - b) < 0.02f; }
 
+/* magnitude of the summed area-weighted triangle normals. For a CLOSED
+   (watertight) surface this is ~0; a dropped/missing polygon leaves an open
+   boundary and the sum no longer cancels -- so this catches holes that the
+   volume check (a near-invariant scalar) cannot. */
+static float surface_residual(const horu_poly *p, int n) {
+    float rx = 0, ry = 0, rz = 0;
+    int i, k;
+    for (i = 0; i < n; i++) {
+        for (k = 0; k + 2 < p[i].n; k++) {
+            horu_v3 a = p[i].v[0], b = p[i].v[k + 1], c = p[i].v[k + 2];
+            float e1x = b.x - a.x, e1y = b.y - a.y, e1z = b.z - a.z;
+            float e2x = c.x - a.x, e2y = c.y - a.y, e2z = c.z - a.z;
+            rx += e1y * e2z - e1z * e2y;
+            ry += e1z * e2x - e1x * e2z;
+            rz += e1x * e2y - e1y * e2x;
+        }
+    }
+    return (float)sqrt((double)(rx * rx + ry * ry + rz * rz));
+}
+
 /* CSG working memory (the caller owns it -- here a static buffer) */
 static char g_scratch[HORU_CSG_SCRATCH];
 #define SCRATCH g_scratch, (int)sizeof g_scratch
@@ -427,6 +447,31 @@ static void test_csg_capacity(void) {
     CHECK(n <= 2); /* output clamped to cap */
 }
 
+static void test_csg_watertight(void) {
+    /* SWEEP a sphere through each box face (as the gizmo drag does) and require
+       a watertight result at EVERY position. This is the test that was missing:
+       (1) volume alone can't see a hole (a dropped face barely changes it),
+       (2) box-box CSG never makes enough coplanar fragments to overflow a node,
+       (3) the hole only appears at SOME offsets, so a single static config
+       misses it. With the old per-node cap (8) some offset drops faces and the
+       summed-normal residual spikes (~0.6); the surface must stay closed. */
+    horu_poly a[8], b[64], out[600];
+    int ax, i;
+    for (ax = 0; ax < 3; ax++) {
+        for (i = 0; i < 24; i++) {
+            float p = -1.0f + 0.09f * i;
+            float cx = (ax == 0) ? p : 1.0f;
+            float cy = (ax == 1) ? p : 1.0f;
+            float cz = (ax == 2) ? p : 1.0f;
+            int na = horu_box_polys(0,0,0, 2,2,2, a, 8);
+            int nb = horu_sphere_polys(cx, cy, cz, 1.1f, 8, 4, b, 64);
+            int n = horu_csg_polys(HORU_DIFFERENCE, a, na, b, nb, out, 600, SCRATCH);
+            CHECK(n > 0);
+            CHECK(surface_residual(out, n) < 0.05f); /* closed: no dropped faces */
+        }
+    }
+}
+
 static void test_csg_bounded_scratch(void) {
     /* enough scratch for the two trees but tight for recursion: the arena
        bounds the clip (OOM bail paths) and it still returns without crashing. */
@@ -477,6 +522,7 @@ int main(void) {
     test_csg_intersection_self();
     test_csg_difference_self();
     test_csg_overlap();
+    test_csg_watertight();
     test_csg_empty_operand();
     test_csg_capacity();
     test_csg_bounded_scratch();

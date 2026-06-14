@@ -67,8 +67,10 @@ static void test_gizmo_select_drag_release(void) {
     tsu_v3 fwd = mk(0,0,-1);          /* camera looks -z */
     int id = -1; tsu_v3 mv = mk(0,0,0);
     int m;
-    tg[0].id = 3; tg[0].center = mk(0,0,-9); tg[0].half = mk(1,1,1); /* decoy */
+    tg[0].id = 3; tg[0].center = mk(0,0,-9); tg[0].half = mk(1,1,1);
+    tg[0].origin = tg[0].center; tg[0].axis = -1; /* decoy */
     tg[1].id = 7; tg[1].center = mk(0,0,0);  tg[1].half = mk(1,1,1);
+    tg[1].origin = tg[1].center; tg[1].axis = -1;
     tsu_gizmo_init(&g);
     CHECK(g.selected == -1);
 
@@ -96,6 +98,7 @@ static void test_gizmo_press_empty(void) {
     int id = -1; tsu_v3 mv;
     int m;
     tg.id = 7; tg.center = mk(0,0,0); tg.half = mk(1,1,1);
+    tg.origin = tg.center; tg.axis = -1;
     tsu_gizmo_init(&g);
     /* press where nothing is -> no selection, no drag */
     m = tsu_gizmo_update(&g, mkray(9,9,5, 0,0,-1), 1, fwd, &tg, 1, &id, &mv);
@@ -104,12 +107,51 @@ static void test_gizmo_press_empty(void) {
     CHECK(m == 0);
 }
 
+static void test_gizmo_axis_constrained(void) {
+    /* a Y-axis handle: the object is at the origin, the arrow box sits above it.
+       Dragging must move ONLY in y, no matter how the ray moves in x/z. */
+    tsu_target tg; tsu_gizmo g;
+    tsu_v3 fwd = mk(0,0,-1);
+    int id; tsu_v3 mv;
+    int m;
+    tg.id = 5;
+    tg.center = mk(0, 0.7f, 0);       /* the arrow's pick box, offset +y */
+    tg.half   = mk(0.3f, 0.8f, 0.3f);
+    tg.origin = mk(0, 0, 0);          /* the object center (drag reference) */
+    tg.axis   = 1;                    /* lock to Y */
+    tsu_gizmo_init(&g);
+
+    /* grab on the arrow (ray through the box at y~0.5) */
+    m = tsu_gizmo_update(&g, mkray(0, 0.5f, 5, 0,0,-1), 1, fwd, &tg, 1, &id, &mv);
+    CHECK(g.selected == 5 && g.grab_axis == 1 && m == 1);
+    CHECK(feq(mv.x, 0.0f) && feq(mv.z, 0.0f)); /* grab: object stays put */
+
+    /* drag the ray to (2, 3) -- the x=2 must NOT move the object, only y */
+    m = tsu_gizmo_update(&g, mkray(2.0f, 3.0f, 5, 0,0,-1), 1, fwd, &tg, 1, &id, &mv);
+    CHECK(m == 1);
+    CHECK(feq(mv.x, 0.0f));  /* constrained: no x motion */
+    CHECK(feq(mv.z, 0.0f));  /* no z motion */
+    CHECK(feq(mv.y, 2.5f));  /* y follows: 3.0 - grab(0.5) = +2.5 */
+
+    /* a grab with a ray PARALLEL to the locked axis: the closest-point solve
+       degenerates -- it must return 0 (no divide-by-zero) and not move. */
+    {
+        tsu_gizmo g2;
+        tsu_gizmo_init(&g2);
+        m = tsu_gizmo_update(&g2, mkray(0,-5,0, 0,1,0), 1, fwd, &tg, 1, &id, &mv);
+        CHECK(g2.selected == 5);
+        m = tsu_gizmo_update(&g2, mkray(0,-3,0, 0,1,0), 1, fwd, &tg, 1, &id, &mv);
+        CHECK(feq(mv.y, 0.0f)); /* degenerate -> stays at origin */
+    }
+}
+
 int main(void) {
     test_ray_aabb();
     test_pick();
     test_ray_plane();
     test_ray_from_screen();
     test_gizmo_select_drag_release();
+    test_gizmo_axis_constrained();
     test_gizmo_press_empty();
     if (g_fail) { printf("%d check(s) failed\n", g_fail); return 1; }
     printf("tsumami: all checks passed\n");

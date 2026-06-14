@@ -15,10 +15,12 @@
 typedef struct { float x, y, z; } tsu_v3;
 typedef struct { tsu_v3 o, d; } tsu_ray;   /* origin + unit direction */
 
-/* a pickable target: the AABB [center-half, center+half] tagged with an id.
-   `axis` constrains the drag: -1 = free (drag in the view plane), 0/1/2 = lock
-   to world X/Y/Z (an axis handle). */
-typedef struct { int id; tsu_v3 center, half; int axis; } tsu_target;
+/* a pickable target. `center`/`half` are the pick AABB (e.g. an arrow's box);
+   `origin` is the object's center -- the drag reference (an axis arrow's box is
+   offset from the object it moves, so the two differ; for a free body handle
+   set origin == center). `axis` constrains the drag: -1 = free (view plane),
+   0/1/2 = lock to world X/Y/Z. */
+typedef struct { int id; tsu_v3 center, half, origin; int axis; } tsu_target;
 
 /* ---- pure geometry ------------------------------------------------------ */
 

@@ -186,7 +186,7 @@ int horu_mesh_from_polys(const horu_poly *polys, int npoly,
    the stack: running out of scratch just bounds the result. Give it at least
    HORU_CSG_SCRATCH bytes; more allows deeper/denser models. Returns 0 if the
    scratch is too small for even the two trees. */
-#define HORU_CSG_SCRATCH (4 * 1024 * 1024)
+#define HORU_CSG_SCRATCH (6 * 1024 * 1024)
 int horu_csg_polys(horu_op op, const horu_poly *a, int na,
                    const horu_poly *b, int nb, horu_poly *out, int cap,
                    void *scratch, int scratch_bytes);

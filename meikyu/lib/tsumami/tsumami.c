@@ -101,21 +101,34 @@ int tsu_gizmo_update(tsu_gizmo *g, tsu_ray ray, int mouse_down, tsu_v3 cam_fwd,
     if (mouse_down && !g->prev_down) {           /* press edge: try to grab */
         int id = tsu_pick(ray, t, n);
         if (id >= 0) {
-            tsu_v3 c = v3(0.0f, 0.0f, 0.0f);
+            const tsu_target *hit = t;
             int i;
             for (i = 0; i < n; i++) {
-                if (t[i].id == id) c = t[i].center;
+                if (t[i].id == id) hit = &t[i];
             }
             g->selected = id;
             g->dragging = 1;
-            g->plane_n = scl3(cam_fwd, -1.0f);   /* face the camera */
-            g->plane_p = c;
-            g->grab_offset = sub3(c, tsu_ray_plane(ray, c, g->plane_n));
+            g->grab_axis = hit->axis;
+            g->grab_center = hit->origin;        /* the OBJECT center */
+            if (hit->axis < 0) {                 /* free: drag in the view plane */
+                g->plane_n = scl3(cam_fwd, -1.0f);
+                g->plane_p = hit->origin;
+                g->grab_offset = sub3(hit->origin,
+                                      tsu_ray_plane(ray, hit->origin, g->plane_n));
+            } else {                             /* axis-locked */
+                g->grab_t = ray_axis_t(ray, hit->origin, axis_dir(hit->axis));
+            }
         }
     }
     if (g->dragging && mouse_down) {             /* dragging: follow the ray */
-        tsu_v3 hit = tsu_ray_plane(ray, g->plane_p, g->plane_n);
-        *moved = add3(hit, g->grab_offset);
+        if (g->grab_axis < 0) {
+            tsu_v3 hit = tsu_ray_plane(ray, g->plane_p, g->plane_n);
+            *moved = add3(hit, g->grab_offset);
+        } else {
+            tsu_v3 d = axis_dir(g->grab_axis);
+            float tn = ray_axis_t(ray, g->grab_center, d);
+            *moved = add3(g->grab_center, scl3(d, tn - g->grab_t));
+        }
         *out_id = g->selected;
         did = 1;
     }
