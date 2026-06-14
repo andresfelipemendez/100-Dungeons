@@ -425,4 +425,54 @@ UTEST(e2e, compile_failure_reports_error_once) {
     kansi_stop(k);
 }
 
+/* every per-list capacity guard: exceed each KANSI_MAX_* and expect a refusal.
+   The existing parse tests only drive the happy path, so the "too many"
+   branches were uncovered. */
+UTEST(parse, too_many) {
+    kansi_cfg cfg;
+    char err[256];
+    char t[8192];
+    int i, n;
+
+    n = 0;
+    for (i = 0; i < KANSI_MAX_WATCH + 1; i++) n += snprintf(t + n, sizeof(t) - n, "watch w%d\n", i);
+    snprintf(t + n, sizeof(t) - n, "source s.c\nout o.dll\n");
+    ASSERT_FALSE(kansi_parse_config(&cfg, t, err, sizeof(err)));         /* watch */
+
+    n = snprintf(t, sizeof(t), "watch w\n");
+    for (i = 0; i < KANSI_MAX_EXT + 1; i++) n += snprintf(t + n, sizeof(t) - n, "ext .e%d\n", i);
+    snprintf(t + n, sizeof(t) - n, "source s.c\nout o.dll\n");
+    ASSERT_FALSE(kansi_parse_config(&cfg, t, err, sizeof(err)));         /* ext */
+
+    n = snprintf(t, sizeof(t), "watch w\n");
+    for (i = 0; i < KANSI_MAX_PRE + 1; i++) n += snprintf(t + n, sizeof(t) - n, "pre copy a%d b%d\n", i, i);
+    snprintf(t + n, sizeof(t) - n, "source s.c\nout o.dll\n");
+    ASSERT_FALSE(kansi_parse_config(&cfg, t, err, sizeof(err)));         /* pre */
+
+    n = snprintf(t, sizeof(t), "watch w\n");
+    for (i = 0; i < KANSI_MAX_INC + 1; i++) n += snprintf(t + n, sizeof(t) - n, "include i%d\n", i);
+    snprintf(t + n, sizeof(t) - n, "source s.c\nout o.dll\n");
+    ASSERT_FALSE(kansi_parse_config(&cfg, t, err, sizeof(err)));         /* include */
+
+    n = snprintf(t, sizeof(t), "watch w\n");
+    for (i = 0; i < KANSI_MAX_LIB + 1; i++) n += snprintf(t + n, sizeof(t) - n, "lib L%d\n", i);
+    snprintf(t + n, sizeof(t) - n, "source s.c\nout o.dll\n");
+    ASSERT_FALSE(kansi_parse_config(&cfg, t, err, sizeof(err)));         /* lib */
+
+    n = snprintf(t, sizeof(t), "watch w\n");
+    for (i = 0; i < KANSI_MAX_FLAG + 1; i++) n += snprintf(t + n, sizeof(t) - n, "flag -f%d\n", i);
+    snprintf(t + n, sizeof(t) - n, "source s.c\nout o.dll\n");
+    ASSERT_FALSE(kansi_parse_config(&cfg, t, err, sizeof(err)));         /* flag */
+
+    n = snprintf(t, sizeof(t), "watch w\n");
+    for (i = 0; i < KANSI_MAX_DEFINE + 1; i++) n += snprintf(t + n, sizeof(t) - n, "define D%d=1\n", i);
+    snprintf(t + n, sizeof(t) - n, "source s.c\nout o.dll\n");
+    ASSERT_FALSE(kansi_parse_config(&cfg, t, err, sizeof(err)));         /* define */
+
+    n = snprintf(t, sizeof(t), "watch w\n");
+    for (i = 0; i < KANSI_MAX_LIBDIR + 1; i++) n += snprintf(t + n, sizeof(t) - n, "libdir d%d\n", i);
+    snprintf(t + n, sizeof(t) - n, "source s.c\nout o.dll\n");
+    ASSERT_FALSE(kansi_parse_config(&cfg, t, err, sizeof(err)));         /* libdir */
+}
+
 UTEST_MAIN()

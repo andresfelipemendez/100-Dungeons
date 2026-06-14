@@ -67,6 +67,12 @@ lib_test michi std=c99 include=lib/ito cov=100
 # each needing a crafted header-text input) plus seni_reload.h's migrate-failure
 # paths (missing symbol / stride mismatch -- need hand-built migration dlls).
 lib_test seni  std=c99 include=lib/dodai link=pthread
+# kansi: WIP toward 90. 45% MC/DC (branch 70%). The parse layer -- including
+# every per-list capacity guard (watch/ext/pre/include/lib/flag/define/libdir) --
+# is covered. The MC/DC gate is held down by the watcher LIFECYCLE (kansi_start /
+# on_notify / update / stop): those compound conditions only fire under a live
+# fs-watch thread reacting to real file events, which needs a thread+filesystem
+# fixture harness (the expensive remaining work).
 lib_test kansi std=c99 src=../dodai/dodai_posix.c include=lib/dodai link=pthread
 # kaji: WIP toward 90. 45% MC/DC (was 28%): parse + all error paths + every
 # target kind + per-list capacity guards are covered. The remaining gap is the
