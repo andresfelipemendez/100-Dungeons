@@ -106,4 +106,30 @@ int  horu_csg_op(horu_csg *t, horu_op op, int a, int b);
 /* 1 if (x,y,z) is inside the solid described by the tree's root, else 0. */
 int  horu_csg_contains(const horu_csg *t, float x, float y, float z);
 
+/* ---- PART 2: triangulation (exact CSG via BSP polygon clipping) ---------- */
+/* The boolean abstract above answers point membership. To produce renderable
+   geometry, solids are carried as POLYGONS (convex, CCW, outward normal) that
+   are split and clipped against BSP trees -- the classic Naylor/csg.js
+   algorithm. The atom is horu_split_poly. */
+
+typedef struct { float x, y, z; } horu_v3;
+
+#define HORU_POLY_MAX 8   /* verts per polygon; convex splits stay small */
+
+typedef struct {
+    horu_v3    v[HORU_POLY_MAX];
+    int        n;       /* vertex count (>= 3) */
+    horu_plane plane;   /* supporting plane, outward normal */
+} horu_poly;
+
+/* Split `poly` by `plane`, appending the resulting pieces to the front and/or
+   back lists (each a caller array of capacity `cap` with its count by ref):
+     - wholly in front / behind -> the polygon is appended unchanged
+     - coplanar -> appended to front if it faces the same way as `plane`, else back
+     - spanning -> cut along the plane into a front piece and a back piece
+   Pieces keep `poly`'s supporting plane. A list at capacity silently drops. */
+void horu_split_poly(horu_plane plane, const horu_poly *poly,
+                     horu_poly *front, int *nf,
+                     horu_poly *back, int *nb, int cap);
+
 #endif /* HORU_H */

@@ -150,6 +150,71 @@ static void test_csg_booleans(void) {
     CHECK(horu_csg_contains(&t, 5.0f, 0.0f, 0.0f) == 0);
 }
 
+/* build a polygon from up-to-4 (x,y) verts in the z=0 plane (normal +z) */
+static horu_poly quad_z0(float x0, float y0, float x1, float y1,
+                         float x2, float y2, float x3, float y3) {
+    horu_poly p;
+    p.n = 4;
+    p.v[0].x = x0; p.v[0].y = y0; p.v[0].z = 0.0f;
+    p.v[1].x = x1; p.v[1].y = y1; p.v[1].z = 0.0f;
+    p.v[2].x = x2; p.v[2].y = y2; p.v[2].z = 0.0f;
+    p.v[3].x = x3; p.v[3].y = y3; p.v[3].z = 0.0f;
+    p.plane = horu_plane_make(0.0f, 0.0f, 1.0f, 0.0f); /* z = 0, normal +z */
+    return p;
+}
+
+static void test_split_spanning(void) {
+    /* unit square in z=0, CCW, split by the plane x=0 (normal +x): a front
+       piece (x>=0) and a back piece (x<=0), each a quad. */
+    horu_poly sq = quad_z0(-1,-1, 1,-1, 1,1, -1,1);
+    horu_plane cut = horu_plane_make(1.0f, 0.0f, 0.0f, 0.0f); /* x = 0 */
+    horu_poly front[8], back[8];
+    int nf = 0, nb = 0, i;
+    horu_split_poly(cut, &sq, front, &nf, back, &nb, 8);
+    CHECK(nf == 1);
+    CHECK(nb == 1);
+    CHECK(front[0].n == 4);
+    CHECK(back[0].n == 4);
+    for (i = 0; i < front[0].n; i++) CHECK(front[0].v[i].x > -HORU_EPS); /* x>=0 */
+    for (i = 0; i < back[0].n; i++)  CHECK(back[0].v[i].x <  HORU_EPS);  /* x<=0 */
+}
+
+static void test_split_whole_sides(void) {
+    horu_poly sq = quad_z0(-1,-1, 1,-1, 1,1, -1,1);
+    horu_poly front[8], back[8];
+    int nf, nb;
+    /* entirely in front of x = -5 */
+    nf = nb = 0;
+    horu_split_poly(horu_plane_make(1,0,0,-5.0f), &sq, front, &nf, back, &nb, 8);
+    CHECK(nf == 1 && nb == 0);
+    /* entirely behind x = 5 */
+    nf = nb = 0;
+    horu_split_poly(horu_plane_make(1,0,0, 5.0f), &sq, front, &nf, back, &nb, 8);
+    CHECK(nf == 0 && nb == 1);
+}
+
+static void test_split_coplanar(void) {
+    /* the square lies in z=0; split by z=0. Same-facing -> front, opposite -> back. */
+    horu_poly sq = quad_z0(-1,-1, 1,-1, 1,1, -1,1); /* normal +z */
+    horu_poly front[8], back[8];
+    int nf, nb;
+    nf = nb = 0;
+    horu_split_poly(horu_plane_make(0,0, 1, 0.0f), &sq, front, &nf, back, &nb, 8);
+    CHECK(nf == 1 && nb == 0); /* same orientation */
+    nf = nb = 0;
+    horu_split_poly(horu_plane_make(0,0,-1, 0.0f), &sq, front, &nf, back, &nb, 8);
+    CHECK(nf == 0 && nb == 1); /* opposite orientation */
+}
+
+static void test_split_capacity(void) {
+    /* cap 0: lists cannot grow -> the only guard (capacity) drops the piece */
+    horu_poly sq = quad_z0(-1,-1, 1,-1, 1,1, -1,1);
+    horu_poly front[1], back[1];
+    int nf = 0, nb = 0;
+    horu_split_poly(horu_plane_make(1,0,0,-5.0f), &sq, front, &nf, back, &nb, 0);
+    CHECK(nf == 0 && nb == 0);
+}
+
 int main(void) {
     test_plane_make_normalizes();
     test_plane_degenerate();
@@ -159,6 +224,10 @@ int main(void) {
     test_solid_contains();
     test_box();
     test_csg_booleans();
+    test_split_spanning();
+    test_split_whole_sides();
+    test_split_coplanar();
+    test_split_capacity();
     if (g_fail) {
         printf("%d check(s) failed\n", g_fail);
         return 1;
