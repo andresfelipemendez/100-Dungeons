@@ -54,21 +54,36 @@ platform windows builddir=build        exe=.exe dll=.dll  dodai=dodai_windows.c 
 # dodai= when generating. std defaults c99; pedantic defaults on.
 # test.c that #includes its lib's .c (seni/kansi/kaji) lists NO src for it --
 # only genuinely separate TUs (the per-OS dodai source) go in src=.
-lib_test ito   std=c99
-lib_test michi std=c99 include=lib/ito
+lib_test ito   std=c99 cov=90
+# michi: 100% MC/DC. Mutation 90.3% -- the 3 survivors are equivalent mutants
+# (`len > 0` -> `len >= 0` on a size_t is a tautology that differs only at the
+# empty-buffer boundary the original short-circuits past; a normalize-loop
+# `< len` -> `<= len` touches a byte outside the active view).
+lib_test michi std=c99 include=lib/ito cov=100
 lib_test seni  std=c99 include=lib/dodai link=pthread
 lib_test kansi std=c99 src=../dodai/dodai_posix.c include=lib/dodai link=pthread
+# kaji: WIP toward 90. 45% MC/DC (was 28%): parse + all error paths + every
+# target kind + per-list capacity guards are covered. The remaining gap is the
+# build-execution engine (target_stale / plan_* / advance / run_poll /
+# build_async / check_boundaries) -- needs varied-state e2e fixtures (stale vs
+# fresh, force, dep propagation, boundary-deny hit, missing input) plus the
+# platform #ifdef branches that only one OS can take. No explicit cov= yet, so
+# the global 90 gate reports it as not-yet-done (honest).
 lib_test kaji  std=c99 src=../dodai/dodai_posix.c include=lib/dodai link=pthread
 # horu: BSP runs in a CALLER-PROVIDED ARENA (no stack, no statics -- reentrant,
 # crash-proof on deep/dense models) with each node's coplanar polys held in an
 # UNBOUNDED arena cell-list (no fixed cap -> a face can split into any number of
-# fragments without dropping any -> watertight result, no holes). The cell-list
-# rewrite also removed the compound out-of-scratch guards that used to drag
-# MC/DC down, so the gate sits at the honest floor again.
-lib_test horu  std=c89 src=horu.c link=m cov=80
+# fragments without dropping any -> watertight result, no holes). 91.7% MC/DC /
+# 99% branch; the 2 residual conditions are defensive guards unreachable in
+# practice (a polygon clipped past HORU_POLY_MAX=16 verts, and bsp_clip_list
+# called with a negative node index).
+lib_test horu  std=c89 src=horu.c link=m cov=90
 # tsumami: pure 3D manipulation (ray-pick + drag gizmo), UI-free + testable,
-# reusable for CSG-node and mesh editing.
-lib_test tsumami std=c89 src=tsumami.c link=m
+# reusable for CSG-node and mesh editing. 100% MC/DC. Mutation ~79%; the
+# survivors are ray-AABB slab-method float-boundary mutants (`<` vs `<=` at
+# exact ray-grazing intersections) -- measure-zero cases no test can hit
+# deterministically (equivalent mutants).
+lib_test tsumami std=c89 src=tsumami.c link=m cov=100
 
 # ---- coverage (MC/DC) ----------------------------------------------------
 # Gate `meikyu --test --coverage` below this MC/DC %. clang instruments;

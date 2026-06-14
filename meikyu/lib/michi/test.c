@@ -38,6 +38,26 @@ static void test_joinf(void) {
     michi_joinf(&b, "game_loaded_%lu.so", (unsigned long)42);
     assert(eq(michi_view(&b), "build-mac/game_loaded_42.so"));
     assert(strcmp(michi_cstr(&b), "build-mac/game_loaded_42.so") == 0);
+
+    /* joinf onto an EMPTY buffer: cur.len > 0 is false -> no leading sep
+       (covers that condition independently for MC/DC) */
+    michi_buf_reset(&b);
+    michi_joinf(&b, "f%d", 1);
+    assert(eq(michi_view(&b), "f1"));
+
+    /* joinf where the buffer already ends in '/': second condition false */
+    michi_set(&b, PATH("dir/"));
+    michi_joinf(&b, "f%d", 2);
+    assert(eq(michi_view(&b), "dir/f2"));
+}
+
+/* MC/DC for michi_join's inner (component.len > 0 && component.ptr[0]=='/'):
+   an EMPTY component flips the length condition -> the sep still goes in. */
+static void test_join_empty_component(void) {
+    michi_buf b;
+    michi_set(&b, PATH("dir"));
+    michi_join(&b, michi_from_cstr(""));
+    assert(eq(michi_view(&b), "dir/"));
 }
 
 static void test_decompose(void) {
@@ -46,6 +66,7 @@ static void test_decompose(void) {
     assert(eq(michi_dir(PATH("/abs")), "/"));             /* root */
     assert(eq(michi_base(PATH("a/b/c.txt")), "c.txt"));
     assert(eq(michi_base(PATH("bare")), "bare"));
+    assert(eq(michi_base(PATH("/abs")), "abs"));         /* sep at index 0 */
     assert(eq(michi_base(PATH("dir\\win.c")), "win.c"));  /* backslash sep */
     assert(eq(michi_ext(PATH("model.vert")), ".vert"));
     assert(eq(michi_ext(PATH("a/b/x.tar.gz")), ".gz"));   /* last dot */
@@ -74,6 +95,7 @@ int main(void) {
     test_view_and_convert();
     test_join();
     test_joinf();
+    test_join_empty_component();
     test_decompose();
     test_normalize();
     test_overflow();

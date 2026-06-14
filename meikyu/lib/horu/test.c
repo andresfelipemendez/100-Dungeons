@@ -496,6 +496,44 @@ static void test_csg_tiny_scratch(void) {
     CHECK(n == 0); /* can't even fit the trees */
 }
 
+static void test_csg_scratch_one_tree(void) {
+    /* scratch that fits the FIRST bsp but not the second: the second alloc
+       fails, taking the `!B` arm of the (!A || !B) guard (MC/DC pair). */
+    horu_poly a[8], out[8];
+    static char buf[14000]; /* ~ one horu_bsp (~10KB) < this < two */
+    int na = horu_box_polys(0,0,0, 2,2,2, a, 8);
+    int n = horu_csg_polys(HORU_UNION, a, na, a, na, out, 8,
+                           buf, (int)sizeof buf);
+    CHECK(n == 0);
+}
+
+static void test_csg_empty_clip_ops(void) {
+    /* difference / intersection / empty-A with an empty operand drive the
+       empty-tree clip path for every op. */
+    horu_poly a[8], out[64];
+    int na = horu_box_polys(0,0,0, 2,2,2, a, 8);
+    CHECK(horu_csg_polys(HORU_DIFFERENCE, a, na, a, 0, out, 64, SCRATCH) >= 0);
+    CHECK(horu_csg_polys(HORU_INTERSECTION, a, na, a, 0, out, 64, SCRATCH) >= 0);
+    CHECK(horu_csg_polys(HORU_UNION, a, 0, a, na, out, 64, SCRATCH) >= 0);
+}
+
+static void test_csg_dense_node_pool(void) {
+    /* fold many overlapping spheres so the result's BSP exceeds the node pool
+       (HORU_BSP_NODES) -- exercises bsp_alloc's pool-full guard and the
+       front/back "alloc failed" arms. Must stay crash-free and bounded. */
+    static char buf[HORU_CSG_SCRATCH];
+    horu_poly acc[2048], shp[64], out[2048];
+    int nacc, nshp, i, k;
+    nacc = horu_sphere_polys(0, 0, 0, 1.0f, 8, 4, acc, 64);
+    for (i = 1; i < 40; i++) {
+        nshp = horu_sphere_polys((float)i * 0.3f, 0, 0, 1.0f, 8, 4, shp, 64);
+        nacc = horu_csg_polys(HORU_UNION, acc, nacc, shp, nshp, out, 2048,
+                              buf, (int)sizeof buf);
+        CHECK(nacc >= 0);
+        for (k = 0; k < nacc && k < 2048; k++) acc[k] = out[k];
+    }
+}
+
 int main(void) {
     test_plane_make_normalizes();
     test_plane_degenerate();
@@ -527,6 +565,9 @@ int main(void) {
     test_csg_capacity();
     test_csg_bounded_scratch();
     test_csg_tiny_scratch();
+    test_csg_scratch_one_tree();
+    test_csg_empty_clip_ops();
+    test_csg_dense_node_pool();
     if (g_fail) {
         printf("%d check(s) failed\n", g_fail);
         return 1;

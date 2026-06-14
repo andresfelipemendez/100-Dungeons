@@ -50,16 +50,19 @@ static void test_pick(void) {
    is nearer along the ray -- otherwise a primitive in front blocks the
    selected entity's arrows (the box-behind-sphere reset bug). */
 static void test_pick_handle_priority(void) {
-    tsu_target t[3];
+    tsu_target t[4];
     t[0].id = 10; t[0].center = mk(0,0,2);  t[0].half = mk(1,1,1); t[0].axis = -1; /* body, near */
     t[1].id = 21; t[1].center = mk(0,0,-3); t[1].half = mk(1,1,1); t[1].axis = 0;  /* handle, far */
     t[2].id = 22; t[2].center = mk(0,0,0);  t[2].half = mk(1,1,1); t[2].axis = 1;  /* handle, nearer */
-    /* both handles hit; the nearer handle wins over the body and the far one */
-    CHECK(tsu_pick(mkray(0,0,5, 0,0,-1), t, 3) == 22);
-    /* move both handles off the ray: only the body is hit, so it wins */
+    t[3].id = 23; t[3].center = mk(0,0,-6); t[3].half = mk(1,1,1); t[3].axis = 2;  /* handle, farthest */
+    /* nearer handle wins; t[3] (farther than the running best handle) takes the
+       d<bth false arm without displacing the winner */
+    CHECK(tsu_pick(mkray(0,0,5, 0,0,-1), t, 4) == 22);
+    /* move all handles off the ray: only the body is hit, so it wins */
     t[1].center = mk(9,9,9);
     t[2].center = mk(9,9,9);
-    CHECK(tsu_pick(mkray(0,0,5, 0,0,-1), t, 3) == 10);
+    t[3].center = mk(9,9,9);
+    CHECK(tsu_pick(mkray(0,0,5, 0,0,-1), t, 4) == 10);
 }
 
 static void test_ray_plane(void) {
@@ -161,10 +164,78 @@ static void test_gizmo_axis_constrained(void) {
     }
 }
 
+static void test_gizmo_axis_xz(void) {
+    /* X- and Z-locked drags so axis_dir is exercised for axes 0 and 2 (the Y
+       test only covered axis 1). */
+    tsu_gizmo g; int id, m; tsu_v3 mv;
+    tsu_v3 fwd = mk(0,0,-1);
+    tsu_target tx, tz;
+
+    tx.id = 1; tx.center = mk(0.7f,0,0); tx.half = mk(0.8f,0.3f,0.3f);
+    tx.origin = mk(0,0,0); tx.axis = 0;          /* lock to X */
+    tsu_gizmo_init(&g);
+    m = tsu_gizmo_update(&g, mkray(0.5f,0,5, 0,0,-1), 1, fwd, &tx, 1, &id, &mv);
+    CHECK(g.grab_axis == 0);
+    m = tsu_gizmo_update(&g, mkray(3,2,5, 0,0,-1), 1, fwd, &tx, 1, &id, &mv);
+    CHECK(m == 1 && feq(mv.y,0.0f) && feq(mv.z,0.0f)); /* only x -> axis_dir(0) */
+
+    tz.id = 2; tz.center = mk(0,0,0.7f); tz.half = mk(0.3f,0.3f,0.8f);
+    tz.origin = mk(0,0,0); tz.axis = 2;          /* lock to Z */
+    tsu_gizmo_init(&g);
+    m = tsu_gizmo_update(&g, mkray(5,0,0.5f, -1,0,0), 1, fwd, &tz, 1, &id, &mv);
+    CHECK(g.grab_axis == 2);                       /* axis_dir(2) exercised */
+    m = tsu_gizmo_update(&g, mkray(5,2,3, -1,0,0), 1, fwd, &tz, 1, &id, &mv);
+    CHECK(m == 1 && feq(mv.x,0.0f) && feq(mv.y,0.0f)); /* only z */
+}
+
+static void test_pick_id_zero_and_tie(void) {
+    /* a hit handle with id 0: distinguishes best_handle >= 0 from > 0 (the id
+       is a valid result, not "none") */
+    tsu_target h[1];
+    h[0].id = 0; h[0].center = mk(0,0,0); h[0].half = mk(1,1,1); h[0].axis = 1;
+    CHECK(tsu_pick(mkray(0,0,5, 0,0,-1), h, 1) == 0);
+    /* two bodies at the SAME distance: the strict `<` keeps the first seen, so
+       a `<=` mutant (which would switch to the second) is killed */
+    {
+        tsu_target b[2];
+        b[0].id = 100; b[0].center = mk(0,0,0); b[0].half = mk(1,1,1); b[0].axis = -1;
+        b[1].id = 200; b[1].center = mk(0,0,0); b[1].half = mk(1,1,1); b[1].axis = -1;
+        CHECK(tsu_pick(mkray(0,0,5, 0,0,-1), b, 2) == 100);
+    }
+}
+
+static void test_gizmo_no_press(void) {
+    /* mouse already down (no fresh press edge): the press-edge guard
+       (mouse_down && !prev_down) must be false -> no grab. Kills the
+       '&&' -> '||' mutant, which would grab without an edge. */
+    tsu_target tg; tsu_gizmo g;
+    tsu_v3 fwd = mk(0,0,-1);
+    int id = -1; tsu_v3 mv;
+    int m;
+    tg.id = 9; tg.center = mk(0,0,0); tg.half = mk(1,1,1);
+    tg.origin = tg.center; tg.axis = -1;
+    tsu_gizmo_init(&g);
+    g.prev_down = 1;   /* button was already down last frame: no press edge */
+    m = tsu_gizmo_update(&g, mkray(0,0,5, 0,0,-1), 1, fwd, &tg, 1, &id, &mv);
+    CHECK(g.selected == -1 && m == 0);
+}
+
+static void test_ray_degenerate(void) {
+    /* a zero forward + zero basis at screen center: norm3 of a zero vector
+       takes its l<=0 arm and returns the vector unchanged (no divide-by-zero) */
+    tsu_v3 z = mk(0,0,0);
+    tsu_ray r = tsu_ray_from_screen(z, z, z, z, 1.0f, 1.0f, 0.5f, 0.5f, 1.0f, 1.0f);
+    CHECK(feq(r.d.x,0.0f) && feq(r.d.y,0.0f) && feq(r.d.z,0.0f));
+}
+
 int main(void) {
     test_ray_aabb();
     test_pick();
     test_pick_handle_priority();
+    test_pick_id_zero_and_tie();
+    test_gizmo_no_press();
+    test_gizmo_axis_xz();
+    test_ray_degenerate();
     test_ray_plane();
     test_ray_from_screen();
     test_gizmo_select_drag_release();

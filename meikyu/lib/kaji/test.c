@@ -434,4 +434,116 @@ UTEST(e2e, exe_with_post_copy) {
     kaji_free(k);
 }
 
+/* kaji_new(): an anonymous builder (cc=gcc by default) for one-off compiles,
+   plus kaji_compile_shared's success and failure paths. */
+UTEST(api, new_free_and_compile_shared) {
+    kaji *k = kaji_new();
+    ASSERT_TRUE(k != NULL);
+    test_mkdir("build");
+
+    write_file("build/ok.c", "int answer(void) { return 42; }\n");
+    kaji_compile_opts o = { KAJI_C99, 1, 0 };
+    ASSERT_EQ(0, kaji_compile_shared(k, "build/ok.c", "build/ok_lib.so",
+                                     "build/ok.log", &o));
+
+    /* a source that does not compile: nonzero return, error log written */
+    write_file("build/broken.c", "this is not valid c at all;\n");
+    ASSERT_TRUE(kaji_compile_shared(k, "build/broken.c", "build/broken.so",
+                                    "build/broken.log", &o) != 0);
+    kaji_free(k);
+}
+
+/* kaji_load on a missing config file: the fopen-fail branch returns NULL with
+   a message (the parse-error branch is covered by parse.errors_carry_line_numbers
+   via load_cfg). */
+UTEST(load, missing_file) {
+    char err[256] = { 0 };
+    ASSERT_TRUE(kaji_load("build/no_such_kaji_config.cfg", err,
+                          sizeof(err)) == NULL);
+    ASSERT_TRUE(strstr(err, "cannot open") != NULL);
+}
+
+/* every parser error path: each malformed config drives one (or, for compound
+   conditions, one operand of one) kaji_fail / validation branch. */
+UTEST(parse, error_branches) {
+    char err[256];
+    ASSERT_TRUE(load_cfg("in stray.c\n", err, sizeof err) == NULL);        /* key outside target */
+    ASSERT_TRUE(load_cfg("target\n", err, sizeof err) == NULL);            /* no name */
+    ASSERT_TRUE(load_cfg("target a badkind\n", err, sizeof err) == NULL);  /* bad kind */
+    ASSERT_TRUE(load_cfg("target a dll\n  in x\n  out y\n  std c100\n",
+                         err, sizeof err) == NULL);                        /* bad std */
+    ASSERT_TRUE(load_cfg("target a dll\n  in x\n  out ${NOPE}\n",
+                         err, sizeof err) == NULL);                        /* out expand fail */
+    ASSERT_TRUE(load_cfg("target a dll\n  in ${NOPE}\n  out y\n",
+                         err, sizeof err) == NULL);                        /* in expand fail */
+    /* post: bad verb, then valid verb with from/to missing (each || operand) */
+    ASSERT_TRUE(load_cfg("target a exe\n  in x\n  out y\n  post bogus a b\n",
+                         err, sizeof err) == NULL);
+    ASSERT_TRUE(load_cfg("target a exe\n  in x\n  out y\n  post copy\n",
+                         err, sizeof err) == NULL);                        /* from empty */
+    ASSERT_TRUE(load_cfg("target a exe\n  in x\n  out y\n  post copy onlyfrom\n",
+                         err, sizeof err) == NULL);                        /* to empty */
+    ASSERT_TRUE(load_cfg("deny_include onlydir\n", err, sizeof err) == NULL); /* sub empty */
+    ASSERT_TRUE(load_cfg("tool onlyname\n", err, sizeof err) == NULL);        /* cmd empty */
+    ASSERT_TRUE(load_cfg("target a dll\n  in x\n", err, sizeof err) == NULL); /* no out */
+    ASSERT_TRUE(load_cfg("target a dll\n  out y\n", err, sizeof err) == NULL);/* no in */
+}
+
+/* the per-list capacity guards: exceed each KAJI_MAX_* and expect a refusal. */
+UTEST(parse, too_many) {
+    char err[256];
+    char cfg[8192];
+    int i, n;
+
+    n = snprintf(cfg, sizeof cfg, "target a dll\n  in");
+    for (i = 0; i < 17; i++) n += snprintf(cfg + n, sizeof cfg - n, " f%d.c", i);
+    snprintf(cfg + n, sizeof cfg - n, "\n  out y\n");
+    ASSERT_TRUE(load_cfg(cfg, err, sizeof err) == NULL);          /* > MAX_INS */
+
+    n = 0;
+    for (i = 0; i < 9; i++) n += snprintf(cfg + n, sizeof cfg - n, "tool t%d c%d\n", i, i);
+    ASSERT_TRUE(load_cfg(cfg, err, sizeof err) == NULL);          /* > MAX_TOOLS */
+
+    n = 0;
+    for (i = 0; i < 17; i++) n += snprintf(cfg + n, sizeof cfg - n, "deny_include d%d s%d\n", i, i);
+    ASSERT_TRUE(load_cfg(cfg, err, sizeof err) == NULL);          /* > MAX_DENY */
+
+    n = snprintf(cfg, sizeof cfg, "target a exe\n  in x\n  out y\n");
+    for (i = 0; i < 9; i++) n += snprintf(cfg + n, sizeof cfg - n, "  post copy a%d b%d\n", i, i);
+    ASSERT_TRUE(load_cfg(cfg, err, sizeof err) == NULL);          /* > MAX_POSTS */
+
+    n = 0;
+    for (i = 0; i < 33; i++) n += snprintf(cfg + n, sizeof cfg - n,
+                                           "target t%d dll\n  in x\n  out y%d\n", i, i);
+    ASSERT_TRUE(load_cfg(cfg, err, sizeof err) == NULL);          /* > MAX_TARGETS */
+}
+
+/* all six target kinds parse (covers kaji_kind_from for shader/object/pch) and
+   the compiled kinds assemble a command (covers command_for's exe/dll/object
+   branches). */
+UTEST(command, all_kinds_parse_and_assemble) {
+    char err[256] = { 0 };
+    kaji *k = load_cfg(
+        "builddir bb\nbuilddir_linux bb\n"
+        "tool glslc glslc\n"
+        "target c copy\n  in a.txt\n  out bb/a.txt\n"
+        "target s shader\n  in a.vert\n  out bb/a.spv\n"
+        "target o object\n  in a.c\n  out bb/a.o\n"
+        "target p pch\n  in a.h\n  out bb/a.pch\n"
+        "target d dll\n  in a.c\n  out bb/d${SO}\n"
+        "target e exe\n  in a.c\n  out bb/e${EXE}\n",
+        err, sizeof(err));
+    ASSERT_TRUE_MSG(k != NULL, err);
+
+    char cmd[1024];
+    const char *compiled[] = { "s", "o", "p", "d", "e" };
+    int i;
+    for (i = 0; i < 5; i++) {
+        kaji_target *t = kaji_find(k, ito_from(compiled[i]));
+        ASSERT_TRUE(t != NULL);
+        ASSERT_TRUE(kaji_command_for(k, t, cmd, sizeof(cmd), t->out));
+    }
+    kaji_free(k);
+}
+
 UTEST_MAIN()

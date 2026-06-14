@@ -932,14 +932,18 @@ static int run_tests(const char *only_lib, b32 coverage) {
                 FILE *z = fopen(cjson, "wb");
                 if (z) fclose(z);
             }
-            /* measure the LIBRARY source only -- the test harness (test.c)
-               and utest.h are not production code and must not dilute or
-               inflate the figure */
+            /* measure THIS lib's own source only. Two scopes are applied: the
+               positional 'lib/<name>' filter keeps the report to files under
+               the lib's directory -- so a header-only lib that #includes a
+               dependency (e.g. michi pulling in ito.h) is NOT diluted by that
+               dependency's uncovered code, which its own suite measures. The
+               ignore-regex then drops the test harness (test.c / utest.h),
+               which is not production code. */
             snprintf(cmd, sizeof cmd,
                      "'%s' export --summary-only "
                      "-ignore-filename-regex='test\\.c$|utest\\.h$' "
-                     "-instr-profile='%s' '%s'",
-                     llvmcov, pdata, exe);
+                     "-instr-profile='%s' '%s' '%s/lib/%.*s'",
+                     llvmcov, pdata, exe, engine_root, (int)nm.len, nm.ptr);
             if (sh_run(cmd, cjson) != 0) {
                 fprintf(stderr, "FAIL %s (llvm-cov export)\n", target);
                 failures++;
