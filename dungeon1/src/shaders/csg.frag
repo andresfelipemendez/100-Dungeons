@@ -15,7 +15,9 @@ const float SCALE = 1.5; /* texture tiles per world unit */
 
 void main() {
     vec3 n = normalize(v_normal);
-    vec3 w = abs(n);
+    /* sharpen the blend (pow 4) so a 45-degree face snaps to its dominant axis
+       instead of ghosting all three grids together */
+    vec3 w = pow(abs(n), vec3(4.0));
     w = w / max(w.x + w.y + w.z, 1e-4);
 
     vec3 gx = texture(u_tex, v_world.yz * SCALE).rgb;

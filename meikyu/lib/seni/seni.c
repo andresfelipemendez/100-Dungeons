@@ -129,6 +129,8 @@ parse_result parse_header(arena* a, char* header) {
     size_t fi;
     size_t di;
     ast_type cur_type;
+    char* cur_type_name; /* struct name when cur_type == ast_struct_t */
+    struct ast_struct* cur_nested; /* referenced struct when ast_struct_t */
     int line;
     const char* tag;
     int tag_len;
@@ -157,6 +159,8 @@ parse_result parse_header(arena* a, char* header) {
     si = 0;
     fi = 0;
     cur_type = ast_unknown;
+    cur_type_name = NULL;
+    cur_nested = NULL;
 
     line = 1;
     for (i = 0; header[i] != '\0'; i++) {
@@ -309,9 +313,29 @@ parse_result parse_header(arena* a, char* header) {
                 int len;
                 int echo;
                 int k;
+                int matched = 0;
+                size_t sk;
                 char* msg;
                 while (header[i] != '\0' && !is_white_space(header[i])) i++;
                 len = i - start;
+                /* a field whose type is another struct already parsed in this
+                   header -> a nested struct field */
+                for (sk = 0; sk < si; sk++) {
+                    char* sn = r.value.structs[sk].name;
+                    if (sn && (int)strlen(sn) == len &&
+                        strncmp(&header[start], sn, (size_t)len) == 0) {
+                        cur_type = ast_struct_t;
+                        cur_type_name = sn;
+                        cur_nested = &r.value.structs[sk];
+                        matched = 1;
+                        break;
+                    }
+                }
+                if (matched) {
+                    i--; /* land on the last type char; loop ++ then field name */
+                    state = PARSE_READ_FIELD_NAME;
+                    continue;
+                }
                 echo = len > MAX_TOKEN_ECHO ? MAX_TOKEN_ECHO : len;
                 for (k = 0; k < len; k++) {
                     if (header[start + k] == '*') {
@@ -476,14 +500,18 @@ parse_result parse_header(arena* a, char* header) {
             r.value.structs[si].fields[fi].name = arena_copy_string(a, &header[start], len);
             if (!r.value.structs[si].fields[fi].name) { r.err = "out of memory"; return r; }
             r.value.structs[si].fields[fi].type = cur_type;
+            r.value.structs[si].fields[fi].type_name = cur_type_name;
+            r.value.structs[si].fields[fi].nested = cur_nested;
             r.value.structs[si].fields[fi].array_size = arr_size;
             r.value.structs[si].fields[fi].was = was;
             r.value.structs[si].fields[fi].def = def;
             fi++;
             if (header[i] == ',') {
-                state = PARSE_READ_FIELD_NAME;
+                state = PARSE_READ_FIELD_NAME;  /* comma-list keeps cur_type[_name] */
             } else {
                 state = PARSE_IN_STRUCT;
+                cur_type_name = NULL;           /* next field re-resolves its type */
+                cur_nested = NULL;
             }
         }
     }
@@ -539,10 +567,93 @@ static void sb_appendf(strbuf* b, const char* fmt, ...) {
 }
 
 static void emit_field(strbuf* b, ast_field* f) {
+    if (f->type == ast_struct_t) {
+        /* a nested struct field is emitted inline (anonymous struct) so the
+           migration dll needs no separate typedef for the referenced struct,
+           and the old/new typedefs each carry their own snapshot of it. the
+           parser always resolves nested for ast_struct_t, and the diff rejects
+           arrays of structs, so this is a scalar struct member. */
+        size_t k;
+        sb_appendf(b, "struct { ");
+        for (k = 0; k < f->nested->fields_count; k++)
+            emit_field(b, &f->nested->fields[k]);
+        sb_appendf(b, "} %s; ", f->name);
+        return;
+    }
     if (f->array_size > 0)
         sb_appendf(b, "%s %s[%lu]; ", type_name(f->type), f->name, (unsigned long)f->array_size);
     else
         sb_appendf(b, "%s %s; ", type_name(f->type), f->name);
+}
+
+/* a nested array member would need a `j` index inside the nested loop too. */
+static int ops_need_j(field_op* ops, size_t n) {
+    size_t k;
+    for (k = 0; k < n; k++) {
+        if (ops[k].old_array_size > 0 || ops[k].new_array_size > 0) return 1;
+        if (ops[k].nested && ops_need_j(ops[k].nested->ops, ops[k].nested->ops_count)) return 1;
+    }
+    return 0;
+}
+
+/* emit one field's migration. lhs/rhs are the base lvalues ("n[i]" / "o[i]" at
+   the top level, "n[i].ed" / "o[i].ed" one level down): the field is reached as
+   `<lhs>.<name>`. a struct field recurses into its members with the dotted base
+   extended. when a struct field is new (kind == zero) its nested ops are all
+   zero, so rhs is never dereferenced. */
+static void emit_op(strbuf* b, field_op* op, const char* lhs, const char* rhs) {
+    if (op->nested) {
+        /* build the dotted base on the stack -- NOT via the arena: sb_appendf
+           relies on its appends being contiguous in the arena, so allocating a
+           string there mid-build would splice into the output. */
+        char nlhs[512];
+        char nrhs[512];
+        size_t k;
+        /* lhs and rhs grow in lockstep (n[i]... vs o[i]..., identical length),
+           and every member name is bounded by MAX_NAME, so reserving MAX_NAME
+           for the leaf on top of the current base bounds both buffers with a
+           single check -- no per-side comparison that could never differ. */
+        if (strlen(lhs) + MAX_NAME + 2 > sizeof nlhs) {
+            b->err = "nested field path too long"; return;
+        }
+        sprintf(nlhs, "%s.%s", lhs, op->name);
+        sprintf(nrhs, "%s.%s", rhs, op->old_name);
+        for (k = 0; k < op->nested->ops_count; k++)
+            emit_op(b, &op->nested->ops[k], nlhs, nrhs);
+        return;
+    }
+    if (op->kind == field_op_copy) {
+        /* old_name differs from name only for SENI_WAS renames */
+        if (op->old_array_size == 0 && op->new_array_size == 0) {
+            sb_appendf(b, "        %s.%s = %s.%s;\n", lhs, op->name, rhs, op->old_name);
+        } else if (op->old_array_size > 0 && op->new_array_size > 0) {
+            size_t m = op->old_array_size < op->new_array_size ? op->old_array_size : op->new_array_size;
+            sb_appendf(b, "        for (j = 0; j < %lu; j++) %s.%s[j] = %s.%s[j];\n",
+                       (unsigned long)m, lhs, op->name, rhs, op->old_name);
+            if (op->new_array_size > m)
+                sb_appendf(b, "        for (j = %lu; j < %lu; j++) %s.%s[j] = %s;\n",
+                           (unsigned long)m, (unsigned long)op->new_array_size, lhs, op->name,
+                           op->def ? op->def : "0");
+        } else if (op->old_array_size == 0) { /* scalar -> array */
+            sb_appendf(b, "        %s.%s[0] = %s.%s;\n", lhs, op->name, rhs, op->old_name);
+            if (op->new_array_size > 1)
+                sb_appendf(b, "        for (j = 1; j < %lu; j++) %s.%s[j] = %s;\n",
+                           (unsigned long)op->new_array_size, lhs, op->name,
+                           op->def ? op->def : "0");
+        } else { /* array -> scalar */
+            sb_appendf(b, "        %s.%s = %s.%s[0];\n", lhs, op->name, rhs, op->old_name);
+        }
+    } else {
+        /* invented values: SENI_DEFAULT's literal when given, else 0. the
+           literal is emitted verbatim -- the migration compiler type-checks it
+           against the field */
+        if (op->new_array_size == 0)
+            sb_appendf(b, "        %s.%s = %s;\n", lhs, op->name, op->def ? op->def : "0");
+        else
+            sb_appendf(b, "        for (j = 0; j < %lu; j++) %s.%s[j] = %s;\n",
+                       (unsigned long)op->new_array_size, lhs, op->name,
+                       op->def ? op->def : "0");
+    }
 }
 
 generate_result generate_migration(arena* a, diff d) {
@@ -561,10 +672,7 @@ generate_result generate_migration(arena* a, diff d) {
     for (i = 0; i < d.struct_count; i++) {
         struct_diff* sd = &d.structs[i];
         size_t j;
-        int need_j = 0;
-        for (j = 0; j < sd->ops_count; j++) {
-            if (sd->ops[j].old_array_size > 0 || sd->ops[j].new_array_size > 0) need_j = 1;
-        }
+        int need_j = ops_need_j(sd->ops, sd->ops_count);
         /* seni__ prefix keeps generated typedefs from colliding with user
            structs named e.g. 'enemy_old'. migrate_<name> stays unprefixed:
            it is the symbol engines look up. */
@@ -604,42 +712,8 @@ generate_result generate_migration(arena* a, diff d) {
         if (sd->old_count == 0)
             sb_appendf(&b, "    (void)old_p;\n");
         sb_appendf(&b, "    for (i = 0; i < count; i++) {\n");
-        for (j = 0; j < sd->ops_count; j++) {
-            field_op* op = &sd->ops[j];
-            if (op->kind == field_op_copy) {
-                /* old_name differs from name only for SENI_WAS renames */
-                if (op->old_array_size == 0 && op->new_array_size == 0) {
-                    sb_appendf(&b, "        n[i].%s = o[i].%s;\n", op->name, op->old_name);
-                } else if (op->old_array_size > 0 && op->new_array_size > 0) {
-                    size_t m = op->old_array_size < op->new_array_size ? op->old_array_size : op->new_array_size;
-                    sb_appendf(&b, "        for (j = 0; j < %lu; j++) n[i].%s[j] = o[i].%s[j];\n",
-                               (unsigned long)m, op->name, op->old_name);
-                    if (op->new_array_size > m)
-                        sb_appendf(&b, "        for (j = %lu; j < %lu; j++) n[i].%s[j] = %s;\n",
-                                   (unsigned long)m, (unsigned long)op->new_array_size, op->name,
-                                   op->def ? op->def : "0");
-                } else if (op->old_array_size == 0) { /* scalar -> array */
-                    sb_appendf(&b, "        n[i].%s[0] = o[i].%s;\n", op->name, op->old_name);
-                    if (op->new_array_size > 1)
-                        sb_appendf(&b, "        for (j = 1; j < %lu; j++) n[i].%s[j] = %s;\n",
-                                   (unsigned long)op->new_array_size, op->name,
-                                   op->def ? op->def : "0");
-                } else { /* array -> scalar */
-                    sb_appendf(&b, "        n[i].%s = o[i].%s[0];\n", op->name, op->old_name);
-                }
-            } else {
-                /* invented values: SENI_DEFAULT's literal when given, else 0.
-                   the literal is emitted verbatim -- the migration compiler
-                   type-checks it against the field */
-                if (op->new_array_size == 0)
-                    sb_appendf(&b, "        n[i].%s = %s;\n", op->name,
-                               op->def ? op->def : "0");
-                else
-                    sb_appendf(&b, "        for (j = 0; j < %lu; j++) n[i].%s[j] = %s;\n",
-                               (unsigned long)op->new_array_size, op->name,
-                               op->def ? op->def : "0");
-            }
-        }
+        for (j = 0; j < sd->ops_count; j++)
+            emit_op(&b, &sd->ops[j], "n[i]", "o[i]");
         sb_appendf(&b, "    }\n}\n\n");
     }
     if (b.err) { r.err = b.err; return r; }
@@ -874,6 +948,106 @@ typedef struct seni_q_node {
     struct seni_q_node* next;
 } seni_q_node;
 
+/* build the field-by-field ops migrating old struct `os` (NULL if the struct is
+   new) into new struct `ns`, filling `sd`. recurses for nested struct fields so
+   `op->nested` carries the inner diff. ambiguity questions are raised only by
+   the caller, for the top-level structs -- a nested rename is reported at the
+   member it lands on, which is enough to act on. returns an error string
+   (arena-owned) or NULL. */
+static char* build_ops(arena* a, ast_struct* os, ast_struct* ns, struct_diff* sd) {
+    size_t f;
+    sd->name = ns->name;
+    sd->new_fields = ns->fields;
+    sd->new_count = ns->fields_count;
+    sd->old_fields = os ? os->fields : NULL;
+    sd->old_count = os ? os->fields_count : 0;
+    sd->ops_count = ns->fields_count;
+    sd->ops = NULL;
+    if (ns->fields_count > 0) {
+        sd->ops = allocate(a, sizeof(field_op) * ns->fields_count);
+        if (!sd->ops) return "out of memory";
+    }
+    for (f = 0; f < ns->fields_count; f++) {
+        field_op* op = &sd->ops[f];
+        ast_field* nf = &ns->fields[f];
+        ast_struct* old_nested = NULL; /* referenced struct of the matched old field */
+        size_t g;
+        op->name = nf->name;
+        op->old_name = nf->name;
+        op->type = nf->type;
+        op->kind = field_op_zero;
+        op->old_array_size = 0;
+        op->new_array_size = nf->array_size;
+        op->def = nf->def;
+        op->nested = NULL;
+        for (g = 0; os && g < os->fields_count; g++) {
+            if (strcmp(os->fields[g].name, nf->name) == 0) {
+                if (os->fields[g].type != nf->type) {
+                    char* msg = arena_sprintf(a, "field '%s' in struct '%s' changed type from %s to %s, cannot migrate",
+                                              nf->name, ns->name,
+                                              type_name(os->fields[g].type), type_name(nf->type));
+                    return msg ? msg : "field changed type, cannot migrate";
+                }
+                op->kind = field_op_copy;
+                op->old_array_size = os->fields[g].array_size;
+                old_nested = os->fields[g].nested;
+                break;
+            }
+        }
+        /* rename: SENI_WAS is consulted only when no same-name match exists, so
+           an annotation left in the header after its rename has migrated is
+           inert (the renamed field matches by name on every later diff). when
+           consulted, it must resolve -- a typo'd SENI_WAS that silently zeroed
+           would be the exact data-loss class the annotation exists to prevent. */
+        if (op->kind == field_op_zero && nf->was) {
+            for (g = 0; os && g < os->fields_count; g++) {
+                if (strcmp(os->fields[g].name, nf->was) == 0) break;
+            }
+            if (!os || g >= os->fields_count) {
+                char* msg = arena_sprintf(a, "field '%s' in struct '%s': SENI_WAS(%s) but old layout has no field '%s'",
+                                          nf->name, ns->name, nf->was, nf->was);
+                return msg ? msg : "SENI_WAS names a missing old field";
+            }
+            if (os->fields[g].type != nf->type) {
+                char* msg = arena_sprintf(a, "field '%s' in struct '%s': SENI_WAS(%s) but '%s' is %s and '%s' is %s, cannot migrate rename",
+                                          nf->name, ns->name, nf->was,
+                                          nf->was, type_name(os->fields[g].type),
+                                          nf->name, type_name(nf->type));
+                return msg ? msg : "SENI_WAS type mismatch, cannot migrate rename";
+            }
+            op->kind = field_op_copy;
+            op->old_name = os->fields[g].name;
+            op->old_array_size = os->fields[g].array_size;
+            old_nested = os->fields[g].nested;
+        }
+        /* nested struct field: recurse so op->nested migrates the members.
+           the parser always resolves nested for an ast_struct_t field. */
+        if (nf->type == ast_struct_t) {
+            struct_diff* nsd;
+            char* e;
+            if (nf->array_size > 0) {
+                char* msg = arena_sprintf(a, "field '%s' in struct '%s': arrays of structs are not supported",
+                                          nf->name, ns->name);
+                return msg ? msg : "arrays of structs are not supported";
+            }
+            if (old_nested && strcmp(old_nested->name, nf->nested->name) != 0) {
+                char* msg = arena_sprintf(a, "field '%s' in struct '%s' changed struct type from %s to %s, cannot migrate",
+                                          nf->name, ns->name, old_nested->name, nf->nested->name);
+                return msg ? msg : "struct field changed type, cannot migrate";
+            }
+            nsd = allocate(a, sizeof(struct_diff));
+            if (!nsd) return "out of memory";
+            /* old_nested is non-NULL only when the field copied from an old
+               field -- a new struct field diffs against no old layout, so every
+               member defaults. */
+            e = build_ops(a, op->kind == field_op_copy ? old_nested : NULL, nf->nested, nsd);
+            if (e) return e;
+            op->nested = nsd;
+        }
+    }
+    return NULL;
+}
+
 diff_result diff_structs(arena* a, char *old_header, char *new_header){
     diff_result res = {0};
     parse_result old_r;
@@ -909,78 +1083,13 @@ diff_result diff_structs(arena* a, char *old_header, char *new_header){
         struct_diff* sd = &res.value.structs[i];
         ast_struct* os = NULL;
         size_t j;
-        size_t f;
-
-        sd->name = ns->name;
-        sd->new_fields = ns->fields;
-        sd->new_count = ns->fields_count;
+        char* e;
 
         for (j = 0; j < old_ast.struct_count; j++) {
             if (strcmp(old_ast.structs[j].name, ns->name) == 0) { os = &old_ast.structs[j]; break; }
         }
-        sd->old_fields = os ? os->fields : NULL;
-        sd->old_count = os ? os->fields_count : 0;
-
-        sd->ops_count = ns->fields_count;
-        sd->ops = NULL;
-        if (ns->fields_count > 0) {
-            sd->ops = allocate(a, sizeof(field_op) * ns->fields_count);
-            if (!sd->ops) { res.err = "out of memory"; return res; }
-        }
-        for (f = 0; f < ns->fields_count; f++) {
-            field_op* op = &sd->ops[f];
-            size_t g;
-            op->name = ns->fields[f].name;
-            op->old_name = ns->fields[f].name;
-            op->type = ns->fields[f].type;
-            op->kind = field_op_zero;
-            op->old_array_size = 0;
-            op->new_array_size = ns->fields[f].array_size;
-            op->def = ns->fields[f].def;
-            for (g = 0; os && g < os->fields_count; g++) {
-                if (strcmp(os->fields[g].name, ns->fields[f].name) == 0) {
-                    if (os->fields[g].type != ns->fields[f].type) {
-                        char* msg = arena_sprintf(a, "field '%s' in struct '%s' changed type from %s to %s, cannot migrate",
-                                                  ns->fields[f].name, ns->name,
-                                                  type_name(os->fields[g].type), type_name(ns->fields[f].type));
-                        res.err = msg ? msg : "field changed type, cannot migrate";
-                        return res;
-                    }
-                    op->kind = field_op_copy;
-                    op->old_array_size = os->fields[g].array_size;
-                    break;
-                }
-            }
-            /* rename: SENI_WAS is consulted only when no same-name match
-               exists, so an annotation left in the header after its rename
-               has migrated is inert (the renamed field matches by name on
-               every later diff). when consulted, it must resolve -- a typo'd
-               SENI_WAS that silently zeroed would be the exact data-loss
-               class the annotation exists to prevent. */
-            if (op->kind == field_op_zero && ns->fields[f].was) {
-                for (g = 0; os && g < os->fields_count; g++) {
-                    if (strcmp(os->fields[g].name, ns->fields[f].was) == 0) break;
-                }
-                if (!os || g >= os->fields_count) {
-                    char* msg = arena_sprintf(a, "field '%s' in struct '%s': SENI_WAS(%s) but old layout has no field '%s'",
-                                              ns->fields[f].name, ns->name,
-                                              ns->fields[f].was, ns->fields[f].was);
-                    res.err = msg ? msg : "SENI_WAS names a missing old field";
-                    return res;
-                }
-                if (os->fields[g].type != ns->fields[f].type) {
-                    char* msg = arena_sprintf(a, "field '%s' in struct '%s': SENI_WAS(%s) but '%s' is %s and '%s' is %s, cannot migrate rename",
-                                              ns->fields[f].name, ns->name, ns->fields[f].was,
-                                              ns->fields[f].was, type_name(os->fields[g].type),
-                                              ns->fields[f].name, type_name(ns->fields[f].type));
-                    res.err = msg ? msg : "SENI_WAS type mismatch, cannot migrate rename";
-                    return res;
-                }
-                op->kind = field_op_copy;
-                op->old_name = os->fields[g].name;
-                op->old_array_size = os->fields[g].array_size;
-            }
-        }
+        e = build_ops(a, os, ns, sd);
+        if (e) { res.err = e; return res; }
 
         /* ambiguity advisor: a removed old field plus a same-type added new
            field is either a rename or a real removal, and the diff cannot

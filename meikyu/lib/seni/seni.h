@@ -8,18 +8,25 @@ typedef enum {
     ast_float,
     ast_char,
     ast_double,
+    ast_struct_t,   /* field whose type is another struct defined in the header */
     ast_unknown
 } ast_type;
+
+struct ast_struct;  /* forward: a struct field points at its referenced struct */
 
 typedef struct {
     char* name;
     ast_type type;
+    char* type_name;    /* struct name when type == ast_struct_t, else NULL */
+    struct ast_struct* nested; /* referenced struct when ast_struct_t, else NULL.
+                                  resolved at parse time to an earlier struct;
+                                  stable for the life of its parse_result. */
     size_t array_size;  /* 0 = scalar */
     char* was;          /* SENI_WAS(old_name) annotation, NULL = none */
     char* def;          /* SENI_DEFAULT(literal) annotation, NULL = none */
 } ast_field;
 
-typedef struct {
+typedef struct ast_struct {
     char* name;
     ast_field* fields;
     size_t fields_count;
@@ -34,6 +41,8 @@ typedef struct {
 
 typedef enum { field_op_copy, field_op_zero } field_op_kind;
 
+struct struct_diff;  /* forward: a struct field's op carries a recursive diff */
+
 typedef struct {
     field_op_kind kind;
     char* name;              /* field name in new struct */
@@ -44,9 +53,15 @@ typedef struct {
     size_t new_array_size;   /* 0 = scalar */
     char* def;               /* SENI_DEFAULT literal for invented values
                                 (zero ops, grown array tails); NULL = 0 */
+    struct struct_diff* nested; /* when type == ast_struct_t: the field-by-field
+                                   diff of the referenced struct. its ops migrate
+                                   the nested members (dotted access). NULL for
+                                   scalars. when kind == zero (the struct field is
+                                   new), the nested diff has no old layout, so its
+                                   ops all default/zero. */
 } field_op;
 
-typedef struct {
+typedef struct struct_diff {
     char* name;                                 /* struct name */
     ast_field* old_fields; size_t old_count;    /* for emitting old typedef */
     ast_field* new_fields; size_t new_count;    /* for emitting new typedef */

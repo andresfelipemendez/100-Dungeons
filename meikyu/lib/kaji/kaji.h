@@ -54,7 +54,8 @@ typedef struct kaji kaji;
    in flight at once (e.g. the dev dll and a ship build). Zero-init. */
 typedef struct {
     char cmds[KAJI_RUN_MAX_STEPS][KAJI_RUN_CMD_MAX];
-    int  copy_step[KAJI_RUN_MAX_STEPS]; /* 1 = cmd is "from|to" file copy */
+    int  copy_step[KAJI_RUN_MAX_STEPS]; /* 0 = process; 1 = "from|to" file copy;
+                                           2 = copydir; 3 = "in0|..|out" concat */
     int  step_count;
     int  step;
     char publish_tmp[512];  /* dll kind: rename tmp -> publish_out at end */
@@ -62,6 +63,7 @@ typedef struct {
     char log_path[512];
     void *proc;        /* in-flight child process (compile/link steps) */
     void *copy_thread; /* in-flight worker thread (copy steps) */
+    int  sync_ok;      /* result of the last synchronous step (concat) */
     int  active;
     int  exit_code;
 } kaji_run;

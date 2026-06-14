@@ -4,6 +4,7 @@
 
 #include "engine/ui/ui.h"
 #include "engine/render/render.h"
+#include "engine/theme.h"
 
 #include <string.h>
 #include <SDL3/SDL.h>
@@ -172,7 +173,7 @@ void ui_panel_begin(ito id, f32 width) {
                     .padding = CLAY_PADDING_ALL(12),
                     .childGap = 10,
                     .layoutDirection = CLAY_TOP_TO_BOTTOM },
-        .backgroundColor = { 24, 26, 34, 235 },
+        .backgroundColor = { THEME_PANEL },
     });
 }
 
@@ -194,7 +195,7 @@ void ui_panel_begin_right(ito id, f32 width) {
                     .padding = CLAY_PADDING_ALL(12),
                     .childGap = 10,
                     .layoutDirection = CLAY_TOP_TO_BOTTOM },
-        .backgroundColor = { 24, 26, 34, 235 },
+        .backgroundColor = { THEME_PANEL },
         /* float out of the root's left-to-right flow, pinned to the right edge */
         .floating = { .attachTo = CLAY_ATTACH_TO_ROOT,
                       .attachPoints = {
@@ -231,11 +232,11 @@ static void ui_text_internal(ito text, int font_size, Clay_Color color) {
 }
 
 void ui_label(ito text, int font_size) {
-    ui_text_internal(text, font_size, (Clay_Color){ 230, 232, 244, 255 });
+    ui_text_internal(text, font_size, (Clay_Color){ THEME_TEXT });
 }
 
 void ui_label_dim(ito text, int font_size) {
-    ui_text_internal(text, font_size, (Clay_Color){ 150, 155, 170, 255 });
+    ui_text_internal(text, font_size, (Clay_Color){ THEME_TEXT_DIM });
 }
 
 b32 ui_button(ito id, ito label) {
@@ -254,11 +255,11 @@ b32 ui_button(ito id, ito label) {
                     .padding = { 8, 8, 0, 0 },
                     .childAlignment = { CLAY_ALIGN_X_CENTER, CLAY_ALIGN_Y_CENTER } },
         .backgroundColor = Clay_Hovered()
-            ? (Clay_Color){ 95, 100, 140, 255 }
-            : (Clay_Color){ 60, 64, 90, 255 },
+            ? (Clay_Color){ THEME_BTN_HOVER }   /* hover: teal accent */
+            : (Clay_Color){ THEME_BTN },
         .cornerRadius = { 4, 4, 4, 4 },
     });
-    ui_text_internal(label, 16, (Clay_Color){ 230, 230, 240, 255 });
+    ui_text_internal(label, 16, (Clay_Color){ THEME_TEXT });
     Clay__CloseElement();
     return clicked;
 }
@@ -277,13 +278,13 @@ b32 ui_select_row(ito id, ito label, b32 selected) {
                     .padding = { 8, 8, 0, 0 },
                     .childAlignment = { .y = CLAY_ALIGN_Y_CENTER } },
         .backgroundColor = selected
-            ? (Clay_Color){ 64, 110, 88, 255 }   /* selected: green tint */
+            ? (Clay_Color){ THEME_ROW_SEL }  /* selected: teal */
             : Clay_Hovered()
-                ? (Clay_Color){ 48, 52, 70, 255 }
-                : (Clay_Color){ 32, 35, 46, 255 },
+                ? (Clay_Color){ THEME_ROW_HOVER }
+                : (Clay_Color){ THEME_ROW },
         .cornerRadius = { 3, 3, 3, 3 },
     });
-    ui_text_internal(label, 14, (Clay_Color){ 230, 232, 244, 255 });
+    ui_text_internal(label, 14, (Clay_Color){ THEME_TEXT });
     Clay__CloseElement();
     return clicked;
 }

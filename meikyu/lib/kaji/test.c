@@ -386,6 +386,78 @@ UTEST(e2e, async_polls_to_done) {
     kaji_free(k);
 }
 
+UTEST(e2e, copy_concatenates_multiple_ins) {
+    /* a copy target with >1 `in` writes the ins concatenated in order -- the
+       seni layout snapshot prepends a lib's state header to game_state.h. */
+    test_mkdir("build");
+    write_file("build/part_a.h", "AAA\n");
+    write_file("build/part_b.h", "BBB\n");
+    char err[256] = { 0 };
+    kaji *k = load_cfg(
+        "builddir build\n"
+        "target snap copy\n"
+        "  in build/part_a.h\n"
+        "  in build/part_b.h\n"
+        "  out build/joined.h\n", err, sizeof(err));
+    ASSERT_TRUE_MSG(k != NULL, err);
+    ASSERT_EQ(0, kaji_build(k, "snap", 0));
+    size_t len = 0;
+    char *got = (char *)dodai_read_file(michi_from_cstr("build/joined.h"), &len);
+    ASSERT_TRUE(got != NULL);
+    ASSERT_EQ((size_t)8, len);
+    ASSERT_EQ(0, memcmp(got, "AAA\nBBB\n", 8));
+    free(got);
+    kaji_free(k);
+}
+
+UTEST(e2e, concat_reruns_when_an_in_changes) {
+    /* staleness: editing any `in` must re-concatenate, not leave a stale out. */
+    test_mkdir("build");
+    write_file("build/c_a.h", "AAA\n");
+    write_file("build/c_b.h", "BBB\n");
+    char err[256] = { 0 };
+    kaji *k = load_cfg(
+        "builddir build\n"
+        "target snap copy\n"
+        "  in build/c_a.h\n"
+        "  in build/c_b.h\n"
+        "  out build/c_join.h\n", err, sizeof(err));
+    ASSERT_TRUE_MSG(k != NULL, err);
+    ASSERT_EQ(0, kaji_build(k, "snap", 0));
+    /* edit the second in; the out must reflect both ins again, concatenated */
+    settle_ms(30);
+    write_file("build/c_b.h", "ZZZZ\n");
+    ASSERT_EQ(0, kaji_build(k, "snap", 0));
+    size_t len = 0;
+    char *got = (char *)dodai_read_file(michi_from_cstr("build/c_join.h"), &len);
+    ASSERT_TRUE(got != NULL);
+    ASSERT_EQ((size_t)9, len);
+    ASSERT_EQ(0, memcmp(got, "AAA\nZZZZ\n", 9));
+    free(got);
+    kaji_free(k);
+}
+
+UTEST(e2e, copy_single_in_still_copies) {
+    /* the single-`in` copy path is unchanged (plain file copy). */
+    test_mkdir("build");
+    write_file("build/solo.h", "SOLO\n");
+    char err[256] = { 0 };
+    kaji *k = load_cfg(
+        "builddir build\n"
+        "target snap copy\n"
+        "  in build/solo.h\n"
+        "  out build/solo_out.h\n", err, sizeof(err));
+    ASSERT_TRUE_MSG(k != NULL, err);
+    ASSERT_EQ(0, kaji_build(k, "snap", 0));
+    size_t len = 0;
+    char *got = (char *)dodai_read_file(michi_from_cstr("build/solo_out.h"), &len);
+    ASSERT_TRUE(got != NULL);
+    ASSERT_EQ((size_t)5, len);
+    ASSERT_EQ(0, memcmp(got, "SOLO\n", 5));
+    free(got);
+    kaji_free(k);
+}
+
 UTEST(e2e, compile_error_fails_with_log) {
     test_mkdir("build");
     write_file("build/answer.c", "int answer(void) { return 1; }\n");

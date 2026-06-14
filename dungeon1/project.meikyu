@@ -1,3 +1,7 @@
 # meikyu project marker -- the engine generates every build input from
 # this folder's src/ tree. See meikyu/src/platform/project_gen.h.
 name dungeon1
+
+# the henshu editor nests EditorState in game_state; prepend its state header to
+# the seni layout snapshot so the reload diff can resolve the `editor` field.
+layout_include lib/henshu/henshu_state.h

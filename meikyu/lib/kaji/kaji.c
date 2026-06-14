@@ -625,6 +625,7 @@ static int kaji_add_step(kaji_run *run, const char *cmd, int copy_kind) {
 }
 
 static int kaji_plan_target(kaji *k, kaji_target *t, kaji_run *run, int *forced);
+static int kaji_emit_copy(kaji_run *run, kaji_target *t);
 
 static int kaji_plan_deps(kaji *k, kaji_target *t, kaji_run *run, int *forced) {
     for (int i = 0; i < t->dep_count; i++) {
@@ -666,8 +667,7 @@ static int kaji_plan_target(kaji *k, kaji_target *t, kaji_run *run, int *forced)
 
     char cmd[KAJI_RUN_CMD_MAX];
     if (t->kind == KAJI_KIND_COPY) {
-        snprintf(cmd, sizeof(cmd), "%s|%s", t->ins[0], t->out);
-        return kaji_add_step(run, cmd, 1);
+        return kaji_emit_copy(run, t);
     }
 
     const char *out_path = t->out;
@@ -698,6 +698,71 @@ static int kaji_plan_target(kaji *k, kaji_target *t, kaji_run *run, int *forced)
 /* Starts the current step: copies run on a worker thread (a ship bundle's
    asset tree must never stall the frame loop), compiles/links as child
    processes -- both polled the same way. Publishes at the end. */
+/* emit the right step for a copy target: a single `in` is a plain async file
+   copy ("from|to"); two or more ins concatenate ("in0|in1|...|out") so the seni
+   layout snapshot can prepend a lib's state header to game_state.h. */
+static int kaji_emit_copy(kaji_run *run, kaji_target *t) {
+    char cmd[KAJI_RUN_CMD_MAX];
+    if (t->in_count <= 1) {
+        snprintf(cmd, sizeof(cmd), "%s|%s", t->ins[0], t->out);
+        return kaji_add_step(run, cmd, 1);
+    }
+    {
+        int off = 0, i;
+        for (i = 0; i < t->in_count; i++) {
+            off += snprintf(cmd + off, sizeof(cmd) - (size_t)off, "%s|", t->ins[i]);
+            if (off < 0 || off >= (int)sizeof(cmd)) return 0;
+        }
+        snprintf(cmd + off, sizeof(cmd) - (size_t)off, "%s", t->out);
+        return kaji_add_step(run, cmd, 3);
+    }
+}
+
+/* synchronous concat of "in0|in1|...|out": read every in, write them joined to
+   out. small inputs (header snapshots), so no worker thread -- the result is
+   reported through run->sync_ok and the poll's concat branch. */
+static int kaji_do_concat(kaji_run *run) {
+    ito s = ito_from(run->cmds[run->step]);
+    int last = ito_find_last(s, '|');
+    char to[KAJI_PATH_MAX];
+    char *blob = NULL;
+    size_t blob_len = 0;
+    ito rest;
+    int ok = 1;
+    run->sync_ok = 0;
+    if (last < 0 || !ito_copy(to, sizeof(to), ito_slice(s, (size_t)last + 1, s.len))) {
+        return 1; /* malformed: leave sync_ok = 0 so the poll fails the step */
+    }
+    dodai_make_dirs_for(michi_from_cstr(to));
+    rest = ito_slice(s, 0, (size_t)last); /* every in, '|'-separated */
+    while (rest.len && ok) {
+        int sep = ito_find(rest, '|');
+        ito part = (sep < 0) ? rest : ito_slice(rest, 0, (size_t)sep);
+        char from[KAJI_PATH_MAX];
+        size_t fl = 0;
+        void *fd;
+        if (!ito_copy(from, sizeof(from), part)) { ok = 0; break; }
+        fd = dodai_read_file(michi_from_cstr(from), &fl);
+        if (!fd) { ok = 0; break; }
+        {
+            char *nb = (char *)realloc(blob, blob_len + fl);
+            if (!nb) { free(fd); ok = 0; break; }
+            blob = nb;
+            memcpy(blob + blob_len, fd, fl);
+            blob_len += fl;
+        }
+        free(fd);
+        if (sep < 0) break;
+        rest = ito_slice(rest, (size_t)sep + 1, rest.len);
+    }
+    if (ok) {
+        ok = dodai_write_file(michi_from_cstr(to), blob ? blob : "", blob_len);
+    }
+    free(blob);
+    run->sync_ok = ok;
+    return 1;
+}
+
 static int kaji_start_copy(kaji_run *run) {
     ito s = ito_from(run->cmds[run->step]);
     int sep = ito_find(s, '|');
@@ -717,6 +782,9 @@ static int kaji_start_copy(kaji_run *run) {
 
 static int kaji_advance(kaji_run *run) {
     if (run->step < run->step_count) {
+        if (run->copy_step[run->step] == 3) {
+            return kaji_do_concat(run); /* synchronous; result in run->sync_ok */
+        }
         if (run->copy_step[run->step]) {
             return kaji_start_copy(run);
         }
@@ -833,8 +901,7 @@ int kaji_build_async(kaji *k, const char *target, kaji_run *run, int force) {
         dodai_make_dirs_for(michi_from_cstr(t->out));
         char cmd[KAJI_RUN_CMD_MAX];
         if (t->kind == KAJI_KIND_COPY) {
-            snprintf(cmd, sizeof(cmd), "%s|%s", t->ins[0], t->out);
-            if (!kaji_add_step(run, cmd, 1)) {
+            if (!kaji_emit_copy(run, t)) {
                 return 0;
             }
         } else {
@@ -885,7 +952,11 @@ kaji_status kaji_run_poll(kaji *k, kaji_run *run) {
     }
 
     int step_ok;
-    if (run->copy_step[run->step]) {
+    if (run->copy_step[run->step] == 3) {
+        /* concat ran synchronously in kaji_advance; the result is waiting. */
+        step_ok = run->sync_ok;
+        run->exit_code = step_ok ? 0 : 1;
+    } else if (run->copy_step[run->step]) {
         int copy_ok = 0;
         if (!dodai_copy_poll(run->copy_thread, &copy_ok)) {
             return KAJI_RUNNING;

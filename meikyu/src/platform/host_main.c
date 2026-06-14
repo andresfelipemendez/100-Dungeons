@@ -31,7 +31,15 @@
 #include "mutate.h"
 
 #define GAME_DLL_NEW PLATFORM_BUILD_DIR "/game_new" DODAI_DLL_SUFFIX
-#define GAME_STATE_HDR  "src/game_state.h"
+/* GAME_STATE_HDR: the SOURCE header -- where the developer's annotations live, so
+   seni write-backs (SENI_WAS strip / answers) target it.
+   GAME_STATE_LAYOUT: the build SNAPSHOT -- the bytes the dll was compiled and
+   .incbin'd against. When a project nests a lib's hot-state struct (e.g. henshu's
+   EditorState), the snapshot is the concatenation of the lib's state header and
+   game_state.h, so the reload's NEW layout must be read from here (not the raw
+   source) to match the embedded OLD layout. */
+#define GAME_STATE_HDR     "src/game_state.h"
+#define GAME_STATE_LAYOUT  PLATFORM_BUILD_DIR "/game_state.h"
 
 /* the forge, defined below; migrate_hot_memory (above its definition) compiles
    the migration through it so kaji owns all compilation. */
@@ -1473,10 +1481,12 @@ int main(int argc, char *argv[]) {
                 dodai_log("reload: %s changed", GAME_DLL_NEW);
 
                 size_t hdr_len = 0;
-                char *new_layout = dodai_read_file(PATH(GAME_STATE_HDR), &hdr_len);
+                /* read the NEW layout from the build snapshot (the concatenation
+                   that matches the dll's embedded OLD layout), not raw source. */
+                char *new_layout = dodai_read_file(PATH(GAME_STATE_LAYOUT), &hdr_len);
                 b32 ok = new_layout != NULL;
                 if (!ok) {
-                    dodai_log("reload: cannot read %s", GAME_STATE_HDR);
+                    dodai_log("reload: cannot read %s", GAME_STATE_LAYOUT);
                 }
                 if (ok && strcmp(game.layout, new_layout) != 0) {
                     /* GPU may still read transient-built resources; the new
