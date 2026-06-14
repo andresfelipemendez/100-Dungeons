@@ -475,4 +475,13 @@ UTEST(parse, too_many) {
     ASSERT_FALSE(kansi_parse_config(&cfg, t, err, sizeof(err)));         /* libdir */
 }
 
+/* kansi_start on a missing config: the fopen-fail branch returns NULL with a
+   message (the read-fail / OOM branches below it need failure injection). */
+UTEST(watch, start_missing_config) {
+    char err[256] = { 0 };
+    ASSERT_TRUE(kansi_start("build/no_such_kansi_config.cfg", err,
+                            sizeof(err)) == NULL);
+    ASSERT_TRUE(strstr(err, "cannot open") != NULL);
+}
+
 UTEST_MAIN()

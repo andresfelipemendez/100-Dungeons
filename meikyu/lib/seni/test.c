@@ -2693,23 +2693,237 @@ UTEST(parse, annotation_errors) {
     memset(longname, 'a', 70);
     longname[70] = 0;
 
+    /* SENI_DROPPED: no '(' (first malformed check) */
     create_arena(&a, buf, sizeof(buf));
     r = parse_header(&a, "typedef struct { int x; SENI_DROPPED } s;");
-    ASSERT_TRUE(r.err != NULL);                 /* SENI_DROPPED without (name) */
+    ASSERT_TRUE(r.err != NULL);
 
+    /* SENI_DROPPED(): empty name (second malformed check) */
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x; SENI_DROPPED() } s;");
+    ASSERT_TRUE(r.err != NULL);
+
+    /* SENI_DROPPED(<70 chars>): name too long */
     create_arena(&a, buf, sizeof(buf));
     snprintf(hdr, sizeof(hdr),
              "typedef struct { int x; SENI_DROPPED(%s) } s;", longname);
     r = parse_header(&a, hdr);
-    ASSERT_TRUE(r.err != NULL);                 /* SENI_DROPPED name too long */
+    ASSERT_TRUE(r.err != NULL);
 
+    /* stray token where a field name is expected */
     create_arena(&a, buf, sizeof(buf));
     r = parse_header(&a, "typedef struct { int x BOGUSTOK; } s;");
-    ASSERT_TRUE(r.err != NULL);                 /* unexpected text in annotations */
+    ASSERT_TRUE(r.err != NULL);
 
+    /* stray text AFTER a valid annotation -> "unexpected ... in annotations" */
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x SENI_WAS(y) BOGUS; } s;");
+    ASSERT_TRUE(r.err != NULL);
+
+    /* SENI_WAS not followed by '(' */
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x SENI_WAS y; } s;");
+    ASSERT_TRUE(r.err != NULL);
+
+    /* SENI_WAS() / SENI_DEFAULT(): empty argument */
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x SENI_WAS(); } s;");
+    ASSERT_TRUE(r.err != NULL);
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x SENI_DEFAULT(); } s;");
+    ASSERT_TRUE(r.err != NULL);
+
+    /* SENI_WAS(<70 chars>): argument too long */
     create_arena(&a, buf, sizeof(buf));
     snprintf(hdr, sizeof(hdr),
              "typedef struct { int x SENI_WAS(%s); } s;", longname);
     r = parse_header(&a, hdr);
-    ASSERT_TRUE(r.err != NULL);                 /* SENI_WAS argument too long */
+    ASSERT_TRUE(r.err != NULL);
+}
+
+/* valid annotation forms the error test doesn't reach: a lone SENI_DEFAULT
+   (is_was == 0 path) and two annotations on one field (the multi-annotation
+   loop), plus a // line comment in the struct body (skip_comment). */
+UTEST(parse, annotation_valid_and_line_comment) {
+    char buf[8192];
+    arena a;
+    parse_result r;
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x SENI_DEFAULT(5); } s;");
+    ASSERT_FALSE(r.err);
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x SENI_WAS(y) SENI_DEFAULT(0); } s;");
+    ASSERT_FALSE(r.err);
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a,
+        "typedef struct {\n  int x; // a line comment\n  int y;\n} s;");
+    ASSERT_FALSE(r.err);
+}
+
+/* MC/DC operand isolation for the keyword-match decisions
+   (strncmp(...,"SENI_X")==0 && !is_ident(next)): a keyword-PREFIX identifier
+   makes strncmp match but the next char is an ident, so !is_ident is false and
+   the token is NOT the keyword -- exercising the second operand independently.
+   Plus multi-struct and empty-struct shapes. */
+UTEST(parse, keyword_prefix_operands) {
+    char buf[8192];
+    arena a;
+    parse_result r;
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int SENI_WASX; } s;");
+    ASSERT_TRUE(r.err != NULL);
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x; SENI_DROPPEDX y; } s;");
+    ASSERT_TRUE(r.err != NULL);
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x SENI_DEFAULTX(5); } s;");
+    ASSERT_TRUE(r.err != NULL);
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a,
+        "typedef struct { int a; } x; typedef struct { float b; } y;");
+    ASSERT_FALSE(r.err);
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { } e;");
+    ASSERT_FALSE(r.err);
+}
+
+/* MC/DC operand isolation for the bounds / whitespace-skip / comment decisions:
+   a SENI_DROPPED with no ')', trailing whitespace to end-of-input, whitespace
+   inside annotation args, and // line comments outside the struct (which reach
+   skip_comment, unlike a // inside the body). */
+UTEST(parse, operand_isolation_bounds_and_comments) {
+    char buf[8192];
+    arena a;
+    parse_result r;
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x; SENI_DROPPED(name } s;");
+    ASSERT_TRUE(r.err != NULL);                 /* header[p] != ')' operand */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x; } s;   \n  ");
+    ASSERT_FALSE(r.err);                        /* '\0' operand of ws skip */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x SENI_WAS(  y  ); } s;");
+    ASSERT_FALSE(r.err);                        /* arg whitespace skips */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x SENI_DEFAULT( 5 ); } s;");
+    ASSERT_FALSE(r.err);
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "// header comment\ntypedef struct { int x; } s;");
+    ASSERT_FALSE(r.err);                        /* // before struct -> skip_comment */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "/* b */ typedef struct { int y; } s; // l\n");
+    ASSERT_FALSE(r.err);                        /* block + // line comment */
+}
+
+/* seni_migrate_block's every failure branch, driven by hand-crafted migration
+   dlls with missing / mismatched migrate_<name> symbols (the codegen always
+   emits correct ones, so these refusals were never exercised). */
+UTEST(reload, migrate_block_errors) {
+    static char oldb[4096], newb[4096];
+    int *arr;
+    void *mig;
+
+    seni_registry_init(oldb, sizeof(oldb));
+    arr = (int *)seni_carve(oldb, "enemy", 3, sizeof(int)); /* stride = 4 */
+    ASSERT_TRUE(arr != NULL);
+
+    /* old block with no registry (bad magic) -> refuse before touching the dll */
+    {
+        static char raw[256];
+        memset(raw, 0, sizeof(raw));
+        ASSERT_EQ(1, seni_migrate_block(raw, newb, sizeof(newb), NULL));
+    }
+
+    /* migrate_enemy absent: struct dropped from new layout -> array dropped, ok */
+    mig = compile_and_load("void placeholder(void){}\n", "mig_drop");
+    ASSERT_TRUE(mig != NULL);
+    ASSERT_EQ(0, seni_migrate_block(oldb, newb, sizeof(newb), mig));
+    dodai_lib_close(mig);
+
+    /* migrate_enemy present but _old_size missing -> refuse */
+    mig = compile_and_load(
+        "#include <stddef.h>\n"
+        "void migrate_enemy(void*o,void*n,size_t c){(void)o;(void)n;(void)c;}\n",
+        "mig_noold");
+    ASSERT_TRUE(mig != NULL);
+    ASSERT_EQ(1, seni_migrate_block(oldb, newb, sizeof(newb), mig));
+    dodai_lib_close(mig);
+
+    /* _old_size disagrees with the carved stride (8 != 4) -> refuse */
+    mig = compile_and_load(
+        "#include <stddef.h>\n"
+        "void migrate_enemy(void*o,void*n,size_t c){(void)o;(void)n;(void)c;}\n"
+        "const size_t migrate_enemy_old_size = 8;\n"
+        "const size_t migrate_enemy_new_size = 4;\n",
+        "mig_stride");
+    ASSERT_TRUE(mig != NULL);
+    ASSERT_EQ(1, seni_migrate_block(oldb, newb, sizeof(newb), mig));
+    dodai_lib_close(mig);
+
+    /* _new_size missing -> refuse */
+    mig = compile_and_load(
+        "#include <stddef.h>\n"
+        "void migrate_enemy(void*o,void*n,size_t c){(void)o;(void)n;(void)c;}\n"
+        "const size_t migrate_enemy_old_size = 4;\n",
+        "mig_nonew");
+    ASSERT_TRUE(mig != NULL);
+    ASSERT_EQ(1, seni_migrate_block(oldb, newb, sizeof(newb), mig));
+    dodai_lib_close(mig);
+
+    /* new_size so large the carve into the new block fails -> refuse */
+    mig = compile_and_load(
+        "#include <stddef.h>\n"
+        "void migrate_enemy(void*o,void*n,size_t c){(void)o;(void)n;(void)c;}\n"
+        "const size_t migrate_enemy_old_size = 4;\n"
+        "const size_t migrate_enemy_new_size = 100000;\n",
+        "mig_huge");
+    ASSERT_TRUE(mig != NULL);
+    ASSERT_EQ(1, seni_migrate_block(oldb, newb, sizeof(newb), mig));
+    dodai_lib_close(mig);
+}
+
+/* scalar<->array field changes -- the generate_migration emitters the existing
+   array-to-array test doesn't reach (scalar promoted to array element [0] with
+   the rest defaulted, and array demoted to its first element). */
+UTEST(generate, scalar_array_changes) {
+    char buf[16384];
+    arena a;
+
+    create_arena(&a, buf, sizeof(buf));
+    {
+        diff_result d = diff_structs(&a,
+            "typedef struct { int hp; } mob;",
+            "typedef struct { int hp[3]; } mob;");
+        generate_result g;
+        ASSERT_FALSE(d.err);
+        g = generate_migration(&a, d.value);
+        ASSERT_FALSE(g.err);
+        ASSERT_TRUE(strstr(g.code, "n[i].hp[0] = o[i].hp;") != NULL);     /* scalar -> array */
+    }
+
+    create_arena(&a, buf, sizeof(buf));
+    {
+        diff_result d = diff_structs(&a,
+            "typedef struct { int hp[3]; } mob;",
+            "typedef struct { int hp; } mob;");
+        generate_result g;
+        ASSERT_FALSE(d.err);
+        g = generate_migration(&a, d.value);
+        ASSERT_FALSE(g.err);
+        ASSERT_TRUE(strstr(g.code, "n[i].hp = o[i].hp[0];") != NULL);     /* array -> scalar */
+    }
 }
