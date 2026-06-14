@@ -65,8 +65,10 @@ Each is standalone with its own `test.sh` suite, named for its function:
 | [dodai](meikyu/lib/dodai) | 土台 | the single OS layer (process/files/dl/watch/lock/time); SDL-free |
 | [kansi](meikyu/lib/kansi) | 監視 | source watcher: reports a debounced change edge |
 | [kaji](meikyu/lib/kaji) | 鍛冶 | the forge: builds targets from a generated description |
-| [seni](meikyu/lib/seni) | 遷移 | persistent-state layout differ + migration codegen |
+| [seni](meikyu/lib/seni) | 遷移 | persistent-state layout differ + migration codegen (nested structs) |
 | [horu](meikyu/lib/horu) | 彫 | constructive solid geometry — carve solids from primitives |
+| [tsumami](meikyu/lib/tsumami) | 摘 | 3D ray-pick + drag gizmo for viewport manipulation |
+| [henshu](meikyu/lib/henshu) | 編集 | reusable CSG scene editor — games nest its state, define only in-game UI |
 
 ### Platform support
 

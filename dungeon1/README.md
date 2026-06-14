@@ -5,14 +5,14 @@ this folder: a `project.meikyu` marker, `src/` with the game's C files, and
 shaders. The engine gathers the sources like scripts — no build scripts, no
 cmake, no kaji/kansi configs here. Edit code or `src/game_state.h`, save,
 and the running process picks it up — no restart,
-[seni](C:/Users/andres/Development/seni) auto-migrates persistent game
-state when its struct layout changes.
+[seni](../meikyu/lib/seni) auto-migrates persistent game state when its
+struct layout changes.
 
 ## Prerequisites
 
-Vendored in the repo (batteries included): SDL3 prebuilt MinGW binaries
-(`../vendor/SDL3-mingw/`, x86_64, windows only), cgltf, stb, clay, and the
-seni, kansi and kaji libraries (`../vendor/{seni,kansi,kaji}`).
+The first-party libraries (seni, kansi, kaji, ito, michi, dodai, horu,
+tsumami, henshu) live in the engine at `../meikyu/lib/`, not here. Third-party
+deps are vendored at the repo root (`../vendor/`): SDL3, cgltf, stb, clay.
 
 Still needed on the machine:
 
@@ -84,11 +84,14 @@ keeps running.
   pch.h                vendor headers precompiled into the dll build
   linalg.h, camera.h   shared math
 
-project.meikyu         the marker: name (+ optional assets dir)
+project.meikyu         the marker: name (+ optional assets dir, layout_include)
 src/                   this game — every .c here is gathered into the dll
-  game_state.h         HOT state: flat struct, scalars + fixed arrays only,
-                       no pointers (seni constraint, enforced by its parser).
-  game.c               entry point; cold state rebuilt on every reload.
+  game_state.h         HOT state: scalars, fixed arrays, and nested structs,
+                       no pointers (seni constraint). nests the henshu editor's
+                       EditorState (declared via the marker's layout_include).
+  game.c               entry point: camera, the demo barrel, clear colour, and
+                       wiring -- the CSG editor itself lives in lib/henshu.
+                       cold (GPU) state rebuilt on every reload.
   shaders/             GLSL → SPIR-V via glslc (generated shader targets).
 ```
 

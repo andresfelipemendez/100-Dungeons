@@ -14,6 +14,11 @@ the host's own dll watcher / migration logic (seni) takes over from there —
 kansi ends where the reload loop begins. `kansi_update()` is called once per
 frame and never blocks; compiles run as child processes polled for exit.
 
+a config with no `out`/`pre` puts kansi in **watch-only** mode: `kansi_update`
+reports `KANSI_CHANGED` edges and builds nothing. that is how meikyu uses it —
+kansi reports the change, [kaji](../kaji) forges. kansi never compiles; kaji
+never watches.
+
 ## usage
 
 ```c

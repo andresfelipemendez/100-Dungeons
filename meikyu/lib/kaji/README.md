@@ -56,7 +56,8 @@ target game dll
   lib_linux m
 ```
 
-kinds: `copy` (snapshot when newer), `shader` (${glslc}), `object`
+kinds: `copy` (snapshot when newer; >1 `in` concatenates them in order, e.g.
+prepending a lib's state header to the seni layout snapshot), `shader` (${glslc}), `object`
 (cc -c, auto -fPIC on linux), `pch` (cc -x c-header), `dll` (cc -shared
 to a tmp, then ATOMIC rename -- a watching host never sees a half-written
 dll), `exe` (+ `post copy|copydir` bundle steps).

@@ -58,12 +58,17 @@ A project is any folder holding a `project.meikyu` marker:
 name dungeon1            # window title + ship exe name (default: folder name)
 # assets ../assets       # dir bundled into ship builds (default ../assets)
 # version 0.1            # warns if it mismatches the engine
+# layout_include lib/henshu/henshu_state.h   # engine-relative header prepended
+                         # to the game_state.h snapshot so seni can migrate a
+                         # lib's nested hot-state struct (e.g. henshu's editor)
 ```
 
 plus `src/` (every `.c` under it is gathered into the dll — adding a file is
-registration), `src/game_state.h` (the hot state; flat struct, scalars + fixed
-arrays only — seni's constraint), and `src/shaders/*.{vert,frag}`. No build
-scripts, cmake, or configs live in a project — the engine generates them.
+registration), `src/game_state.h` (the hot state; scalars, fixed arrays, and
+nested structs — no pointers, seni's constraint; a nested lib struct declared
+via the marker's `layout_include` is prepended to the snapshot so seni can
+migrate it), and `src/shaders/*.{vert,frag}`. No build scripts, cmake, or
+configs live in a project — the engine generates them.
 
 On open, the engine writes `<project>/build-<os>/gen/`:
 `game_unity.gen.c`, `kaji.gen.cfg`, `kansi.gen.cfg` (plain, inspectable). It
@@ -96,8 +101,11 @@ lib/           first-party libraries (own test.sh suites, usable standalone):
   dodai (土台) the single OS layer (process/files/dl/watch/lock/time); SDL-free
   kansi (監視) source watcher: reports a debounced change edge
   kaji (鍛冶)  the forge: builds targets from a generated description
-  seni         persistent-state layout differ + migration codegen (strict C89)
+  seni         persistent-state layout differ + migration codegen (strict C89,
+               scalars/arrays + nested structs)
   horu (彫)    constructive solid geometry: carve solids from primitives
+  tsumami (摘) 3D ray-pick + drag gizmo for viewport manipulation
+  henshu (編集) reusable CSG scene editor; games nest its state + define in-game UI
 ```
 
 `vendor/` (repo root) is **third-party only**: SDL3, cgltf, stb, clay.

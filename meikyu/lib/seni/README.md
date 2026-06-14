@@ -35,10 +35,28 @@ array conversions go through element 0. pointers are rejected with a parse
 error — a pointer can dangle into the unloaded dll or reference old-layout
 memory, use indices/handles in hot-reloaded state instead.
 
+**nested structs.** a field whose type is another struct defined *earlier* in
+the same header (structs are peers, referenced by name -- not C brace-nesting):
+
+```c
+typedef struct { int hp SENI_DEFAULT(5); float mp; } editor;
+typedef struct { float x; editor ed; } game;   /* ed migrated recursively */
+```
+
+the diff recurses into the referenced struct, so each member migrates by name
+(`n[i].ed.hp = o[i].ed.hp`); a brand-new struct field defaults every member
+(from its own `SENI_DEFAULT`s), never reading the absent old field; the old/new
+typedefs are emitted with the struct inlined (anonymous), so the migration dll
+needs no separate typedef. arrays of structs are rejected; a struct field that
+swaps to a different struct type is rejected. because seni reads the layout as
+raw text, a nested struct's array sizes must be **literal** (`[32]`), not a
+macro it cannot expand. for a lib-owned nested struct, the host concatenates the
+lib's state header ahead of `game_state.h` in the snapshot it diffs.
+
 ## tests
 
 `meikyu --test seni` builds + runs the whole suite through kaji, configured by
-the `lib_test seni` row in `build.manifest`. All 100 tests live in one `test.c`
+the `lib_test seni` row in `build.manifest`. All tests live in one `test.c`
 (unit + e2e + fuzz + stress under one `UTEST_MAIN`): the unit tests cover the
 parser/diff/codegen; the e2e tests read header pairs from `fixtures/`, generate
 migration code, compile it via kaji into a shared library in `build/` (dll on
