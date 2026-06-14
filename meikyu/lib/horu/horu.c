@@ -195,21 +195,23 @@ int horu_mesh_from_polys(const horu_poly *polys, int npoly,
 
 /* ---- PART 2: BSP boolean (exact CSG) ------------------------------------ */
 
-/* coplanar polys held at one node. Must hold the CLIPPED result of a node's
-   faces, which splits into more pieces than were built (measured up to ~12 for
-   box-minus-sphere); too small drops polygons and punches moving holes in the
-   surface. 32 gives margin. (A dynamic per-node pool would remove the cap
-   entirely -- the robust follow-up.) */
-#define HORU_NODE_POLYS 32
 #define HORU_BSP_NODES  256   /* node pool per tree */
-#define HORU_SPLIT_CAP  64    /* per-recursion split scratch */
+
+/* A node's coplanar polygons are a singly-linked list of arena cells, NOT a
+   fixed array: clipping a face against the other tree splits it into an
+   unbounded number of coplanar fragments (a box face minus a sphere is many
+   pieces), and any fixed cap would drop the excess and punch holes. The list
+   grows to whatever the geometry needs -- bounded only by the arena. */
+typedef struct horu_pcell {
+    horu_poly          poly;
+    struct horu_pcell *next;
+} horu_pcell;
 
 typedef struct {
-    horu_plane plane;
-    int        valid;             /* plane assigned yet */
-    int        front, back;       /* child node index, or -1 */
-    horu_poly  cop[HORU_NODE_POLYS];
-    int        ncop;              /* coplanar polygons at this node */
+    horu_plane  plane;
+    int         valid;        /* plane assigned yet */
+    int         front, back;  /* child node index, or -1 */
+    horu_pcell *cop;          /* coplanar polygon list (NULL = none) */
 } horu_node;
 
 typedef struct {
@@ -217,12 +219,15 @@ typedef struct {
     int       count;
 } horu_bsp;
 
-/* All working memory comes from the CALLER'S scratch (a slice of the engine's
-   reload/transient block), via this bump arena -- horu keeps NOTHING on the
-   stack or in statics, so it is reentrant and a deep BSP can never blow the
-   stack. Per-recursion scratch is pushed/popped LIFO; running out of arena
-   bounds the recursion (it bails gracefully, dropping nothing it cannot fit).
-   The caller sizes the scratch to the CSG complexity it needs. */
+/* All working memory -- the two trees and every polygon cell -- is bump-
+   allocated from the CALLER'S scratch (a slice of the engine's reload/transient
+   block). horu keeps NOTHING on the stack or in statics, so it is reentrant.
+   Cells are never individually freed: one horu_csg_polys call is one fresh
+   arena, so the boolean dance just bumps forward and the whole arena is
+   reclaimed at once when the caller reuses the block. Running out of arena
+   drops a fragment gracefully (a too-small scratch can hole the result -- the
+   caller sizes the scratch to the CSG complexity it needs). No fixed per-node
+   or per-recursion cap exists, so a well-fed arena never holes. */
 typedef struct { char *base; long cap, used; } horu_arena;
 
 static void *ha_push(horu_arena *ar, long bytes) {
@@ -236,7 +241,16 @@ static void *ha_push(horu_arena *ar, long bytes) {
     return p;
 }
 
-#define HA_POLYS (long)(sizeof(horu_poly) * HORU_SPLIT_CAP)
+/* prepend a copy of `p` to a cell list; returns the new head (unchanged on
+   out-of-arena, so the fragment is dropped rather than corrupting the list). */
+static horu_pcell *pc_make(horu_arena *ar, const horu_poly *p, horu_pcell *next) {
+    horu_pcell *c = (horu_pcell *)ha_push(ar, (long)sizeof(horu_pcell));
+    if (c) {
+        c->poly = *p;
+        c->next = next;
+    }
+    return c ? c : next;
+}
 
 static int bsp_alloc(horu_bsp *t) {
     int i;
@@ -247,7 +261,7 @@ static int bsp_alloc(horu_bsp *t) {
     t->n[i].valid = 0;
     t->n[i].front = -1;
     t->n[i].back = -1;
-    t->n[i].ncop = 0;
+    t->n[i].cop = 0;
     return i;
 }
 
@@ -261,70 +275,99 @@ static int poly_coplanar(horu_plane pl, const horu_poly *p) {
     return 1;
 }
 
-/* build (extend) the tree rooted at idx with `polys`. Coplanar polygons stay
-   at the node; the rest split front/back and recurse. */
-static void bsp_build(horu_bsp *t, int idx, const horu_poly *polys, int n,
-                      horu_arena *ar) {
-    horu_node *nd = &t->n[idx];
-    long mark = ar->used;
-    horu_poly *front = (horu_poly *)ha_push(ar, HA_POLYS);
-    horu_poly *back  = (horu_poly *)ha_push(ar, HA_POLYS);
+/* split one polygon by a plane, prepending each resulting piece to the front
+   and/or back cell lists. horu_split_poly emits at most one piece per side. */
+static void split_to_lists(horu_arena *ar, horu_plane pl, const horu_poly *p,
+                           horu_pcell **front, horu_pcell **back) {
+    horu_poly f[2], b[2];
     int nf = 0, nb = 0, i;
-    if (n == 0 || !front || !back) { /* empty, or out of scratch -> bail */
-        ar->used = mark;
+    horu_split_poly(pl, p, f, &nf, b, &nb, 2);
+    for (i = 0; i < nf; i++) *front = pc_make(ar, &f[i], *front);
+    for (i = 0; i < nb; i++) *back  = pc_make(ar, &b[i], *back);
+}
+
+/* turn a flat polygon array into a cell list (for tree input / re-build). */
+static horu_pcell *list_from_array(horu_arena *ar, const horu_poly *p, int n) {
+    horu_pcell *head = 0;
+    int i;
+    for (i = 0; i < n; i++) head = pc_make(ar, &p[i], head);
+    return head;
+}
+
+/* build (extend) the tree rooted at idx with the polygon list. Coplanar
+   polygons stay at the node; the rest split front/back and recurse. The input
+   list is only READ -- splits allocate fresh cells -- so callers may reuse it. */
+static void bsp_build(horu_bsp *t, int idx, horu_pcell *list, horu_arena *ar) {
+    horu_node *nd = &t->n[idx];
+    horu_pcell *front = 0, *back = 0, *c;
+    if (!list) {
         return;
     }
     if (!nd->valid) {
-        nd->plane = polys[0].plane;
+        nd->plane = list->poly.plane;
         nd->valid = 1;
     }
-    for (i = 0; i < n; i++) {
-        if (poly_coplanar(nd->plane, &polys[i])) {
-            if (nd->ncop < HORU_NODE_POLYS) {
-                nd->cop[nd->ncop++] = polys[i];
-            }
+    for (c = list; c; c = c->next) {
+        if (poly_coplanar(nd->plane, &c->poly)) {
+            nd->cop = pc_make(ar, &c->poly, nd->cop);
         } else {
-            horu_split_poly(nd->plane, &polys[i], front, &nf, back, &nb,
-                            HORU_SPLIT_CAP);
+            split_to_lists(ar, nd->plane, &c->poly, &front, &back);
         }
     }
-    if (nf) {
+    if (front) {
         if (nd->front < 0) nd->front = bsp_alloc(t);
-        if (nd->front >= 0) bsp_build(t, nd->front, front, nf, ar);
+        if (nd->front >= 0) bsp_build(t, nd->front, front, ar);
     }
-    if (nb) {
+    if (back) {
         if (nd->back < 0) nd->back = bsp_alloc(t);
-        if (nd->back >= 0) bsp_build(t, nd->back, back, nb, ar);
+        if (nd->back >= 0) bsp_build(t, nd->back, back, ar);
     }
-    ar->used = mark;
 }
 
 /* gather every polygon in the tree into out[] (capacity cap); returns count. */
 static int bsp_all(const horu_bsp *t, int idx, horu_poly *out, int n, int cap) {
     const horu_node *nd;
-    int i;
+    const horu_pcell *c;
     if (idx < 0) {
         return n;
     }
     nd = &t->n[idx];
-    for (i = 0; i < nd->ncop; i++) {
-        if (n < cap) out[n++] = nd->cop[i];
+    for (c = nd->cop; c; c = c->next) {
+        if (n < cap) out[n++] = c->poly;
     }
     n = bsp_all(t, nd->front, out, n, cap);
     n = bsp_all(t, nd->back, out, n, cap);
     return n;
 }
 
+/* gather every polygon in the tree into a fresh cell list (prepended to acc).
+   Unbounded -- the intermediate of the boolean dance, so no array cap can clip
+   it. */
+static horu_pcell *bsp_all_list(const horu_bsp *t, int idx, horu_pcell *acc,
+                                horu_arena *ar) {
+    const horu_node *nd;
+    const horu_pcell *c;
+    if (idx < 0) {
+        return acc;
+    }
+    nd = &t->n[idx];
+    for (c = nd->cop; c; c = c->next) acc = pc_make(ar, &c->poly, acc);
+    acc = bsp_all_list(t, nd->front, acc, ar);
+    acc = bsp_all_list(t, nd->back, acc, ar);
+    return acc;
+}
+
 /* flip every polygon + plane, swap front/back: inverts the solid sense. */
 static void bsp_invert(horu_bsp *t, int idx) {
     horu_node *nd;
-    int i, tmp;
+    horu_pcell *c;
+    int tmp;
     if (idx < 0) {
         return;
     }
     nd = &t->n[idx];
-    for (i = 0; i < nd->ncop; i++) {
-        horu_flip_poly(&nd->cop[i]);
+    for (c = nd->cop; c; c = c->next) {
+        horu_flip_poly(&c->poly);
     }
     nd->plane.nx = -nd->plane.nx;
     nd->plane.ny = -nd->plane.ny;
@@ -335,67 +378,42 @@ static void bsp_invert(horu_bsp *t, int idx) {
     tmp = nd->front; nd->front = nd->back; nd->back = tmp;
 }
 
-/* return the parts of `in` that lie OUTSIDE the tree (front of every leaf;
-   the back of a leaf is inside, dropped). */
-static int bsp_clip_polys(const horu_bsp *t, int idx, const horu_poly *in,
-                          int n, horu_poly *out, int cap, horu_arena *ar) {
+/* return the parts of `list` that lie OUTSIDE the tree as a cell list (front of
+   every leaf; the back of a leaf is inside, dropped). The result is freshly
+   allocated cells (except an empty tree, which passes `list` straight back). */
+static horu_pcell *bsp_clip_list(const horu_bsp *t, int idx, horu_pcell *list,
+                                 horu_arena *ar) {
     const horu_node *nd;
-    long mark = ar->used;
-    horu_poly *front = (horu_poly *)ha_push(ar, HA_POLYS);
-    horu_poly *back  = (horu_poly *)ha_push(ar, HA_POLYS);
-    int nf = 0, nb = 0, i, on = 0;
-    if (!front || !back || !t->n[idx].valid) {
-        /* out of scratch, or an empty tree: pass the polygons through */
-        ar->used = mark;
-        for (i = 0; i < n; i++) {
-            if (on < cap) out[on++] = in[i];
-        }
-        return on;
+    horu_pcell *front = 0, *back = 0, *c, *tail;
+    if (idx < 0 || !t->n[idx].valid) {
+        return list; /* empty tree: every polygon is outside */
     }
     nd = &t->n[idx];
-    for (i = 0; i < n; i++) {
-        horu_split_poly(nd->plane, &in[i], front, &nf, back, &nb, HORU_SPLIT_CAP);
+    for (c = list; c; c = c->next) {
+        split_to_lists(ar, nd->plane, &c->poly, &front, &back);
     }
-    if (nd->front >= 0) {
-        horu_poly *fout = (horu_poly *)ha_push(ar, HA_POLYS);
-        int fc = fout ? bsp_clip_polys(t, nd->front, front, nf, fout,
-                                       HORU_SPLIT_CAP, ar) : 0;
-        for (i = 0; i < fc; i++) if (on < cap) out[on++] = fout[i];
-    } else {
-        for (i = 0; i < nf; i++) if (on < cap) out[on++] = front[i];
+    front = (nd->front >= 0) ? bsp_clip_list(t, nd->front, front, ar) : front;
+    back  = (nd->back  >= 0) ? bsp_clip_list(t, nd->back,  back,  ar) : 0;
+    if (!front) {
+        return back;
     }
-    if (nd->back >= 0) {
-        horu_poly *bout = (horu_poly *)ha_push(ar, HA_POLYS);
-        int bc = bout ? bsp_clip_polys(t, nd->back, back, nb, bout,
-                                       HORU_SPLIT_CAP, ar) : 0;
-        for (i = 0; i < bc; i++) if (on < cap) out[on++] = bout[i];
-    }
-    /* no back child: those polygons are inside, dropped */
-    ar->used = mark;
-    return on;
+    tail = front;
+    while (tail->next) tail = tail->next;
+    tail->next = back;
+    return front;
 }
 
 /* clip every node's polygons in `target` against `clipper`. */
 static void bsp_clip_to(horu_bsp *target, int idx, const horu_bsp *clipper,
                         horu_arena *ar) {
     horu_node *nd;
-    long mark = ar->used;
-    horu_poly *tmp = (horu_poly *)ha_push(ar, HA_POLYS);
-    int tn, i;
-    if (idx < 0 || !tmp) {
-        ar->used = mark;
+    if (idx < 0) {
         return;
     }
     nd = &target->n[idx];
-    tn = bsp_clip_polys(clipper, 0, nd->cop, nd->ncop, tmp, HORU_SPLIT_CAP, ar);
-    if (tn > HORU_NODE_POLYS) tn = HORU_NODE_POLYS;
-    nd->ncop = tn;
-    for (i = 0; i < tn; i++) {
-        nd->cop[i] = tmp[i];
-    }
+    nd->cop = bsp_clip_list(clipper, 0, nd->cop, ar);
     bsp_clip_to(target, nd->front, clipper, ar);
     bsp_clip_to(target, nd->back, clipper, ar);
-    ar->used = mark;
 }
 
 int horu_csg_polys(horu_op op, const horu_poly *a, int na,
@@ -403,21 +421,17 @@ int horu_csg_polys(horu_op op, const horu_poly *a, int na,
                    void *scratch, int scratch_bytes) {
     horu_arena ar;
     horu_bsp *A, *B;
-    horu_poly *gather;
-    int gcap = HORU_SPLIT_CAP * HORU_BSP_NODES / 4;
-    int m;
 
     ar.base = (char *)scratch;
     ar.cap = (long)scratch_bytes;
     ar.used = 0;
     A = (horu_bsp *)ha_push(&ar, (long)sizeof(horu_bsp));
     B = (horu_bsp *)ha_push(&ar, (long)sizeof(horu_bsp));
-    gather = (horu_poly *)ha_push(&ar, (long)sizeof(horu_poly) * gcap);
-    if (!A || !B || !gather) {
+    if (!A || !B) {
         return 0; /* scratch too small for even the two trees */
     }
-    A->count = 0; bsp_alloc(A); bsp_build(A, 0, a, na, &ar);
-    B->count = 0; bsp_alloc(B); bsp_build(B, 0, b, nb, &ar);
+    A->count = 0; bsp_alloc(A); bsp_build(A, 0, list_from_array(&ar, a, na), &ar);
+    B->count = 0; bsp_alloc(B); bsp_build(B, 0, list_from_array(&ar, b, nb), &ar);
 
     if (op == HORU_UNION) {
         bsp_clip_to(A, 0, B, &ar);
@@ -425,16 +439,14 @@ int horu_csg_polys(horu_op op, const horu_poly *a, int na,
         bsp_invert(B, 0);
         bsp_clip_to(B, 0, A, &ar);
         bsp_invert(B, 0);
-        m = bsp_all(B, 0, gather, 0, gcap);
-        bsp_build(A, 0, gather, m, &ar);
+        bsp_build(A, 0, bsp_all_list(B, 0, 0, &ar), &ar);
     } else if (op == HORU_INTERSECTION) {
         bsp_invert(A, 0);
         bsp_clip_to(B, 0, A, &ar);
         bsp_invert(B, 0);
         bsp_clip_to(A, 0, B, &ar);
         bsp_clip_to(B, 0, A, &ar);
-        m = bsp_all(B, 0, gather, 0, gcap);
-        bsp_build(A, 0, gather, m, &ar);
+        bsp_build(A, 0, bsp_all_list(B, 0, 0, &ar), &ar);
         bsp_invert(A, 0);
     } else { /* HORU_DIFFERENCE: a - b */
         bsp_invert(A, 0);
@@ -443,8 +455,7 @@ int horu_csg_polys(horu_op op, const horu_poly *a, int na,
         bsp_invert(B, 0);
         bsp_clip_to(B, 0, A, &ar);
         bsp_invert(B, 0);
-        m = bsp_all(B, 0, gather, 0, gcap);
-        bsp_build(A, 0, gather, m, &ar);
+        bsp_build(A, 0, bsp_all_list(B, 0, 0, &ar), &ar);
         bsp_invert(A, 0);
     }
     return bsp_all(A, 0, out, 0, cap);

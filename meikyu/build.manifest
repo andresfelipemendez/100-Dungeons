@@ -59,15 +59,13 @@ lib_test michi std=c99 include=lib/ito
 lib_test seni  std=c99 include=lib/dodai link=pthread
 lib_test kansi std=c99 src=../dodai/dodai_posix.c include=lib/dodai link=pthread
 lib_test kaji  std=c99 src=../dodai/dodai_posix.c include=lib/dodai link=pthread
-# horu: branch coverage is ~92%; the gate is min(branch, MC/DC) and MC/DC is
-# ~68% because the BSP now runs in a CALLER-PROVIDED ARENA (no stack, no
-# statics -- reentrant, crash-proof on deep/dense models) and the arena's
-# out-of-scratch bail checks are compound conditions (`!front || !back ||
-# !valid`) whose MC/DC pairs only arise at exact OOM boundaries. Those guards
-# are crash-immunity, not logic; covering every pair needs contrived arena
-# sizes. Gate set to the honest floor; raise it by splitting those conditions
-# into single-condition checks if MC/DC matters more than the guard's brevity.
-lib_test horu  std=c89 src=horu.c link=m cov=60
+# horu: BSP runs in a CALLER-PROVIDED ARENA (no stack, no statics -- reentrant,
+# crash-proof on deep/dense models) with each node's coplanar polys held in an
+# UNBOUNDED arena cell-list (no fixed cap -> a face can split into any number of
+# fragments without dropping any -> watertight result, no holes). The cell-list
+# rewrite also removed the compound out-of-scratch guards that used to drag
+# MC/DC down, so the gate sits at the honest floor again.
+lib_test horu  std=c89 src=horu.c link=m cov=80
 # tsumami: pure 3D manipulation (ray-pick + drag gizmo), UI-free + testable,
 # reusable for CSG-node and mesh editing.
 lib_test tsumami std=c89 src=tsumami.c link=m

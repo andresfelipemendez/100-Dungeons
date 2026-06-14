@@ -179,13 +179,14 @@ int horu_mesh_from_polys(const horu_poly *polys, int npoly,
    HORU_DIFFERENCE (a - b), or HORU_INTERSECTION. Writes the result polygons
    to out[] (capacity cap) and returns the count.
 
-   ALL working memory -- both BSP trees, the gather buffer, and every level of
-   recursion scratch -- comes from the caller-provided `scratch` block (e.g. a
-   slice of the engine's reload/transient memory), NOT the stack or statics.
-   So horu holds no hidden state, is reentrant, and a deep BSP can never blow
-   the stack: running out of scratch just bounds the result. Give it at least
-   HORU_CSG_SCRATCH bytes; more allows deeper/denser models. Returns 0 if the
-   scratch is too small for even the two trees. */
+   ALL working memory -- both BSP trees and every polygon cell (faces are held
+   in unbounded arena cell-lists, so no fixed cap can drop fragments and hole
+   the surface) -- comes from the caller-provided `scratch` block (e.g. a slice
+   of the engine's reload/transient memory), NOT the stack or statics. So horu
+   holds no hidden state and is reentrant. Give it at least HORU_CSG_SCRATCH
+   bytes; more allows denser models. A scratch too small to hold the cells will
+   drop fragments (hole the result), so size it to the complexity you need;
+   returns 0 if it cannot fit even the two trees. */
 #define HORU_CSG_SCRATCH (6 * 1024 * 1024)
 int horu_csg_polys(horu_op op, const horu_poly *a, int na,
                    const horu_poly *b, int nb, horu_poly *out, int cap,
