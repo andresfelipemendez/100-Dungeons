@@ -20,6 +20,9 @@ typedef struct {
 
     float spin_rate SENI_DEFAULT(1.8f);
 
+    /* the previous rotating barrel: its own spin angle, parked beside the CSG */
+    float barrel_angle SENI_DEFAULT(0.0f);
+
     /* ---- horu CSG editor model -----------------------------------------
        A FLAT LIST of shape entities as parallel scalar arrays (seni allows
        only scalars + fixed arrays). There are no boolean "nodes": the solid

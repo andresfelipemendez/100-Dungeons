@@ -48,6 +48,8 @@ SENI_EMBED_LAYOUT(PLATFORM_BUILD_DIR "/game_state.h");
 typedef struct {
     b32         ready;
     RndPipeline pipeline;
+    RndPipeline csg_pipeline;  /* triplanar grid shader for the CSG mesh */
+    RndTexture  grid_tex;      /* the square-grid tile, sampled triplanar */
     Model       model;
     f32         model_radius;
     /* horu composite mesh (a Menger sponge of boxes) */
@@ -463,6 +465,32 @@ static mat4 translate_m(f32 x, f32 y, f32 z) {
     return m;
 }
 
+static mat4 rotate_y_m(f32 a) {
+    mat4 m = mat4_identity();
+    f32 c = cosf(a), s = sinf(a);
+    m.m[0] = c; m.m[2] = s; m.m[8] = -s; m.m[10] = c; /* row-major Y rotation */
+    return m;
+}
+
+/* one square-grid tile (RGBA8): a dark border band on a light cell. Sampled
+   with REPEAT + triplanar UVs, it tiles into a grid across every CSG face. */
+static RndTexture make_grid_texture(void) {
+#define GRID_N    64
+#define GRID_LINE 3
+#define GRID_RGBA(r, g, b) (0xFF000000u | ((u32)(b) << 16) | ((u32)(g) << 8) | (u32)(r))
+    static u32 px[GRID_N * GRID_N];
+    int x, y;
+    for (y = 0; y < GRID_N; y++) {
+        for (x = 0; x < GRID_N; x++) {
+            int edge = x < GRID_LINE || x >= GRID_N - GRID_LINE ||
+                       y < GRID_LINE || y >= GRID_N - GRID_LINE;
+            px[y * GRID_N + x] = edge ? GRID_RGBA(0x20, 0x24, 0x28)
+                                      : GRID_RGBA(0xB8, 0xC0, 0xA8);
+        }
+    }
+    return rnd_texture_create_rgba8(px, GRID_N, GRID_N);
+}
+
 static b32 cold_rebuild(EngineState *es, PlatformMemory *memory, PlatformApi *api) {
     memset(es, 0, sizeof(*es));
     if (!rnd_init(api->gpu_context)) {
@@ -470,6 +498,12 @@ static b32 cold_rebuild(EngineState *es, PlatformMemory *memory, PlatformApi *ap
     }
     es->pipeline = rnd_pipeline_create(PLATFORM_BUILD_DIR "/model.vert.spv",
                                        PLATFORM_BUILD_DIR "/model.frag.spv");
+    es->csg_pipeline = rnd_pipeline_create(PLATFORM_BUILD_DIR "/csg.vert.spv",
+                                           PLATFORM_BUILD_DIR "/csg.frag.spv");
+    if (!es->csg_pipeline.id) {
+        return 0;
+    }
+    es->grid_tex = make_grid_texture();
     if (!es->pipeline.id) {
         return 0;
     }
@@ -561,6 +595,7 @@ GAME_EXPORT GAME_UPDATE_AND_RENDER(game_update_and_render) {
     }
 
     gs->cam_angle += input->dt * gs->spin_rate;
+    gs->barrel_angle += input->dt * 1.2f; /* the barrel spins on its own */
 
     /* a hot model carried over from the old op-node format is invalid for the
        flat-list fold -- reset it once. */
@@ -638,11 +673,20 @@ GAME_EXPORT GAME_UPDATE_AND_RENDER(game_update_and_render) {
         }
     }
 
-    /* the CSG result mesh, lit by face normals (textured with the model tex) */
+    /* the CSG result mesh, shaded with the triplanar grid (no UVs needed) */
     if (es->horu_index_count > 0 && es->horu_vbuf.id && es->horu_ibuf.id) {
-        rnd_draw_model(es->pipeline, es->horu_vbuf, es->horu_ibuf,
-                       es->model.texture, es->horu_index_count, mvp,
+        rnd_draw_model(es->csg_pipeline, es->horu_vbuf, es->horu_ibuf,
+                       es->grid_tex, es->horu_index_count, mvp,
                        mat4_identity());
+    }
+
+    /* the previous rotating barrel, parked beside the CSG model and spinning */
+    if (es->model.index_count > 0) {
+        mat4 bm = mat4_mul(translate_m(3.5f, 0.0f, 0.0f),
+                           rotate_y_m(gs->barrel_angle));
+        mat4 bmvp = mat4_mul(mvp, bm);
+        rnd_draw_model(es->pipeline, es->model.vertex_buffer, es->model.index_buffer,
+                       es->model.texture, es->model.index_count, bmvp, bm);
     }
 
     /* the translate gizmo at the selected shape */
