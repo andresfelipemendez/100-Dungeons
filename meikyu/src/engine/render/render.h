@@ -20,6 +20,10 @@ b32 rnd_init(void *gpu_context);
 
 RndBuffer   rnd_buffer_create_vertex(const void *data, u64 size);
 RndBuffer   rnd_buffer_create_index(const void *data, u64 size);
+/* Release a buffer + free its slot for reuse. Callers that re-create buffers
+   each edit (e.g. an editor re-meshing) must destroy the old ones, else the
+   fixed buffer table fills up. Safe on a zero handle. */
+void        rnd_buffer_destroy(RndBuffer b);
 RndTexture  rnd_texture_create_rgba8(const void *pixels, u32 w, u32 h);
 RndPipeline rnd_pipeline_create(const char *vs_spv_path, const char *fs_spv_path);
 

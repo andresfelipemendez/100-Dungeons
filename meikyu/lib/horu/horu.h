@@ -114,7 +114,7 @@ int  horu_csg_contains(const horu_csg *t, float x, float y, float z);
 
 typedef struct { float x, y, z; } horu_v3;
 
-#define HORU_POLY_MAX 8   /* verts per polygon; convex splits stay small */
+#define HORU_POLY_MAX 16  /* verts per polygon; CSG clipping grows them */
 
 typedef struct {
     horu_v3    v[HORU_POLY_MAX];
@@ -142,6 +142,29 @@ int horu_box_polys(float cx, float cy, float cz,
                    float sx, float sy, float sz,
                    horu_poly *out, int cap);
 
+/* A regular n-gon prism centred at (cx,cy,cz): radius r, height h (along y),
+   `sides` faces. A cylinder is just a prism with many sides. Outward normals;
+   returns the polygon count (3 * sides), clamped to cap. */
+int horu_prism_polys(float cx, float cy, float cz, float r, float h,
+                     int sides, horu_poly *out, int cap);
+
+/* A cone centred at (cx,cy,cz): base radius r, height h (along y, apex up),
+   `sides` base edges. Outward normals; returns the polygon count. */
+int horu_cone_polys(float cx, float cy, float cz, float r, float h,
+                    int sides, horu_poly *out, int cap);
+
+/* A UV sphere centred at (cx,cy,cz): radius r, `seg` longitude divisions,
+   `rings` latitude divisions. Outward normals; returns the polygon count. */
+int horu_sphere_polys(float cx, float cy, float cz, float r,
+                      int seg, int rings, horu_poly *out, int cap);
+
+/* Extrude a convex 2D outline -- points (px[i],pz[i]) in the XZ plane, CCW
+   seen from +y -- along Y by height h about (cx,cy,cz). A triangle profile is
+   a wedge/ramp; a trapezoid a slope. Returns the polygon count (npts<3 -> 0). */
+int horu_extrude_polys(float cx, float cy, float cz,
+                       const float *px, const float *pz, int npts, float h,
+                       horu_poly *out, int cap);
+
 /* Fan-triangulate `polys` into a structure-of-arrays mesh the caller sizes:
    positions to vx/vy/vz (capacity vcap), 3 indices per triangle into idx
    (capacity icap). Vertices are not deduplicated. Writes the vertex count to
@@ -154,10 +177,18 @@ int horu_mesh_from_polys(const horu_poly *polys, int npoly,
 /* Exact CSG boolean of two polygon solids (each a closed set of CCW,
    outward-normal polygons -- e.g. from horu_box_polys). op is HORU_UNION,
    HORU_DIFFERENCE (a - b), or HORU_INTERSECTION. Writes the result polygons
-   to out[] (capacity cap) and returns the count. The polygons are clipped
-   exactly (sharp edges); feed the result to horu_mesh_from_polys to render.
-   Bounded to inputs of a few hundred polygons. */
+   to out[] (capacity cap) and returns the count.
+
+   ALL working memory -- both BSP trees, the gather buffer, and every level of
+   recursion scratch -- comes from the caller-provided `scratch` block (e.g. a
+   slice of the engine's reload/transient memory), NOT the stack or statics.
+   So horu holds no hidden state, is reentrant, and a deep BSP can never blow
+   the stack: running out of scratch just bounds the result. Give it at least
+   HORU_CSG_SCRATCH bytes; more allows deeper/denser models. Returns 0 if the
+   scratch is too small for even the two trees. */
+#define HORU_CSG_SCRATCH (4 * 1024 * 1024)
 int horu_csg_polys(horu_op op, const horu_poly *a, int na,
-                   const horu_poly *b, int nb, horu_poly *out, int cap);
+                   const horu_poly *b, int nb, horu_poly *out, int cap,
+                   void *scratch, int scratch_bytes);
 
 #endif /* HORU_H */

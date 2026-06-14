@@ -148,12 +148,34 @@ static SDL_GPUBuffer *upload_buffer(SDL_GPUBufferUsageFlags usage,
 }
 
 static RndBuffer buffer_register(SDL_GPUBuffer *b) {
-    if (!b || rnd.buffer_count >= RND_MAX_BUFFERS) {
-        if (b) SDL_ReleaseGPUBuffer(rnd.device, b);
+    u32 i;
+    if (!b) {
+        return (RndBuffer){ 0 };
+    }
+    for (i = 0; i < rnd.buffer_count; i++) {  /* reuse a freed slot first */
+        if (!rnd.buffers[i]) {
+            rnd.buffers[i] = b;
+            return (RndBuffer){ i + 1 };
+        }
+    }
+    if (rnd.buffer_count >= RND_MAX_BUFFERS) {
+        SDL_ReleaseGPUBuffer(rnd.device, b);
         return (RndBuffer){ 0 };
     }
     rnd.buffers[rnd.buffer_count++] = b;
     return (RndBuffer){ rnd.buffer_count }; /* id = index + 1 */
+}
+
+/* Release a buffer and free its slot for reuse (e.g. an editor re-meshing each
+   edit). Safe on a zero/invalid handle. */
+void rnd_buffer_destroy(RndBuffer b) {
+    if (b.id == 0 || b.id > rnd.buffer_count) {
+        return;
+    }
+    if (rnd.buffers[b.id - 1]) {
+        SDL_ReleaseGPUBuffer(rnd.device, rnd.buffers[b.id - 1]);
+        rnd.buffers[b.id - 1] = NULL;
+    }
 }
 
 RndBuffer rnd_buffer_create_vertex(const void *data, u64 size) {
@@ -273,7 +295,11 @@ RndPipeline rnd_pipeline_create(const char *vs_spv_path, const char *fs_spv_path
         },
         .rasterizer_state = {
             .fill_mode = SDL_GPU_FILLMODE_FILL,
-            .cull_mode = SDL_GPU_CULLMODE_BACK,
+            /* NONE, not BACK: exact-CSG meshes can carry a few inward-wound
+               polygons at coplanar/tangent boundaries (the classic BSP winding
+               edge case); culling them would punch holes in otherwise-solid
+               faces. Drawing both sides keeps the surface closed. */
+            .cull_mode = SDL_GPU_CULLMODE_NONE,
             .front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE,
         },
         .depth_stencil_state = {

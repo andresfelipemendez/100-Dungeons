@@ -140,6 +140,9 @@ static void poly_push(horu_poly *list, int *count, int cap,
     if (*count >= cap) {
         return;
     }
+    if (n > HORU_POLY_MAX) {
+        n = HORU_POLY_MAX; /* clip never grows a piece past the vertex cap */
+    }
     p = &list[(*count)++];
     p->n = n;
     for (i = 0; i < n; i++) {
@@ -209,12 +212,33 @@ typedef struct {
     int       count;
 } horu_bsp;
 
-/* internal scratch -- single-threaded; keeps the big arrays off the stack */
-static horu_bsp  g_bsp_a, g_bsp_b;
-static horu_poly g_gather[HORU_SPLIT_CAP * HORU_BSP_NODES / 4];
+/* All working memory comes from the CALLER'S scratch (a slice of the engine's
+   reload/transient block), via this bump arena -- horu keeps NOTHING on the
+   stack or in statics, so it is reentrant and a deep BSP can never blow the
+   stack. Per-recursion scratch is pushed/popped LIFO; running out of arena
+   bounds the recursion (it bails gracefully, dropping nothing it cannot fit).
+   The caller sizes the scratch to the CSG complexity it needs. */
+typedef struct { char *base; long cap, used; } horu_arena;
+
+static void *ha_push(horu_arena *ar, long bytes) {
+    long n = (bytes + 15L) & ~15L;
+    void *p;
+    if (ar->used + n > ar->cap) {
+        return 0;
+    }
+    p = ar->base + ar->used;
+    ar->used += n;
+    return p;
+}
+
+#define HA_POLYS (long)(sizeof(horu_poly) * HORU_SPLIT_CAP)
 
 static int bsp_alloc(horu_bsp *t) {
-    int i = t->count++;
+    int i;
+    if (t->count >= HORU_BSP_NODES) {
+        return -1; /* node pool full -- the model is too complex */
+    }
+    i = t->count++;
     t->n[i].valid = 0;
     t->n[i].front = -1;
     t->n[i].back = -1;
@@ -234,11 +258,15 @@ static int poly_coplanar(horu_plane pl, const horu_poly *p) {
 
 /* build (extend) the tree rooted at idx with `polys`. Coplanar polygons stay
    at the node; the rest split front/back and recurse. */
-static void bsp_build(horu_bsp *t, int idx, const horu_poly *polys, int n) {
+static void bsp_build(horu_bsp *t, int idx, const horu_poly *polys, int n,
+                      horu_arena *ar) {
     horu_node *nd = &t->n[idx];
-    horu_poly front[HORU_SPLIT_CAP], back[HORU_SPLIT_CAP];
+    long mark = ar->used;
+    horu_poly *front = (horu_poly *)ha_push(ar, HA_POLYS);
+    horu_poly *back  = (horu_poly *)ha_push(ar, HA_POLYS);
     int nf = 0, nb = 0, i;
-    if (n == 0) {
+    if (n == 0 || !front || !back) { /* empty, or out of scratch -> bail */
+        ar->used = mark;
         return;
     }
     if (!nd->valid) {
@@ -257,12 +285,13 @@ static void bsp_build(horu_bsp *t, int idx, const horu_poly *polys, int n) {
     }
     if (nf) {
         if (nd->front < 0) nd->front = bsp_alloc(t);
-        bsp_build(t, nd->front, front, nf);
+        if (nd->front >= 0) bsp_build(t, nd->front, front, nf, ar);
     }
     if (nb) {
         if (nd->back < 0) nd->back = bsp_alloc(t);
-        bsp_build(t, nd->back, back, nb);
+        if (nd->back >= 0) bsp_build(t, nd->back, back, nb, ar);
     }
+    ar->used = mark;
 }
 
 /* gather every polygon in the tree into out[] (capacity cap); returns count. */
@@ -304,11 +333,15 @@ static void bsp_invert(horu_bsp *t, int idx) {
 /* return the parts of `in` that lie OUTSIDE the tree (front of every leaf;
    the back of a leaf is inside, dropped). */
 static int bsp_clip_polys(const horu_bsp *t, int idx, const horu_poly *in,
-                          int n, horu_poly *out, int cap) {
+                          int n, horu_poly *out, int cap, horu_arena *ar) {
     const horu_node *nd;
-    horu_poly front[HORU_SPLIT_CAP], back[HORU_SPLIT_CAP];
+    long mark = ar->used;
+    horu_poly *front = (horu_poly *)ha_push(ar, HA_POLYS);
+    horu_poly *back  = (horu_poly *)ha_push(ar, HA_POLYS);
     int nf = 0, nb = 0, i, on = 0;
-    if (!t->n[idx].valid) { /* empty tree: nothing to clip against */
+    if (!front || !back || !t->n[idx].valid) {
+        /* out of scratch, or an empty tree: pass the polygons through */
+        ar->used = mark;
         for (i = 0; i < n; i++) {
             if (on < cap) out[on++] = in[i];
         }
@@ -319,76 +352,239 @@ static int bsp_clip_polys(const horu_bsp *t, int idx, const horu_poly *in,
         horu_split_poly(nd->plane, &in[i], front, &nf, back, &nb, HORU_SPLIT_CAP);
     }
     if (nd->front >= 0) {
-        horu_poly fout[HORU_SPLIT_CAP];
-        int fc = bsp_clip_polys(t, nd->front, front, nf, fout, HORU_SPLIT_CAP);
+        horu_poly *fout = (horu_poly *)ha_push(ar, HA_POLYS);
+        int fc = fout ? bsp_clip_polys(t, nd->front, front, nf, fout,
+                                       HORU_SPLIT_CAP, ar) : 0;
         for (i = 0; i < fc; i++) if (on < cap) out[on++] = fout[i];
     } else {
         for (i = 0; i < nf; i++) if (on < cap) out[on++] = front[i];
     }
     if (nd->back >= 0) {
-        horu_poly bout[HORU_SPLIT_CAP];
-        int bc = bsp_clip_polys(t, nd->back, back, nb, bout, HORU_SPLIT_CAP);
+        horu_poly *bout = (horu_poly *)ha_push(ar, HA_POLYS);
+        int bc = bout ? bsp_clip_polys(t, nd->back, back, nb, bout,
+                                       HORU_SPLIT_CAP, ar) : 0;
         for (i = 0; i < bc; i++) if (on < cap) out[on++] = bout[i];
     }
     /* no back child: those polygons are inside, dropped */
+    ar->used = mark;
     return on;
 }
 
 /* clip every node's polygons in `target` against `clipper`. */
-static void bsp_clip_to(horu_bsp *target, int idx, const horu_bsp *clipper) {
+static void bsp_clip_to(horu_bsp *target, int idx, const horu_bsp *clipper,
+                        horu_arena *ar) {
     horu_node *nd;
-    horu_poly tmp[HORU_SPLIT_CAP];
+    long mark = ar->used;
+    horu_poly *tmp = (horu_poly *)ha_push(ar, HA_POLYS);
     int tn, i;
-    if (idx < 0) {
+    if (idx < 0 || !tmp) {
+        ar->used = mark;
         return;
     }
     nd = &target->n[idx];
-    tn = bsp_clip_polys(clipper, 0, nd->cop, nd->ncop, tmp, HORU_SPLIT_CAP);
+    tn = bsp_clip_polys(clipper, 0, nd->cop, nd->ncop, tmp, HORU_SPLIT_CAP, ar);
     if (tn > HORU_NODE_POLYS) tn = HORU_NODE_POLYS;
     nd->ncop = tn;
     for (i = 0; i < tn; i++) {
         nd->cop[i] = tmp[i];
     }
-    bsp_clip_to(target, nd->front, clipper);
-    bsp_clip_to(target, nd->back, clipper);
+    bsp_clip_to(target, nd->front, clipper, ar);
+    bsp_clip_to(target, nd->back, clipper, ar);
+    ar->used = mark;
 }
 
 int horu_csg_polys(horu_op op, const horu_poly *a, int na,
-                   const horu_poly *b, int nb, horu_poly *out, int cap) {
-    int gcap = (int)(sizeof g_gather / sizeof g_gather[0]);
+                   const horu_poly *b, int nb, horu_poly *out, int cap,
+                   void *scratch, int scratch_bytes) {
+    horu_arena ar;
+    horu_bsp *A, *B;
+    horu_poly *gather;
+    int gcap = HORU_SPLIT_CAP * HORU_BSP_NODES / 4;
     int m;
-    g_bsp_a.count = 0; bsp_alloc(&g_bsp_a); bsp_build(&g_bsp_a, 0, a, na);
-    g_bsp_b.count = 0; bsp_alloc(&g_bsp_b); bsp_build(&g_bsp_b, 0, b, nb);
+
+    ar.base = (char *)scratch;
+    ar.cap = (long)scratch_bytes;
+    ar.used = 0;
+    A = (horu_bsp *)ha_push(&ar, (long)sizeof(horu_bsp));
+    B = (horu_bsp *)ha_push(&ar, (long)sizeof(horu_bsp));
+    gather = (horu_poly *)ha_push(&ar, (long)sizeof(horu_poly) * gcap);
+    if (!A || !B || !gather) {
+        return 0; /* scratch too small for even the two trees */
+    }
+    A->count = 0; bsp_alloc(A); bsp_build(A, 0, a, na, &ar);
+    B->count = 0; bsp_alloc(B); bsp_build(B, 0, b, nb, &ar);
 
     if (op == HORU_UNION) {
-        bsp_clip_to(&g_bsp_a, 0, &g_bsp_b);
-        bsp_clip_to(&g_bsp_b, 0, &g_bsp_a);
-        bsp_invert(&g_bsp_b, 0);
-        bsp_clip_to(&g_bsp_b, 0, &g_bsp_a);
-        bsp_invert(&g_bsp_b, 0);
-        m = bsp_all(&g_bsp_b, 0, g_gather, 0, gcap);
-        bsp_build(&g_bsp_a, 0, g_gather, m);
+        bsp_clip_to(A, 0, B, &ar);
+        bsp_clip_to(B, 0, A, &ar);
+        bsp_invert(B, 0);
+        bsp_clip_to(B, 0, A, &ar);
+        bsp_invert(B, 0);
+        m = bsp_all(B, 0, gather, 0, gcap);
+        bsp_build(A, 0, gather, m, &ar);
     } else if (op == HORU_INTERSECTION) {
-        bsp_invert(&g_bsp_a, 0);
-        bsp_clip_to(&g_bsp_b, 0, &g_bsp_a);
-        bsp_invert(&g_bsp_b, 0);
-        bsp_clip_to(&g_bsp_a, 0, &g_bsp_b);
-        bsp_clip_to(&g_bsp_b, 0, &g_bsp_a);
-        m = bsp_all(&g_bsp_b, 0, g_gather, 0, gcap);
-        bsp_build(&g_bsp_a, 0, g_gather, m);
-        bsp_invert(&g_bsp_a, 0);
+        bsp_invert(A, 0);
+        bsp_clip_to(B, 0, A, &ar);
+        bsp_invert(B, 0);
+        bsp_clip_to(A, 0, B, &ar);
+        bsp_clip_to(B, 0, A, &ar);
+        m = bsp_all(B, 0, gather, 0, gcap);
+        bsp_build(A, 0, gather, m, &ar);
+        bsp_invert(A, 0);
     } else { /* HORU_DIFFERENCE: a - b */
-        bsp_invert(&g_bsp_a, 0);
-        bsp_clip_to(&g_bsp_a, 0, &g_bsp_b);
-        bsp_clip_to(&g_bsp_b, 0, &g_bsp_a);
-        bsp_invert(&g_bsp_b, 0);
-        bsp_clip_to(&g_bsp_b, 0, &g_bsp_a);
-        bsp_invert(&g_bsp_b, 0);
-        m = bsp_all(&g_bsp_b, 0, g_gather, 0, gcap);
-        bsp_build(&g_bsp_a, 0, g_gather, m);
-        bsp_invert(&g_bsp_a, 0);
+        bsp_invert(A, 0);
+        bsp_clip_to(A, 0, B, &ar);
+        bsp_clip_to(B, 0, A, &ar);
+        bsp_invert(B, 0);
+        bsp_clip_to(B, 0, A, &ar);
+        bsp_invert(B, 0);
+        m = bsp_all(B, 0, gather, 0, gcap);
+        bsp_build(A, 0, gather, m, &ar);
+        bsp_invert(A, 0);
     }
-    return bsp_all(&g_bsp_a, 0, out, 0, cap);
+    return bsp_all(A, 0, out, 0, cap);
+}
+
+/* ---- PART 2: curved/faceted primitives ---------------------------------- */
+
+#define HORU_PI 3.14159265358979323846
+
+static horu_v3 hv3(float x, float y, float z) {
+    horu_v3 v;
+    v.x = x; v.y = y; v.z = z;
+    return v;
+}
+
+static void emit3(horu_poly *p, horu_v3 a, horu_v3 b, horu_v3 c) {
+    p->n = 3;
+    p->v[0] = a; p->v[1] = b; p->v[2] = c;
+    p->plane = horu_plane_from_points(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+}
+
+static void emit4(horu_poly *p, horu_v3 a, horu_v3 b, horu_v3 c, horu_v3 d) {
+    p->n = 4;
+    p->v[0] = a; p->v[1] = b; p->v[2] = c; p->v[3] = d;
+    p->plane = horu_plane_from_points(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+}
+
+/* A regular n-gon prism (a cylinder for large `sides`, a polygon column for
+   small): `sides` side quads + two triangle-fan caps. Outward normals. */
+int horu_prism_polys(float cx, float cy, float cz, float r, float h,
+                     int sides, horu_poly *out, int cap) {
+    int n = 0, i;
+    float hy = h * 0.5f, y0 = cy - hy, y1 = cy + hy;
+    horu_v3 cbot = hv3(cx, y0, cz), ctop = hv3(cx, y1, cz);
+    if (sides < 3) {
+        sides = 3;
+    }
+    for (i = 0; i < sides; i++) {
+        float a0 = (float)(2.0 * HORU_PI * i / sides);
+        float a1 = (float)(2.0 * HORU_PI * (i + 1) / sides);
+        float c0 = (float)cos(a0), s0 = (float)sin(a0);
+        float c1 = (float)cos(a1), s1 = (float)sin(a1);
+        horu_v3 b0 = hv3(cx + r * c0, y0, cz + r * s0);
+        horu_v3 b1 = hv3(cx + r * c1, y0, cz + r * s1);
+        horu_v3 t0 = hv3(cx + r * c0, y1, cz + r * s0);
+        horu_v3 t1 = hv3(cx + r * c1, y1, cz + r * s1);
+        if (n < cap) emit4(&out[n++], b0, t0, t1, b1);  /* side, outward */
+        if (n < cap) emit3(&out[n++], cbot, b0, b1);    /* bottom cap, -y */
+        if (n < cap) emit3(&out[n++], ctop, t1, t0);    /* top cap, +y */
+    }
+    return n;
+}
+
+/* Extrude a 2D outline (points (px[i],pz[i]) in the XZ plane, CCW seen from
+   +y, convex) along Y by height h about (cx,cy,cz): side quads + two fan caps.
+   This is the "polygon" primitive -- a triangle profile gives a wedge/ramp, a
+   trapezoid a slope, etc. Outward normals; returns the polygon count. */
+int horu_extrude_polys(float cx, float cy, float cz,
+                       const float *px, const float *pz, int npts, float h,
+                       horu_poly *out, int cap) {
+    int n = 0, i;
+    float hy = h * 0.5f, y0 = cy - hy, y1 = cy + hy;
+    if (npts < 3) {
+        return 0;
+    }
+    for (i = 0; i < npts; i++) {                 /* side walls */
+        int j = (i + 1) % npts;
+        horu_v3 b0 = hv3(cx + px[i], y0, cz + pz[i]);
+        horu_v3 b1 = hv3(cx + px[j], y0, cz + pz[j]);
+        horu_v3 t0 = hv3(cx + px[i], y1, cz + pz[i]);
+        horu_v3 t1 = hv3(cx + px[j], y1, cz + pz[j]);
+        if (n < cap) emit4(&out[n++], b0, t0, t1, b1);
+    }
+    for (i = 1; i + 1 < npts; i++) {             /* fan caps from point 0 */
+        horu_v3 a0 = hv3(cx + px[0], y0, cz + pz[0]);
+        horu_v3 b0 = hv3(cx + px[i], y0, cz + pz[i]);
+        horu_v3 c0 = hv3(cx + px[i + 1], y0, cz + pz[i + 1]);
+        horu_v3 a1 = hv3(cx + px[0], y1, cz + pz[0]);
+        horu_v3 b1 = hv3(cx + px[i], y1, cz + pz[i]);
+        horu_v3 c1 = hv3(cx + px[i + 1], y1, cz + pz[i + 1]);
+        if (n < cap) emit3(&out[n++], a0, b0, c0); /* bottom, -y */
+        if (n < cap) emit3(&out[n++], a1, c1, b1); /* top, +y */
+    }
+    return n;
+}
+
+/* A cone: `sides` base edges fanning to an apex, plus a base cap. radius r,
+   height h (apex at +h/2, base at -h/2). Outward normals. Used for arrow tips. */
+int horu_cone_polys(float cx, float cy, float cz, float r, float h,
+                    int sides, horu_poly *out, int cap) {
+    int n = 0, i;
+    float hy = h * 0.5f, y0 = cy - hy, y1 = cy + hy;
+    horu_v3 cbot = hv3(cx, y0, cz), apex = hv3(cx, y1, cz);
+    if (sides < 3) {
+        sides = 3;
+    }
+    for (i = 0; i < sides; i++) {
+        float a0 = (float)(2.0 * HORU_PI * i / sides);
+        float a1 = (float)(2.0 * HORU_PI * (i + 1) / sides);
+        horu_v3 b0 = hv3(cx + r * (float)cos(a0), y0, cz + r * (float)sin(a0));
+        horu_v3 b1 = hv3(cx + r * (float)cos(a1), y0, cz + r * (float)sin(a1));
+        if (n < cap) emit3(&out[n++], b0, apex, b1); /* side, outward */
+        if (n < cap) emit3(&out[n++], cbot, b0, b1); /* base, -y */
+    }
+    return n;
+}
+
+static horu_v3 sphere_pt(float cx, float cy, float cz, float r,
+                         float polar, float azim) {
+    return hv3(cx + r * (float)(sin(polar) * cos(azim)),
+               cy + r * (float)cos(polar),
+               cz + r * (float)(sin(polar) * sin(azim)));
+}
+
+/* A UV sphere: `seg` longitude * `rings` latitude. Pole rings are triangles,
+   the rest quads. Outward normals. */
+int horu_sphere_polys(float cx, float cy, float cz, float r,
+                      int seg, int rings, horu_poly *out, int cap) {
+    int n = 0, i, j;
+    if (seg < 3) {
+        seg = 3;
+    }
+    if (rings < 2) {
+        rings = 2;
+    }
+    for (j = 0; j < rings; j++) {
+        float p0 = (float)(HORU_PI * j / rings);
+        float p1 = (float)(HORU_PI * (j + 1) / rings);
+        for (i = 0; i < seg; i++) {
+            float t0 = (float)(2.0 * HORU_PI * i / seg);
+            float t1 = (float)(2.0 * HORU_PI * (i + 1) / seg);
+            horu_v3 a = sphere_pt(cx, cy, cz, r, p0, t0);
+            horu_v3 b = sphere_pt(cx, cy, cz, r, p1, t0);
+            horu_v3 c = sphere_pt(cx, cy, cz, r, p1, t1);
+            horu_v3 d = sphere_pt(cx, cy, cz, r, p0, t1);
+            if (j == 0) {                 /* top pole: a == d */
+                if (n < cap) emit3(&out[n++], a, c, b);
+            } else if (j == rings - 1) {  /* bottom pole: b == c */
+                if (n < cap) emit3(&out[n++], a, d, b);
+            } else {
+                if (n < cap) emit4(&out[n++], a, d, c, b);
+            }
+        }
+    }
+    return n;
 }
 
 int horu_box_polys(float cx, float cy, float cz,

@@ -17,6 +17,29 @@ static int g_fail = 0;
 
 static int feq(float a, float b) { return (float)fabs(a - b) < 1e-5f; }
 
+/* signed volume of a closed polygon soup: sum of tetrahedra (origin, fan).
+   outward CCW polygons give a positive volume. */
+static float poly_soup_volume(const horu_poly *p, int n) {
+    float v6 = 0.0f;
+    int i, k;
+    for (i = 0; i < n; i++) {
+        for (k = 0; k + 2 < p[i].n; k++) {
+            horu_v3 a = p[i].v[0], b = p[i].v[k + 1], c = p[i].v[k + 2];
+            float cx = b.y * c.z - b.z * c.y;
+            float cy = b.z * c.x - b.x * c.z;
+            float cz = b.x * c.y - b.y * c.x;
+            v6 += a.x * cx + a.y * cy + a.z * cz;
+        }
+    }
+    return v6 / 6.0f;
+}
+
+static int vol_eq(float a, float b) { return (float)fabs(a - b) < 0.02f; }
+
+/* CSG working memory (the caller owns it -- here a static buffer) */
+static char g_scratch[HORU_CSG_SCRATCH];
+#define SCRATCH g_scratch, (int)sizeof g_scratch
+
 /* ---- plane construction -------------------------------------------------- */
 
 static void test_plane_make_normalizes(void) {
@@ -256,6 +279,62 @@ static void test_box_polys_capacity(void) {
     CHECK(n == 2); /* stops at capacity */
 }
 
+static void test_prism(void) {
+    /* square prism (sides=4): n-gon area = (1/2)*4*r^2*sin(90) = 2 r^2;
+       r=1,h=2 -> volume 4. positive => outward winding. */
+    horu_poly p[256];
+    int n = horu_prism_polys(0,0,0, 1.0f, 2.0f, 4, p, 256);
+    int i;
+    CHECK(n == 12); /* 4 sides * (1 quad + 2 cap tris) */
+    CHECK(vol_eq(poly_soup_volume(p, n), 4.0f));
+    /* a many-sided prism approximates a cylinder: vol -> pi r^2 h ~ 6.28 */
+    n = horu_prism_polys(0,0,0, 1.0f, 2.0f, 64, p, 256); /* 192 polys */
+    CHECK(poly_soup_volume(p, n) > 6.0f);
+    /* clamp + capacity guards */
+    n = horu_prism_polys(0,0,0, 1.0f, 1.0f, 2, p, 256); /* sides<3 -> 3 */
+    CHECK(n == 9);
+    i = horu_prism_polys(0,0,0, 1,1, 4, p, 2);           /* cap 2 */
+    CHECK(i == 2);
+}
+
+static void test_cone(void) {
+    /* square-base cone (sides=4): base area 2, volume = (1/3)*2*h.
+       r=1,h=3 -> 2. positive => outward. */
+    horu_poly p[64];
+    int n = horu_cone_polys(0,0,0, 1.0f, 3.0f, 4, p, 64);
+    CHECK(n == 8); /* 4 sides * (1 side tri + 1 base tri) */
+    CHECK(vol_eq(poly_soup_volume(p, n), 2.0f));
+    n = horu_cone_polys(0,0,0, 1.0f, 1.0f, 2, p, 64); /* sides<3 -> 3 */
+    CHECK(n == 6);
+    CHECK(horu_cone_polys(0,0,0, 1,1, 4, p, 1) == 1); /* cap */
+}
+
+static void test_sphere(void) {
+    horu_poly p[1024];
+    int n = horu_sphere_polys(0,0,0, 1.0f, 24, 12, p, 1024);
+    float v = poly_soup_volume(p, n);
+    CHECK(v > 3.9f && v < 4.25f);   /* ~ 4/3 pi = 4.18, coarse underestimate */
+    /* clamp (seg<3, rings<2) + capacity */
+    n = horu_sphere_polys(0,0,0, 1.0f, 2, 1, p, 1024); /* -> seg 3, rings 2 */
+    CHECK(n == 6);                   /* 3 seg * 2 pole rings, all triangles */
+    n = horu_sphere_polys(0,0,0, 1.0f, 24, 12, p, 3);  /* cap 3 */
+    CHECK(n == 3);
+}
+
+static void test_extrude(void) {
+    /* right-triangle profile (0,0),(2,0),(0,2) -- a wedge -- extruded h=2.
+       triangle area 2, volume 4. */
+    float px[3] = { 0.0f, 2.0f, 0.0f };
+    float pz[3] = { 0.0f, 0.0f, 2.0f };
+    horu_poly p[16];
+    int n = horu_extrude_polys(0,0,0, px, pz, 3, 2.0f, p, 16);
+    CHECK(n == 5); /* 3 side quads + 2 cap tris (1 fan tri per cap) */
+    CHECK(vol_eq(poly_soup_volume(p, n), 4.0f));
+    /* degenerate (npts<3) + capacity */
+    CHECK(horu_extrude_polys(0,0,0, px, pz, 2, 2.0f, p, 16) == 0);
+    CHECK(horu_extrude_polys(0,0,0, px, pz, 3, 2.0f, p, 2) == 2);
+}
+
 static void test_mesh_from_polys(void) {
     horu_poly f[8];
     int npoly = horu_box_polys(0.0f, 0.0f, 0.0f, 2.0f, 2.0f, 2.0f, f, 8);
@@ -296,44 +375,25 @@ static void test_split_capacity(void) {
     CHECK(nf == 0 && nb == 0);
 }
 
-/* signed volume of a closed polygon soup: sum of tetrahedra (origin, fan).
-   outward CCW polygons give a positive volume. */
-static float poly_soup_volume(const horu_poly *p, int n) {
-    float v6 = 0.0f;
-    int i, k;
-    for (i = 0; i < n; i++) {
-        for (k = 0; k + 2 < p[i].n; k++) {
-            horu_v3 a = p[i].v[0], b = p[i].v[k + 1], c = p[i].v[k + 2];
-            float cx = b.y * c.z - b.z * c.y;
-            float cy = b.z * c.x - b.x * c.z;
-            float cz = b.x * c.y - b.y * c.x;
-            v6 += a.x * cx + a.y * cy + a.z * cz;
-        }
-    }
-    return v6 / 6.0f;
-}
-
-static int vol_eq(float a, float b) { return (float)fabs(a - b) < 0.02f; }
-
 static void test_csg_union_disjoint(void) {
     horu_poly a[8], b[8], out[64];
     int na = horu_box_polys(0,0,0, 2,2,2, a, 8);
     int nb = horu_box_polys(5,0,0, 2,2,2, b, 8); /* disjoint */
-    int n = horu_csg_polys(HORU_UNION, a, na, b, nb, out, 64);
+    int n = horu_csg_polys(HORU_UNION, a, na, b, nb, out, 64, SCRATCH);
     CHECK(vol_eq(poly_soup_volume(out, n), 16.0f)); /* 8 + 8 */
 }
 
 static void test_csg_intersection_self(void) {
     horu_poly a[8], out[64];
     int na = horu_box_polys(0,0,0, 2,2,2, a, 8);
-    int n = horu_csg_polys(HORU_INTERSECTION, a, na, a, na, out, 64);
+    int n = horu_csg_polys(HORU_INTERSECTION, a, na, a, na, out, 64, SCRATCH);
     CHECK(vol_eq(poly_soup_volume(out, n), 8.0f)); /* A ∩ A = A */
 }
 
 static void test_csg_difference_self(void) {
     horu_poly a[8], out[64];
     int na = horu_box_polys(0,0,0, 2,2,2, a, 8);
-    int n = horu_csg_polys(HORU_DIFFERENCE, a, na, a, na, out, 64);
+    int n = horu_csg_polys(HORU_DIFFERENCE, a, na, a, na, out, 64, SCRATCH);
     CHECK(vol_eq(poly_soup_volume(out, n), 0.0f)); /* A - A = empty */
 }
 
@@ -343,11 +403,11 @@ static void test_csg_overlap(void) {
     int na = horu_box_polys(0,0,0, 2,2,2, a, 8); /* [-1,1]^3, vol 8 */
     int nb = horu_box_polys(1,1,1, 2,2,2, b, 8); /* [0,2]^3 */
     int n;
-    n = horu_csg_polys(HORU_DIFFERENCE, a, na, b, nb, out, 128);
+    n = horu_csg_polys(HORU_DIFFERENCE, a, na, b, nb, out, 128, SCRATCH);
     CHECK(vol_eq(poly_soup_volume(out, n), 7.0f)); /* 8 - 1 */
-    n = horu_csg_polys(HORU_UNION, a, na, b, nb, out, 128);
+    n = horu_csg_polys(HORU_UNION, a, na, b, nb, out, 128, SCRATCH);
     CHECK(vol_eq(poly_soup_volume(out, n), 15.0f)); /* 8 + 8 - 1 */
-    n = horu_csg_polys(HORU_INTERSECTION, a, na, b, nb, out, 128);
+    n = horu_csg_polys(HORU_INTERSECTION, a, na, b, nb, out, 128, SCRATCH);
     CHECK(vol_eq(poly_soup_volume(out, n), 1.0f)); /* overlap */
 }
 
@@ -355,7 +415,7 @@ static void test_csg_empty_operand(void) {
     /* union with an empty solid is identity -> exercises the empty-tree clip */
     horu_poly a[8], out[64];
     int na = horu_box_polys(0,0,0, 2,2,2, a, 8);
-    int n = horu_csg_polys(HORU_UNION, a, na, a, 0, out, 64);
+    int n = horu_csg_polys(HORU_UNION, a, na, a, 0, out, 64, SCRATCH);
     CHECK(vol_eq(poly_soup_volume(out, n), 8.0f));
 }
 
@@ -363,8 +423,32 @@ static void test_csg_capacity(void) {
     horu_poly a[8], b[8], out[2];
     int na = horu_box_polys(0,0,0, 2,2,2, a, 8);
     int nb = horu_box_polys(5,0,0, 2,2,2, b, 8);
-    int n = horu_csg_polys(HORU_UNION, a, na, b, nb, out, 2);
+    int n = horu_csg_polys(HORU_UNION, a, na, b, nb, out, 2, SCRATCH);
     CHECK(n <= 2); /* output clamped to cap */
+}
+
+static void test_csg_bounded_scratch(void) {
+    /* enough scratch for the two trees but tight for recursion: the arena
+       bounds the clip (OOM bail paths) and it still returns without crashing. */
+    static char buf[1000000];
+    horu_poly a[8], b[64], out[256];
+    int na = horu_box_polys(0,0,0, 2,2,2, a, 8);
+    int nb = horu_sphere_polys(0.4f,0.4f,0.4f, 1.1f, 8, 4, b, 64);
+    int n = horu_csg_polys(HORU_DIFFERENCE, a, na, b, nb, out, 256,
+                           buf, (int)sizeof buf);
+    CHECK(n >= 0); /* no crash; result is bounded by the scratch */
+}
+
+static void test_csg_tiny_scratch(void) {
+    /* far too little scratch: the arena bounds the work and it returns 0
+       (or few) without crashing -- exercises the OOM/bail paths. */
+    horu_poly a[8], b[8], out[128];
+    char tiny[64];
+    int na = horu_box_polys(0,0,0, 2,2,2, a, 8);
+    int nb = horu_box_polys(1,1,1, 2,2,2, b, 8);
+    int n = horu_csg_polys(HORU_DIFFERENCE, a, na, b, nb, out, 128,
+                           tiny, (int)sizeof tiny);
+    CHECK(n == 0); /* can't even fit the trees */
 }
 
 int main(void) {
@@ -383,6 +467,10 @@ int main(void) {
     test_flip_poly();
     test_box_polys();
     test_box_polys_capacity();
+    test_prism();
+    test_cone();
+    test_sphere();
+    test_extrude();
     test_mesh_from_polys();
     test_mesh_capacity();
     test_csg_union_disjoint();
@@ -391,6 +479,8 @@ int main(void) {
     test_csg_overlap();
     test_csg_empty_operand();
     test_csg_capacity();
+    test_csg_bounded_scratch();
+    test_csg_tiny_scratch();
     if (g_fail) {
         printf("%d check(s) failed\n", g_fail);
         return 1;
