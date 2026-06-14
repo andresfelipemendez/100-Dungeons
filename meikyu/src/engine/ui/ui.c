@@ -183,6 +183,26 @@ void ui_panel_end(void) {
     Clay__CloseElement();
 }
 
+void ui_panel_begin_right(ito id, f32 width) {
+    if (!ui.ready) {
+        return;
+    }
+    Clay__OpenElementWithId(Clay__HashString(ui_string(id), 0));
+    Clay__ConfigureOpenElement((Clay_ElementDeclaration){
+        .layout = { .sizing = { .width = CLAY_SIZING_FIXED(width),
+                                .height = CLAY_SIZING_GROW(0) },
+                    .padding = CLAY_PADDING_ALL(12),
+                    .childGap = 10,
+                    .layoutDirection = CLAY_TOP_TO_BOTTOM },
+        .backgroundColor = { 24, 26, 34, 235 },
+        /* float out of the root's left-to-right flow, pinned to the right edge */
+        .floating = { .attachTo = CLAY_ATTACH_TO_ROOT,
+                      .attachPoints = {
+                          .element = CLAY_ATTACH_POINT_RIGHT_TOP,
+                          .parent  = CLAY_ATTACH_POINT_RIGHT_TOP } },
+    });
+}
+
 void ui_row_begin(ito id) {
     if (!ui.ready) {
         return;
@@ -239,6 +259,31 @@ b32 ui_button(ito id, ito label) {
         .cornerRadius = { 4, 4, 4, 4 },
     });
     ui_text_internal(label, 16, (Clay_Color){ 230, 230, 240, 255 });
+    Clay__CloseElement();
+    return clicked;
+}
+
+b32 ui_select_row(ito id, ito label, b32 selected) {
+    if (!ui.ready) {
+        return 0;
+    }
+    Clay_ElementId eid = Clay__HashString(ui_string(id), 0);
+    b32 clicked = ui.mouse_down && !ui.prev_mouse_down && Clay_PointerOver(eid);
+
+    Clay__OpenElementWithId(eid);
+    Clay__ConfigureOpenElement((Clay_ElementDeclaration){
+        .layout = { .sizing = { .width = CLAY_SIZING_GROW(0),
+                                .height = CLAY_SIZING_FIXED(24) },
+                    .padding = { 8, 8, 0, 0 },
+                    .childAlignment = { .y = CLAY_ALIGN_Y_CENTER } },
+        .backgroundColor = selected
+            ? (Clay_Color){ 64, 110, 88, 255 }   /* selected: green tint */
+            : Clay_Hovered()
+                ? (Clay_Color){ 48, 52, 70, 255 }
+                : (Clay_Color){ 32, 35, 46, 255 },
+        .cornerRadius = { 3, 3, 3, 3 },
+    });
+    ui_text_internal(label, 14, (Clay_Color){ 230, 232, 244, 255 });
     Clay__CloseElement();
     return clicked;
 }

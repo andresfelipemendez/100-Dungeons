@@ -38,12 +38,28 @@ static void test_ray_aabb(void) {
 
 static void test_pick(void) {
     tsu_target t[2];
-    t[0].id = 10; t[0].center = mk(0,0,0);  t[0].half = mk(1,1,1);
-    t[1].id = 20; t[1].center = mk(0,0,-8); t[1].half = mk(1,1,1); /* farther */
-    /* ray down -z hits both; nearer (id 10) wins */
+    t[0].id = 10; t[0].center = mk(0,0,0);  t[0].half = mk(1,1,1); t[0].axis = -1;
+    t[1].id = 20; t[1].center = mk(0,0,-8); t[1].half = mk(1,1,1); t[1].axis = -1;
+    /* ray down -z hits both bodies; nearer (id 10) wins */
     CHECK(tsu_pick(mkray(0,0,5, 0,0,-1), t, 2) == 10);
     /* ray that misses both */
     CHECK(tsu_pick(mkray(9,9,5, 0,0,-1), t, 2) == -1);
+}
+
+/* gizmo handles (axis >= 0) win over object bodies (axis -1) even when a body
+   is nearer along the ray -- otherwise a primitive in front blocks the
+   selected entity's arrows (the box-behind-sphere reset bug). */
+static void test_pick_handle_priority(void) {
+    tsu_target t[3];
+    t[0].id = 10; t[0].center = mk(0,0,2);  t[0].half = mk(1,1,1); t[0].axis = -1; /* body, near */
+    t[1].id = 21; t[1].center = mk(0,0,-3); t[1].half = mk(1,1,1); t[1].axis = 0;  /* handle, far */
+    t[2].id = 22; t[2].center = mk(0,0,0);  t[2].half = mk(1,1,1); t[2].axis = 1;  /* handle, nearer */
+    /* both handles hit; the nearer handle wins over the body and the far one */
+    CHECK(tsu_pick(mkray(0,0,5, 0,0,-1), t, 3) == 22);
+    /* move both handles off the ray: only the body is hit, so it wins */
+    t[1].center = mk(9,9,9);
+    t[2].center = mk(9,9,9);
+    CHECK(tsu_pick(mkray(0,0,5, 0,0,-1), t, 3) == 10);
 }
 
 static void test_ray_plane(void) {
@@ -148,6 +164,7 @@ static void test_gizmo_axis_constrained(void) {
 int main(void) {
     test_ray_aabb();
     test_pick();
+    test_pick_handle_priority();
     test_ray_plane();
     test_ray_from_screen();
     test_gizmo_select_drag_release();

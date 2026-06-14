@@ -48,17 +48,23 @@ float tsu_ray_aabb(tsu_ray ray, tsu_v3 mn, tsu_v3 mx) {
 }
 
 int tsu_pick(tsu_ray ray, const tsu_target *t, int n) {
-    int i, best = -1;
-    float bt = 1e30f;
+    int i, best = -1, best_handle = -1;
+    float bt = 1e30f, bth = 1e30f;
     for (i = 0; i < n; i++) {
         float d = tsu_ray_aabb(ray, sub3(t[i].center, t[i].half),
                                add3(t[i].center, t[i].half));
-        if (d >= 0.0f && d < bt) {
-            bt = d;
-            best = t[i].id;
+        if (d < 0.0f) {
+            continue;
+        }
+        if (t[i].axis >= 0) {              /* gizmo handle: priority class */
+            if (d < bth) { bth = d; best_handle = t[i].id; }
+        } else if (d < bt) {               /* object body */
+            bt = d; best = t[i].id;
         }
     }
-    return best;
+    /* a hit handle always wins over a body, even a nearer one -- the gizmo
+       arrows must stay grabbable through a primitive in front of them. */
+    return (best_handle >= 0) ? best_handle : best;
 }
 
 tsu_v3 tsu_ray_plane(tsu_ray ray, tsu_v3 p, tsu_v3 nrm) {

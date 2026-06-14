@@ -40,12 +40,19 @@ void ui_frame_end(f32 dt);
 /* Widgets. Text/id views must stay valid until ui_frame_end (frame-static
    buffers are fine for formatted values). */
 void ui_panel_begin(ito id, f32 width);
+/* Like ui_panel_begin but the panel floats anchored to the screen's RIGHT
+   edge (full height), out of the left-to-right root flow -- for an inspector.
+   Pair with ui_panel_end. */
+void ui_panel_begin_right(ito id, f32 width);
 void ui_panel_end(void);
 void ui_row_begin(ito id);
 void ui_row_end(void);
 void ui_label(ito text, int font_size);
 void ui_label_dim(ito text, int font_size); /* secondary color */
 b32  ui_button(ito id, ito label);
+/* A full-width selectable list/tree row: tinted when `selected`, hover-lit
+   otherwise. Returns true once per click (same edge rule as ui_button). */
+b32  ui_select_row(ito id, ito label, b32 selected);
 
 /* --- extension hook ------------------------------------------------------
    Libraries (e.g. seni) contribute panels without the game drawing them:

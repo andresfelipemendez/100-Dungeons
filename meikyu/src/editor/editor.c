@@ -25,23 +25,11 @@ b32 editor_init(PlatformMemory *memory) {
 
 void editor_frame(PlatformMemory *memory, PlatformApi *api, GameInput *input,
                   f32 screen_w, f32 screen_h) {
-    if (input->dt > 0.0001f) {
-        ed.fps_smoothed = ed.fps_smoothed * 0.95f + (1.0f / input->dt) * 0.05f;
-    }
-    static char fps_text[32];
-    ito fps = ito_format(fps_text, sizeof(fps_text), "fps %.0f", ed.fps_smoothed);
-
+    (void)memory;
+    (void)api;
     ui_frame_begin(screen_w, screen_h, input->mouse_x, input->mouse_y,
                    input->mouse_left);
-
-    ui_panel_begin(ITO("editor_main"), 260.0f);
-        ui_label(ITO("EDITOR"), 18);
-        ui_label_dim(fps, 14);
-        inspector_draw(memory);
-        build_panel_draw(api);
-    ui_panel_end();
-
-    /* registered extension panels (e.g. seni's reload questions) are drawn
-       by ui_frame_end inside the layout scope */
+    /* No engine chrome panel: the game registers its own scene + inspector
+       panels and ui_frame_end draws them. */
     ui_frame_end(input->dt);
 }
