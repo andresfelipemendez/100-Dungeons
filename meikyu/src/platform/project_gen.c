@@ -457,12 +457,24 @@ static b32 kaji_emit_and_write(const Project *p, b32 *changed) {
     /* boundary rules: kaji rejects the build if any source under these dirs
        #includes the forbidden substring. mechanical layering enforcement. */
     emit("deny_include \"%s/src/engine\"   editor.h\n", g_engine);
+    /* the engine core + the exe must not couple to a game-side editor lib --
+       henshu is downstream of the engine, same rule as the in-tree editor.h. */
+    emit("deny_include \"%s/src/engine\"   henshu\n", g_engine);
+    emit("deny_include \"%s/src/platform\" henshu\n", g_engine);
     emit("deny_include \"%s/src/engine\"   dodai\n", g_engine);
     emit("deny_include \"%s/src/editor\"   dodai\n", g_engine);
     emit("deny_include \"%s/src/platform\" engine/\n", g_engine);
     emit("deny_include \"%s/src/abi\"      dodai\n", g_engine);
     emit("deny_include \"%s/src/abi\"      SDL3\n", g_engine);
     emit("deny_include \"%s/lib/seni\"     ito.h\n", g_engine);
+    /* the leaf libs unity-compiled INTO the game dll must stay dodai-free (the
+       reloadable seam never holds OS-specific code). `deny_include src dodai`
+       only scans the project's src/, not these engine-side libs, so guard each
+       explicitly -- otherwise a stray include leaks past the boundary check and
+       is caught only as a dll link error. */
+    emit("deny_include \"%s/lib/horu\"     dodai\n", g_engine);
+    emit("deny_include \"%s/lib/tsumami\"  dodai\n", g_engine);
+    emit("deny_include \"%s/lib/henshu\"   dodai\n", g_engine);
     emit("deny_include src dodai\n\n");
 
     /* tool value runs to end of line in kaji's parser: no quotes here,

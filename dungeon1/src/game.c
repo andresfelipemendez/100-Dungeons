@@ -45,6 +45,10 @@ SENI_EMBED_LAYOUT(PLATFORM_BUILD_DIR "/game_state.h");
 #define MODEL_CACHE_OFFSET (24u << 20)
 #define MODEL_CACHE_SIZE   (32u << 20)
 #define CSG_SCRATCH_OFFSET (56u << 20)  /* henshu's CSG working memory */
+#define CSG_SCRATCH_SIZE   (8u << 20)   /* 56..64 MB: the tail of the transient block */
+/* the editor's eval scratch (BSP + fold buffers) must fit the CSG region;
+   bumping HENSHU_MAX_POLYS past this is a compile error, not a silent overrun. */
+typedef char henshu_scratch_fits[(HENSHU_SCRATCH_SIZE <= CSG_SCRATCH_SIZE) ? 1 : -1];
 
 /* Cold state: rebuilt from scratch on every reload. Pointers + render handles
    are fine here -- nothing in it has to survive a reload. */

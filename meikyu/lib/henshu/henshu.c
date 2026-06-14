@@ -1,14 +1,13 @@
-/* henshu core -- pure CSG model operations on EditorState. No render, no UI. */
+/* henshu core -- CSG model operations on EditorState. No render, no UI; all
+   working memory is the caller's scratch, so the core is reentrant. */
 
 #include "henshu.h"
 
-#define HENSHU_MAX_POLYS 4096
-
-/* ping-pong (acc/nxt) + per-shape (s) fold buffers -- file statics, never the
-   stack: a fold can grow to thousands of polygons. */
-static horu_poly g_fold_a[HENSHU_MAX_POLYS];
-static horu_poly g_fold_b[HENSHU_MAX_POLYS];
-static horu_poly g_fold_s[HENSHU_MAX_POLYS];
+/* csg_kind[] etc. in henshu_state.h MUST stay sized HENSHU_MAX_SHAPES. seni
+   needs the literal 32 there (it cannot expand a macro in raw header text), so
+   this catches the two drifting apart -- a compile error, not a silent bug. */
+typedef char henshu_shapes_count_check[
+    (sizeof(((EditorState *)0)->csg_kind) / sizeof(int) == HENSHU_MAX_SHAPES) ? 1 : -1];
 
 int henshu_eval_shape(const EditorState *e, int i, horu_poly *out, int cap) {
     int k = e->csg_kind[i];
@@ -25,7 +24,8 @@ int henshu_eval_shape(const EditorState *e, int i, horu_poly *out, int cap) {
 }
 
 int henshu_eval_all(const EditorState *e, horu_poly *out, int cap, void *scratch) {
-    horu_poly *acc = g_fold_a, *nxt = g_fold_b, *tmp;
+    henshu_scratch *sc = (henshu_scratch *)scratch;
+    horu_poly *acc = sc->fold_a, *nxt = sc->fold_b, *tmp;
     int i, n, m;
     if (e->csg_count <= 0) {
         return 0;
@@ -35,9 +35,9 @@ int henshu_eval_all(const EditorState *e, horu_poly *out, int cap, void *scratch
         horu_op op = (e->csg_op[i] == HENSHU_DIFF)  ? HORU_DIFFERENCE
                    : (e->csg_op[i] == HENSHU_ISECT) ? HORU_INTERSECTION
                                                     : HORU_UNION;
-        m = henshu_eval_shape(e, i, g_fold_s, HENSHU_MAX_POLYS);
-        n = horu_csg_polys(op, acc, n, g_fold_s, m, nxt, HENSHU_MAX_POLYS,
-                           scratch, HORU_CSG_SCRATCH);
+        m = henshu_eval_shape(e, i, sc->fold_s, HENSHU_SHAPE_POLYS);
+        n = horu_csg_polys(op, acc, n, sc->fold_s, m, nxt, HENSHU_MAX_POLYS,
+                           sc->bsp, HORU_CSG_SCRATCH);
         tmp = acc; acc = nxt; nxt = tmp; /* ping-pong */
     }
     if (n > cap) n = cap;

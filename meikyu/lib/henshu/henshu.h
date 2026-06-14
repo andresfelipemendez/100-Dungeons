@@ -24,6 +24,22 @@ enum { HENSHU_BOX, HENSHU_SPHERE, HENSHU_CYL, HENSHU_POLY };
 /* fold operations (csg_op); slot 0 (the base) ignores its op */
 enum { HENSHU_UNION, HENSHU_DIFF, HENSHU_ISECT };
 
+/* CSG evaluation works entirely in CALLER-OWNED scratch -- no file statics, so
+   the core is reentrant (two editors, parallel tests). One `henshu_scratch`
+   bundles horu's BSP working memory with the fold's ping-pong result buffers
+   and a per-shape buffer; the caller passes a region of >= HENSHU_SCRATCH_SIZE
+   bytes (the game carves it from its transient block). */
+#define HENSHU_MAX_POLYS    4096   /* cap on the folded result */
+#define HENSHU_SHAPE_POLYS  512    /* cap on one primitive's polygons */
+
+typedef struct {
+    unsigned char bsp[HORU_CSG_SCRATCH];  /* horu_csg_polys working memory */
+    horu_poly fold_a[HENSHU_MAX_POLYS];   /* ping-pong: the running fold result */
+    horu_poly fold_b[HENSHU_MAX_POLYS];
+    horu_poly fold_s[HENSHU_SHAPE_POLYS]; /* one shape being folded in */
+} henshu_scratch;
+#define HENSHU_SCRATCH_SIZE (sizeof(henshu_scratch))
+
 /* a fresh starter model: a box with a sphere subtracted. selects the sphere. */
 void henshu_default(EditorState *e);
 
@@ -49,8 +65,9 @@ void henshu_shape_half(const EditorState *e, int i, float *hx, float *hy, float 
 /* evaluate one shape into out[]; returns the polygon count. */
 int  henshu_eval_shape(const EditorState *e, int i, horu_poly *out, int cap);
 
-/* fold the whole shape list into out[]; returns the polygon count. The boolean
-   work happens in `scratch` (>= HORU_CSG_SCRATCH bytes), never the stack. */
+/* fold the whole shape list into out[]; returns the polygon count. All working
+   memory (BSP + ping-pong + per-shape) is the caller's `scratch`, a region of
+   >= HENSHU_SCRATCH_SIZE bytes (a `henshu_scratch`), never the stack. */
 int  henshu_eval_all(const EditorState *e, horu_poly *out, int cap, void *scratch);
 
 /* build the tsumami pick targets: every shape is a draggable body (id = i*4,

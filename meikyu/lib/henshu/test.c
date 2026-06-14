@@ -8,7 +8,7 @@ static int g_fail = 0;
 #define CHECK(c) do { if (!(c)) { \
     printf("FAIL %s:%d  %s\n", __FILE__, __LINE__, #c); g_fail++; } } while (0)
 
-static unsigned char g_scratch[HORU_CSG_SCRATCH];
+static henshu_scratch g_scratch;   /* caller-owned eval scratch */
 static horu_poly g_polys[4096];
 
 static void test_default(void) {
@@ -129,13 +129,13 @@ static void test_eval(void) {
     }
     /* the default model (box minus sphere) folds to a watertight mesh */
     henshu_default(&e);
-    n = henshu_eval_all(&e, g_polys, 4096, g_scratch);
+    n = henshu_eval_all(&e, g_polys, 4096, &g_scratch);
     CHECK(n > 0);
     /* the output is clamped to cap */
-    CHECK(henshu_eval_all(&e, g_polys, 1, g_scratch) == 1);
+    CHECK(henshu_eval_all(&e, g_polys, 1, &g_scratch) == 1);
     /* an empty list yields nothing */
     e.csg_count = 0;
-    CHECK(henshu_eval_all(&e, g_polys, 4096, g_scratch) == 0);
+    CHECK(henshu_eval_all(&e, g_polys, 4096, &g_scratch) == 0);
     /* exercise every fold op: base box, a unioned box, an intersected sphere */
     memset(&e, 0, sizeof e);
     e.csg_count = 3; e.csg_selected = 0;
@@ -145,7 +145,7 @@ static void test_eval(void) {
     e.csg_x[1] = 1; e.csg_sx[1] = 2; e.csg_sy[1] = 2; e.csg_sz[1] = 2;
     e.csg_kind[2] = HENSHU_SPHERE; e.csg_op[2] = HENSHU_ISECT;
     e.csg_sx[2] = 2;
-    CHECK(henshu_eval_all(&e, g_polys, 4096, g_scratch) > 0);
+    CHECK(henshu_eval_all(&e, g_polys, 4096, &g_scratch) > 0);
 }
 
 static void test_targets(void) {

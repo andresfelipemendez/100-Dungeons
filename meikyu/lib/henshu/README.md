@@ -11,10 +11,17 @@ henshu is two parts, split by dependency so the model logic stays testable:
 
 ## part 1 -- core (`henshu.c`, testable)
 
-Pure operations on `EditorState` plus the CSG evaluation that turns the shape
-list into geometry. Depends only on the leaf libs [horu](../horu) (CSG) and
+Operations on `EditorState` plus the CSG evaluation that turns the shape list
+into geometry. Depends only on the leaf libs [horu](../horu) (CSG) and
 [tsumami](../tsumami) (pick targets) -- no render, no UI -- so it builds and is
 coverage-gated like them (`lib_test henshu cov=90`, currently **100% MC/DC**).
+
+**Reentrant:** no file statics. `henshu_eval_all`'s working memory (horu's BSP
+scratch + the fold's ping-pong + per-shape buffers) is a caller-owned
+`henshu_scratch` -- pass a region of `HENSHU_SCRATCH_SIZE` bytes (~7.8 MB; the
+game carves it from its transient block). Two editors, or parallel tests, never
+collide. A `_Static`-style negative-array check keeps `csg_kind[]`'s literal 32
+in lockstep with `HENSHU_MAX_SHAPES`.
 
 The model is a FLAT LIST of shape entities -- no boolean "nodes". Each slot is
 one primitive; the rendered solid is the LEFT FOLD of the list:
@@ -70,6 +77,22 @@ which `project_gen` prepends to the `game_state.h` snapshot (kaji's `copy`
 concatenates multiple `in`s). Constraint: the struct's arrays use a **literal**
 size (`[32]`), never a macro -- seni parses the snapshot as raw text and cannot
 expand `HENSHU_MAX_SHAPES`.
+
+## status / known debt
+
+Works; coverage-gated. Scale-gated items, fine for hand-built models (~32
+shapes), flagged so they are known rather than surprising:
+
+- **Full rebuild on any dirty.** `henshu_rebuild` re-folds the *whole* shape list
+  and destroys+recreates both GPU buffers on every edit -- so dragging one shape
+  re-meshes everything each frame. No incremental / dirty-region path; the
+  per-frame GPU buffer realloc is avoidable (reuse capacity, re-upload only).
+- **Glue mesh-build statics.** `henshu_ui.c` still holds the triangulation
+  buffers (`g_polys`/`g_verts`/`g_index`) as file statics -- single editor
+  instance for the render half (the testable core is reentrant; the glue is
+  not). Could share the one transient scratch region.
+- **Eval copies the result** poly-by-poly instead of returning the ping-pong
+  buffer.
 
 ## test
 
