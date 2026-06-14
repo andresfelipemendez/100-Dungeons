@@ -90,4 +90,14 @@ b32 build_manifest_resolve_cc(const BuildManifest *m,
                               b32 (*exists_fn)(const char *path),
                               char *out_buf, size_t cap);
 
+/* Same, for the MC/DC coverage tools (llvmcov_/llvmprofdata_candidate). */
+b32 build_manifest_resolve_llvmcov(const BuildManifest *m,
+                                   const char *(*getenv_fn)(const char *name),
+                                   b32 (*exists_fn)(const char *path),
+                                   char *out_buf, size_t cap);
+b32 build_manifest_resolve_llvmprofdata(const BuildManifest *m,
+                                        const char *(*getenv_fn)(const char *name),
+                                        b32 (*exists_fn)(const char *path),
+                                        char *out_buf, size_t cap);
+
 #endif /* BUILD_MANIFEST_H */

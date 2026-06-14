@@ -36,4 +36,11 @@ horu_plane horu_plane_make(float nx, float ny, float nz, float d);
     0 = on        (|signed distance| <= HORU_EPS) */
 int horu_side(horu_plane p, float x, float y, float z);
 
+/* Plane through three points, normal = normalize(cross(b-a, c-a)) -- so the
+   winding a->b->c is counter-clockwise when viewed from the +normal (solid)
+   side. This is how a solid's faces become half-spaces. */
+horu_plane horu_plane_from_points(float ax, float ay, float az,
+                                  float bx, float by, float bz,
+                                  float cx, float cy, float cz);
+
 #endif /* HORU_H */

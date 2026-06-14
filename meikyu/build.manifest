@@ -7,6 +7,7 @@
 # 'dodai=' field of the platform row, appended by both readers.
 host_src      src/platform/host_main.c
 host_src      src/platform/project_gen.c
+host_src      src/platform/tests_gen.c
 host_src      src/platform/seni_answers.c
 host_src      src/platform/build_manifest.c
 host_src      src/platform/migrate_core.c
@@ -50,11 +51,13 @@ platform windows builddir=build        exe=.exe dll=.dll  dodai=dodai_windows.c 
 # test.c is implicit; src= lists EXTRA TUs (rel to the lib dir). A dodai_*.c
 # src is the per-OS source -- tests_gen substitutes the active platform's
 # dodai= when generating. std defaults c99; pedantic defaults on.
+# test.c that #includes its lib's .c (seni/kansi/kaji) lists NO src for it --
+# only genuinely separate TUs (the per-OS dodai source) go in src=.
 lib_test ito   std=c99
 lib_test michi std=c99 include=lib/ito
-lib_test seni  std=c89 src=seni.c,arena.c
-lib_test kansi std=c99 src=kansi.c,../dodai/dodai_posix.c include=lib/dodai link=pthread
-lib_test kaji  std=c99 src=kaji.c,../dodai/dodai_posix.c  include=lib/dodai link=pthread
+lib_test seni  std=c99
+lib_test kansi std=c99 src=../dodai/dodai_posix.c include=lib/dodai link=pthread
+lib_test kaji  std=c99 src=../dodai/dodai_posix.c include=lib/dodai link=pthread
 lib_test horu  std=c89 src=horu.c link=m
 
 # ---- coverage (MC/DC) ----------------------------------------------------

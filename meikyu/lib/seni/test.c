@@ -19,7 +19,7 @@ UTEST(parse, header) {
     ASSERT_EQ((size_t)2,r.value.structs[0].fields_count);
     ASSERT_STREQ("enemy",r.value.structs[0].name);
     ASSERT_STREQ("x",r.value.structs[0].fields[0].name);
-    ASSERT_EQ(ast_float,r.value.structs[0].fields[0].type);
+    ASSERT_EQ(ast_float, (int)r.value.structs[0].fields[0].type);
 }
 
 UTEST(parse, unknown_type) {
@@ -99,25 +99,25 @@ UTEST(parse, multiple_structs) {
     ASSERT_STREQ("enemy", r.value.structs[0].name);
     ASSERT_EQ((size_t)4, r.value.structs[0].fields_count);
     ASSERT_STREQ("x", r.value.structs[0].fields[0].name);
-    ASSERT_EQ(ast_float, r.value.structs[0].fields[0].type);
+    ASSERT_EQ(ast_float, (int)r.value.structs[0].fields[0].type);
     ASSERT_STREQ("y", r.value.structs[0].fields[1].name);
-    ASSERT_EQ(ast_float, r.value.structs[0].fields[1].type);
+    ASSERT_EQ(ast_float, (int)r.value.structs[0].fields[1].type);
     ASSERT_STREQ("health", r.value.structs[0].fields[2].name);
-    ASSERT_EQ(ast_int, r.value.structs[0].fields[2].type);
+    ASSERT_EQ(ast_int, (int)r.value.structs[0].fields[2].type);
     ASSERT_STREQ("speed", r.value.structs[0].fields[3].name);
-    ASSERT_EQ(ast_double, r.value.structs[0].fields[3].type);
+    ASSERT_EQ(ast_double, (int)r.value.structs[0].fields[3].type);
 
     // player: char id, int score, int level, float damage
     ASSERT_STREQ("player", r.value.structs[1].name);
     ASSERT_EQ((size_t)4, r.value.structs[1].fields_count);
     ASSERT_STREQ("id", r.value.structs[1].fields[0].name);
-    ASSERT_EQ(ast_char, r.value.structs[1].fields[0].type);
+    ASSERT_EQ(ast_char, (int)r.value.structs[1].fields[0].type);
     ASSERT_STREQ("score", r.value.structs[1].fields[1].name);
-    ASSERT_EQ(ast_int, r.value.structs[1].fields[1].type);
+    ASSERT_EQ(ast_int, (int)r.value.structs[1].fields[1].type);
     ASSERT_STREQ("level", r.value.structs[1].fields[2].name);
-    ASSERT_EQ(ast_int, r.value.structs[1].fields[2].type);
+    ASSERT_EQ(ast_int, (int)r.value.structs[1].fields[2].type);
     ASSERT_STREQ("damage", r.value.structs[1].fields[3].name);
-    ASSERT_EQ(ast_float, r.value.structs[1].fields[3].type);
+    ASSERT_EQ(ast_float, (int)r.value.structs[1].fields[3].type);
 }
 
 UTEST(parse, many_structs_no_cap) {
@@ -480,9 +480,9 @@ UTEST(parse, tab_or_newline_after_type) {
     ASSERT_FALSE(r.err);
     ASSERT_EQ((size_t)2, r.value.structs[0].fields_count);
     ASSERT_STREQ("x", r.value.structs[0].fields[0].name);
-    ASSERT_EQ(ast_int, r.value.structs[0].fields[0].type);
+    ASSERT_EQ(ast_int, (int)r.value.structs[0].fields[0].type);
     ASSERT_STREQ("y", r.value.structs[0].fields[1].name);
-    ASSERT_EQ(ast_float, r.value.structs[0].fields[1].type);
+    ASSERT_EQ(ast_float, (int)r.value.structs[0].fields[1].type);
 }
 
 /* fuzz-derived: 'typedef struct {' inside a struct-name region made the
@@ -536,7 +536,7 @@ UTEST(parse, array_field) {
     ASSERT_EQ((size_t)3, r.value.structs[0].fields_count);
     ASSERT_STREQ("pos", r.value.structs[0].fields[0].name);
     ASSERT_EQ((size_t)4, r.value.structs[0].fields[0].array_size);
-    ASSERT_EQ(ast_float, r.value.structs[0].fields[0].type);
+    ASSERT_EQ(ast_float, (int)r.value.structs[0].fields[0].type);
     ASSERT_STREQ("name", r.value.structs[0].fields[1].name);
     ASSERT_EQ((size_t)32, r.value.structs[0].fields[1].array_size);
     ASSERT_STREQ("id", r.value.structs[0].fields[2].name);
@@ -596,11 +596,11 @@ UTEST(diff, array_resize) {
     ASSERT_FALSE(r.err);
     struct_diff* sd = &r.value.structs[0];
     ASSERT_EQ((size_t)2, sd->ops_count);
-    ASSERT_EQ(field_op_copy, sd->ops[0].kind);
+    ASSERT_EQ(field_op_copy, (int)sd->ops[0].kind);
     ASSERT_STREQ("pos", sd->ops[0].name);
     ASSERT_EQ((size_t)4, sd->ops[0].old_array_size);
     ASSERT_EQ((size_t)2, sd->ops[0].new_array_size);
-    ASSERT_EQ(field_op_zero, sd->ops[1].kind);
+    ASSERT_EQ(field_op_zero, (int)sd->ops[1].kind);
     ASSERT_STREQ("vel", sd->ops[1].name);
     ASSERT_EQ((size_t)3, sd->ops[1].new_array_size);
 }
@@ -649,13 +649,13 @@ UTEST(diff, add_field) {
     ASSERT_EQ((size_t)2, sd->old_count);
     ASSERT_EQ((size_t)3, sd->new_count);
     ASSERT_EQ((size_t)3, sd->ops_count);
-    ASSERT_EQ(field_op_copy, sd->ops[0].kind);
+    ASSERT_EQ(field_op_copy, (int)sd->ops[0].kind);
     ASSERT_STREQ("x", sd->ops[0].name);
-    ASSERT_EQ(field_op_copy, sd->ops[1].kind);
+    ASSERT_EQ(field_op_copy, (int)sd->ops[1].kind);
     ASSERT_STREQ("y", sd->ops[1].name);
-    ASSERT_EQ(field_op_zero, sd->ops[2].kind);
+    ASSERT_EQ(field_op_zero, (int)sd->ops[2].kind);
     ASSERT_STREQ("health", sd->ops[2].name);
-    ASSERT_EQ(ast_int, sd->ops[2].type);
+    ASSERT_EQ(ast_int, (int)sd->ops[2].type);
 }
 
 UTEST(diff, remove_field) {
@@ -675,8 +675,8 @@ UTEST(diff, remove_field) {
     ASSERT_FALSE(r.err);
     struct_diff* sd = &r.value.structs[0];
     ASSERT_EQ((size_t)2, sd->ops_count);
-    ASSERT_EQ(field_op_copy, sd->ops[0].kind);
-    ASSERT_EQ(field_op_copy, sd->ops[1].kind);
+    ASSERT_EQ(field_op_copy, (int)sd->ops[0].kind);
+    ASSERT_EQ(field_op_copy, (int)sd->ops[1].kind);
 }
 
 UTEST(diff, new_struct) {
@@ -693,7 +693,7 @@ UTEST(diff, new_struct) {
     ASSERT_EQ((size_t)1, r.value.struct_count);
     struct_diff* sd = &r.value.structs[0];
     ASSERT_EQ((size_t)0, sd->old_count);
-    ASSERT_EQ(field_op_zero, sd->ops[0].kind);
+    ASSERT_EQ(field_op_zero, (int)sd->ops[0].kind);
 }
 
 UTEST(diff, bad_old_header) {
@@ -836,7 +836,7 @@ UTEST(diff, rename_via_was) {
         "typedef struct { float x; int light_count SENI_WAS(num_lights); } enemy;");
     ASSERT_FALSE(d.err);
     ASSERT_EQ((size_t)0, d.question_count);
-    ASSERT_EQ(field_op_copy, d.value.structs[0].ops[1].kind);
+    ASSERT_EQ(field_op_copy, (int)d.value.structs[0].ops[1].kind);
     ASSERT_STREQ("light_count", d.value.structs[0].ops[1].name);
     ASSERT_STREQ("num_lights", d.value.structs[0].ops[1].old_name);
 }
@@ -860,7 +860,7 @@ UTEST(diff, rename_ambiguity_question) {
     ASSERT_TRUE(strstr(d.questions[0].message,
         "really removed?  annotate: SENI_DROPPED(num_lights)") != NULL);
     /* meanwhile the conservative op stands: added field zeroes */
-    ASSERT_EQ(field_op_zero, d.value.structs[0].ops[1].kind);
+    ASSERT_EQ(field_op_zero, (int)d.value.structs[0].ops[1].kind);
 }
 
 UTEST(diff, dropped_silences_question) {
@@ -872,7 +872,7 @@ UTEST(diff, dropped_silences_question) {
         "typedef struct { float x; int light_count; SENI_DROPPED(num_lights) } enemy;");
     ASSERT_FALSE(d.err);
     ASSERT_EQ((size_t)0, d.question_count);
-    ASSERT_EQ(field_op_zero, d.value.structs[0].ops[1].kind);
+    ASSERT_EQ(field_op_zero, (int)d.value.structs[0].ops[1].kind);
 }
 
 UTEST(diff, no_question_when_types_differ) {
@@ -921,7 +921,7 @@ UTEST(diff, stale_was_is_inert) {
         "typedef struct { float x; int light_count SENI_WAS(num_lights); } enemy;");
     ASSERT_FALSE(d.err);
     ASSERT_EQ((size_t)0, d.question_count);
-    ASSERT_EQ(field_op_copy, d.value.structs[0].ops[1].kind);
+    ASSERT_EQ(field_op_copy, (int)d.value.structs[0].ops[1].kind);
     ASSERT_STREQ("light_count", d.value.structs[0].ops[1].old_name);
 }
 
@@ -944,7 +944,7 @@ UTEST(annotate, rename_round_trip) {
     diff_result d = diff_structs(&a, old_header, an.code);
     ASSERT_FALSE(d.err);
     ASSERT_EQ((size_t)0, d.question_count);
-    ASSERT_EQ(field_op_copy, d.value.structs[0].ops[1].kind);
+    ASSERT_EQ(field_op_copy, (int)d.value.structs[0].ops[1].kind);
     ASSERT_STREQ("num_lights", d.value.structs[0].ops[1].old_name);
 }
 
@@ -1007,7 +1007,7 @@ UTEST(annotate, dropped_round_trip) {
     diff_result d = diff_structs(&a, old_header, an.code);
     ASSERT_FALSE(d.err);
     ASSERT_EQ((size_t)0, d.question_count);
-    ASSERT_EQ(field_op_zero, d.value.structs[0].ops[1].kind);
+    ASSERT_EQ(field_op_zero, (int)d.value.structs[0].ops[1].kind);
     /* answering twice is refused */
     an = annotate_dropped(&a, an.code, "enemy", "num_lights");
     ASSERT_TRUE(an.err != NULL);

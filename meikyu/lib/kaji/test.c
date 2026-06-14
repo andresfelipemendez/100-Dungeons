@@ -27,15 +27,18 @@ static void settle_ms(int ms) {
 
 UTEST(compile, opts_to_flags_gcc) {
     char b[256];
-    kaji_compile_opts c89 = { KAJI_C89, 1 };
+    kaji_compile_opts c89 = { KAJI_C89, 1, 0 };
     kaji_opts_to_flags(KAJI_CC_GCC, &c89, b, sizeof(b));
     ASSERT_TRUE(strstr(b, "-std=c89") != NULL);
     ASSERT_TRUE(strstr(b, "-pedantic") != NULL);
     ASSERT_TRUE(strstr(b, "-Wall") != NULL);
     ASSERT_TRUE(strstr(b, "-Wextra") != NULL);
     ASSERT_TRUE(strstr(b, "-Werror") != NULL); /* warnings-as-errors discipline */
+    /* header-only libs have per-TU-unused statics: noise under -Werror, not a
+       bug -- so unused-function is disabled while keeping -Werror otherwise */
+    ASSERT_TRUE(strstr(b, "-Wno-unused-function") != NULL);
 
-    kaji_compile_opts deflt = { KAJI_STD_DEFAULT, 0 };
+    kaji_compile_opts deflt = { KAJI_STD_DEFAULT, 0, 0 };
     kaji_opts_to_flags(KAJI_CC_GCC, &deflt, b, sizeof(b));
     ASSERT_TRUE(strstr(b, "-std=") == NULL);
     ASSERT_TRUE(strstr(b, "-pedantic") == NULL);
@@ -431,4 +434,4 @@ UTEST(e2e, exe_with_post_copy) {
     kaji_free(k);
 }
 
-UTEST_MAIN();
+UTEST_MAIN()

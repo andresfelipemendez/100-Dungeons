@@ -351,7 +351,7 @@ UTEST(e2e, change_triggers_pipeline_to_built) {
 
     /* no change yet: stays idle across several polls */
     for (int i = 0; i < 3; i++) {
-        ASSERT_EQ(KANSI_IDLE, kansi_update(k));
+        ASSERT_EQ(KANSI_IDLE, (int)kansi_update(k));
     }
 
     /* touch the source (different size, past the mtime quantum) -> expect
@@ -369,7 +369,7 @@ UTEST(e2e, change_triggers_pipeline_to_built) {
             break;
         }
     }
-    ASSERT_EQ(KANSI_BUILT, final);
+    ASSERT_EQ(KANSI_BUILT, (int)final);
 
 #ifdef _WIN32
     FILE *dll = fopen("build/e2e/mod.dll", "rb");
@@ -418,11 +418,11 @@ UTEST(e2e, compile_failure_reports_error_once) {
             break;
         }
     }
-    ASSERT_EQ(KANSI_ERROR, final);
+    ASSERT_EQ(KANSI_ERROR, (int)final);
 
     /* edge-triggered: next update is back to idle, no error loop */
-    ASSERT_EQ(KANSI_IDLE, kansi_update(k));
+    ASSERT_EQ(KANSI_IDLE, (int)kansi_update(k));
     kansi_stop(k);
 }
 
-UTEST_MAIN();
+UTEST_MAIN()

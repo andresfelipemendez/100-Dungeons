@@ -27,6 +27,7 @@
 #include "dodai.h"
 #include "dodai_video.h"
 #include "project_gen.h"
+#include "tests_gen.h"
 
 #define GAME_DLL_NEW PLATFORM_BUILD_DIR "/game_new" DODAI_DLL_SUFFIX
 #define GAME_STATE_HDR  "src/game_state.h"
@@ -687,6 +688,268 @@ static int print_host_srcs(void) {
     return 0;
 }
 
+/* injectables for build_manifest_resolve_cc (const-qualified getenv + a
+   plain existence probe) */
+static const char *tg_env(const char *n) { return getenv(n); }
+static b32 tg_exists(const char *p) {
+    FILE *f = fopen(p, "rb");
+    if (f) { fclose(f); return 1; }
+    return 0;
+}
+
+/* spawn a shell command (output -> log), block until exit. Returns the child
+   exit code, or -1 if it could not be spawned. */
+static int sh_run(const char *cmd, const char *log) {
+    void *proc;
+    int ec = 0;
+    if (!dodai_spawn(ito_from(cmd), michi_from_cstr(log), &proc)) {
+        return -1;
+    }
+    while (!dodai_proc_poll(proc, &ec)) {
+        dodai_sleep_ms(5);
+    }
+    dodai_proc_close(proc);
+    return ec;
+}
+
+/* pull totals MC/DC percent from `llvm-cov export --summary-only` JSON.
+   *has_conditions is 0 when the target has no MC/DC conditions (count 0):
+   nothing to cover, treated as 100%. */
+static double parse_mcdc_percent(const char *json, int *has_conditions) {
+    const char *t = strstr(json, "\"totals\"");
+    const char *m = t ? strstr(t, "\"mcdc\"") : NULL;
+    const char *c, *p;
+    *has_conditions = 0;
+    if (!m) {
+        return 100.0;
+    }
+    c = strstr(m, "\"count\":");
+    if (c && atol(c + 8) == 0) {
+        return 100.0; /* no conditions to cover */
+    }
+    *has_conditions = 1;
+    p = strstr(m, "\"percent\":");
+    return p ? atof(p + 10) : 0.0;
+}
+
+/* --test [lib] [--coverage]: headless. Generates the lib-test kaji cfg from
+   build.manifest, builds each test_<lib> through kaji, runs it, reports
+   PASS/FAIL. No project, no window (returns before video init). Returns
+   nonzero if any test failed to build or run. coverage forces clang + MC/DC
+   instrumentation; the threshold gate is layered on in step 5. */
+static int run_tests(const char *only_lib, b32 coverage) {
+    michi_buf mb;
+    char up[1024], engine_root[1024], path[1280], cc[1024];
+    static char storage[1u << 16];
+    static char cfgbuf[1u << 15];
+    arena a;
+    char *txt;
+    size_t len = 0;
+    ito text, err;
+    BuildManifest m;
+    BuildPlatform bp;
+    ito os;
+    ito_buf cfgb;
+    kaji *k;
+    char kerr[256];
+    char llvmcov[1024], llvmprofdata[1024];
+    int threshold = 0;
+    int i, failures = 0, ran = 0;
+
+    /* engine root = the directory above the exe's build dir */
+    michi_buf_reset(&mb);
+    if (!dodai_exe_dir(&mb)) {
+        fprintf(stderr, "--test: cannot locate exe\n");
+        return 1;
+    }
+    snprintf(up, sizeof up, "%s..", michi_cstr(&mb));
+    michi_buf_reset(&mb);
+    if (dodai_absolute_path(michi_from_cstr(up), &mb) != 0) {
+        fprintf(stderr, "--test: cannot resolve engine root\n");
+        return 1;
+    }
+    snprintf(engine_root, sizeof engine_root, "%s", michi_cstr(&mb));
+
+    snprintf(path, sizeof path, "%s/build.manifest", engine_root);
+    txt = dodai_read_file(michi_from_cstr(path), &len);
+    if (!txt) {
+        fprintf(stderr, "--test: cannot read %s\n", path);
+        return 1;
+    }
+    create_arena(&a, storage, sizeof storage);
+    text.ptr = arena_copy_string(&a, txt, len);
+    text.len = text.ptr ? len : 0;
+    free(txt);
+    err.ptr = 0; err.len = 0;
+    if (!build_manifest_parse(&a, text, &m, &err)) {
+        fprintf(stderr, "--test: manifest: %.*s\n", (int)err.len, err.ptr);
+        return 1;
+    }
+    os = dodai_is_macos() ? ITO("mac")
+       : dodai_is_linux() ? ITO("linux") : ITO("windows");
+    if (!build_manifest_select(&m, os, &bp, &err)) {
+        fprintf(stderr, "--test: no platform row for this OS\n");
+        return 1;
+    }
+
+    if (coverage) {
+        char tb[16];
+        snprintf(cc, sizeof cc, "clang"); /* MC/DC backend, resolved on PATH */
+        if (!build_manifest_resolve_llvmcov(&m, tg_env, tg_exists,
+                                            llvmcov, sizeof llvmcov) ||
+            !build_manifest_resolve_llvmprofdata(&m, tg_env, tg_exists,
+                                                 llvmprofdata, sizeof llvmprofdata)) {
+            fprintf(stderr, "--test --coverage: llvm-cov / llvm-profdata not "
+                            "found (see build.manifest *_candidate)\n");
+            return 1;
+        }
+        snprintf(tb, sizeof tb, "%.*s", (int)m.coverage_min_mcdc.len,
+                 m.coverage_min_mcdc.ptr);
+        threshold = atoi(tb);
+    } else if (!build_manifest_resolve_cc(&m, tg_env, tg_exists, cc, sizeof cc)) {
+        snprintf(cc, sizeof cc, "gcc");
+    }
+
+    ito_buf_init(&cfgb, cfgbuf, sizeof cfgbuf);
+    tests_gen_emit(&cfgb, &m, &bp, engine_root, cc, coverage);
+    if (cfgb.overflow) {
+        fprintf(stderr, "--test: generated cfg too large\n");
+        return 1;
+    }
+    snprintf(path, sizeof path, "%s/%.*s/gen/tests.gen.cfg", engine_root,
+             (int)bp.builddir.len, bp.builddir.ptr);
+    dodai_make_dirs_for(michi_from_cstr(path));
+    if (!dodai_write_file(michi_from_cstr(path), cfgbuf, strlen(cfgbuf))) {
+        fprintf(stderr, "--test: cannot write %s\n", path);
+        return 1;
+    }
+
+    k = kaji_load(path, kerr, sizeof kerr);
+    if (!k) {
+        fprintf(stderr, "--test: kaji_load: %s\n", kerr);
+        return 1;
+    }
+
+    /* kaji spawns + ${B} resolve relative to cwd; anchor at the engine root */
+    if (!dodai_chdir(michi_from_cstr(engine_root))) {
+        fprintf(stderr, "--test: cannot chdir to engine root\n");
+        kaji_free(k);
+        return 1;
+    }
+
+    for (i = 0; i < m.lib_test_count; i++) {
+        ito nm = m.lib_test[i].name;
+        char target[128], exe[1280], log[1280];
+        int ec = 0;
+        if (only_lib && !((size_t)strlen(only_lib) == nm.len &&
+                          strncmp(only_lib, nm.ptr, nm.len) == 0)) {
+            continue;
+        }
+        ran++;
+        snprintf(target, sizeof target, "test_%.*s", (int)nm.len, nm.ptr);
+        if (kaji_build(k, target, 1) != 0) {
+            fprintf(stderr, "FAIL %s (build)\n", target);
+            failures++;
+            continue;
+        }
+        snprintf(exe, sizeof exe, "%s/%.*s/gen/%s%s%.*s", engine_root,
+                 (int)bp.builddir.len, bp.builddir.ptr,
+                 coverage ? "cov/" : "", target,
+                 (int)bp.exe_suffix.len, bp.exe_suffix.ptr);
+        snprintf(log, sizeof log, "%s/%.*s/gen/%s.log", engine_root,
+                 (int)bp.builddir.len, bp.builddir.ptr, target);
+        if (coverage) {
+            /* steer the instrumented run's profile to a per-lib file (the
+               shell spawn lets us set the env inline) */
+            char prof[1400], cmd[2900];
+            snprintf(prof, sizeof prof, "%s/%.*s/gen/cov/%s.profraw",
+                     engine_root, (int)bp.builddir.len, bp.builddir.ptr, target);
+            snprintf(cmd, sizeof cmd, "LLVM_PROFILE_FILE='%s' '%s'", prof, exe);
+            ec = sh_run(cmd, log);
+        } else {
+            ec = sh_run(exe, log);
+        }
+        if (ec < 0) {
+            fprintf(stderr, "FAIL %s (spawn)\n", target);
+            failures++;
+            continue;
+        }
+        {   /* echo the test's own output (utest PASS/FAIL lines) */
+            size_t llen = 0;
+            char *lt = dodai_read_file(michi_from_cstr(log), &llen);
+            if (lt) { fwrite(lt, 1, llen, stdout); free(lt); }
+        }
+        if (ec != 0) {
+            fprintf(stderr, "FAIL %s (exit %d)\n", target, ec);
+            failures++;
+            continue;
+        }
+        if (!coverage) {
+            printf("PASS %s\n", target);
+            continue;
+        }
+
+        /* coverage gate: merge -> export -> parse MC/DC -> compare threshold */
+        {
+            char prof[1400], pdata[1400], cjson[1400], cmd[3300];
+            double pct;
+            int hascond;
+            char *js;
+            size_t jl = 0;
+            snprintf(prof, sizeof prof, "%s/%.*s/gen/cov/%s.profraw",
+                     engine_root, (int)bp.builddir.len, bp.builddir.ptr, target);
+            snprintf(pdata, sizeof pdata, "%s/%.*s/gen/cov/%s.profdata",
+                     engine_root, (int)bp.builddir.len, bp.builddir.ptr, target);
+            snprintf(cjson, sizeof cjson, "%s/%.*s/gen/cov/%s.cov.json",
+                     engine_root, (int)bp.builddir.len, bp.builddir.ptr, target);
+
+            snprintf(cmd, sizeof cmd, "'%s' merge -sparse '%s' -o '%s'",
+                     llvmprofdata, prof, pdata);
+            if (sh_run(cmd, log) != 0) {
+                fprintf(stderr, "FAIL %s (profdata merge)\n", target);
+                failures++;
+                continue;
+            }
+            {   /* truncate the json sink: dodai_spawn appends */
+                FILE *z = fopen(cjson, "wb");
+                if (z) fclose(z);
+            }
+            snprintf(cmd, sizeof cmd,
+                     "'%s' export --summary-only -instr-profile='%s' '%s'",
+                     llvmcov, pdata, exe);
+            if (sh_run(cmd, cjson) != 0) {
+                fprintf(stderr, "FAIL %s (llvm-cov export)\n", target);
+                failures++;
+                continue;
+            }
+            js = dodai_read_file(michi_from_cstr(cjson), &jl);
+            if (!js) {
+                fprintf(stderr, "FAIL %s (no coverage json)\n", target);
+                failures++;
+                continue;
+            }
+            pct = parse_mcdc_percent(js, &hascond);
+            free(js);
+            if (hascond && pct + 1e-9 < (double)threshold) {
+                fprintf(stderr, "FAIL %s (MC/DC %.1f%% < %d%%)\n",
+                        target, pct, threshold);
+                failures++;
+            } else {
+                printf("PASS %s (MC/DC %.1f%%%s)\n", target, pct,
+                       hascond ? "" : ", no conditions");
+            }
+        }
+    }
+
+    kaji_free(k);
+    if (only_lib && ran == 0) {
+        fprintf(stderr, "--test: no lib_test row named '%s'\n", only_lib);
+        return 1;
+    }
+    fprintf(stderr, "--test: %d run, %d failed\n", ran, failures);
+    return failures ? 1 : 0;
+}
+
 /* --install: build the ship bundle, then assemble a launchable macOS .app in
    /Applications. The ship dir is already self-contained -- the ship exe chdirs
    to its own dir and loads assets + build/*.spv from there -- so the .app is
@@ -759,6 +1022,17 @@ int main(int argc, char *argv[]) {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--print-host-srcs") == 0) {
             return print_host_srcs(); /* drift guard hook; no window, no project */
+        } else if (strcmp(argv[i], "--test") == 0) {
+            /* headless: build + run lib tests through kaji; no project/window.
+               meikyu --test [lib] [--coverage] */
+            const char *only = NULL;
+            b32 cov = 0;
+            int j;
+            for (j = i + 1; j < argc; j++) {
+                if (strcmp(argv[j], "--coverage") == 0) cov = 1;
+                else if (argv[j][0] != '-') only = argv[j];
+            }
+            return run_tests(only, cov);
         } else if (strcmp(argv[i], "--path") == 0 && i + 1 < argc) {
             project_path = argv[++i];
         } else if (strcmp(argv[i], "--build") == 0) {

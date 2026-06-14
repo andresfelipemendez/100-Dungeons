@@ -245,3 +245,19 @@ b32 build_manifest_resolve_cc(const BuildManifest *m,
     return resolve_candidates(m->cc_candidate, m->cc_count,
                               getenv_fn, exists_fn, out_buf, cap);
 }
+
+b32 build_manifest_resolve_llvmcov(const BuildManifest *m,
+                                   const char *(*getenv_fn)(const char *),
+                                   b32 (*exists_fn)(const char *),
+                                   char *out_buf, size_t cap) {
+    return resolve_candidates(m->llvmcov_candidate, m->llvmcov_count,
+                              getenv_fn, exists_fn, out_buf, cap);
+}
+
+b32 build_manifest_resolve_llvmprofdata(const BuildManifest *m,
+                                        const char *(*getenv_fn)(const char *),
+                                        b32 (*exists_fn)(const char *),
+                                        char *out_buf, size_t cap) {
+    return resolve_candidates(m->llvmprofdata_candidate, m->llvmprofdata_count,
+                              getenv_fn, exists_fn, out_buf, cap);
+}

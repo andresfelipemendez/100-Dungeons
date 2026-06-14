@@ -100,7 +100,13 @@ static void kaji_opts_to_flags(kaji_cc_kind kind, const kaji_compile_opts *opts,
     case KAJI_C11: ito_buf_append(&b, ITO(" -std=c11")); break;
     case KAJI_STD_DEFAULT: default: break;
     }
-    if (opts->pedantic) ito_buf_append(&b, ITO(" -pedantic -Wall -Wextra -Werror"));
+    if (opts->pedantic) {
+        /* -Wno-unused-function: header-only libs carry per-TU-unused statics;
+           that is the nature of the pattern, not a defect, so keep -Werror
+           strict for everything else but silence this one */
+        ito_buf_append(&b, ITO(" -pedantic -Wall -Wextra -Werror"
+                               " -Wno-unused-function"));
+    }
     /* MC/DC coverage diverges by backend (the one place gcc != clang here) */
     if (opts->coverage) {
         if (kind == KAJI_CC_CLANG) {
