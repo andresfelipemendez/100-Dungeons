@@ -46,6 +46,7 @@ typedef struct {
     char libdir[KAJI_MAX_LIST][KAJI_PATH_MAX];   int libdir_count;
     char obj[KAJI_MAX_LIST][KAJI_PATH_MAX];      int obj_count;
     kaji_post posts[KAJI_MAX_POSTS];             int post_count;
+    kaji_compile_opts opts;                      /* std/pedantic -> backend flags */
     int  visiting, visited, planned;             /* plan-time DFS marks */
 } kaji_target;
 
@@ -67,17 +68,20 @@ static int kaji_is_posix(void) {
     return dodai_is_linux() || dodai_is_macos();
 }
 
-typedef enum { KAJI_CC_GCC, KAJI_CC_MSVC, KAJI_CC_TCC } kaji_cc_kind;
+typedef enum { KAJI_CC_GCC, KAJI_CC_MSVC, KAJI_CC_TCC, KAJI_CC_CLANG } kaji_cc_kind;
 
-/* infer the compiler family from the cc tool's basename. Only the gcc family
-   is translated today; msvc/tcc are recognized so the translator can grow. */
+/* infer the compiler family from the cc tool's basename. gcc and clang share
+   flags except coverage instrumentation (gcc: -fcondition-coverage; clang:
+   -fcoverage-mcdc), so clang is its own kind. msvc/tcc are recognized so the
+   translator can grow. */
 static kaji_cc_kind kaji_cc_kind_from_name(const char *cc) {
     const char *base = cc;
     const char *p;
     for (p = cc; *p; p++) {
         if (*p == '/' || *p == '\\') base = p + 1;
     }
-    if (base[0] == 'c' && base[1] == 'l') return KAJI_CC_MSVC; /* cl / cl.exe */
+    if (strstr(base, "clang") != NULL)    return KAJI_CC_CLANG; /* before 'cl' */
+    if (base[0] == 'c' && base[1] == 'l') return KAJI_CC_MSVC;  /* cl / cl.exe */
     if (strstr(base, "tcc") != NULL)      return KAJI_CC_TCC;
     return KAJI_CC_GCC;
 }
@@ -89,15 +93,23 @@ static void kaji_opts_to_flags(kaji_cc_kind kind, const kaji_compile_opts *opts,
     ito_buf b;
     ito_buf_init(&b, buf, cap);
     if (!opts) { if (cap) buf[0] = 0; return; }
-    /* gcc family is the only translated backend today; msvc/tcc extend here */
-    (void)kind;
+    /* std + warnings: gcc and clang share this syntax; msvc/tcc extend here */
     switch (opts->std) {
     case KAJI_C89: ito_buf_append(&b, ITO(" -std=c89")); break;
     case KAJI_C99: ito_buf_append(&b, ITO(" -std=c99")); break;
     case KAJI_C11: ito_buf_append(&b, ITO(" -std=c11")); break;
     case KAJI_STD_DEFAULT: default: break;
     }
-    if (opts->pedantic) ito_buf_append(&b, ITO(" -pedantic -Wall -Wextra"));
+    if (opts->pedantic) ito_buf_append(&b, ITO(" -pedantic -Wall -Wextra -Werror"));
+    /* MC/DC coverage diverges by backend (the one place gcc != clang here) */
+    if (opts->coverage) {
+        if (kind == KAJI_CC_CLANG) {
+            ito_buf_append(&b, ITO(" -fprofile-instr-generate -fcoverage-mapping"
+                                   " -fcoverage-mcdc"));
+        } else { /* gcc family (14+) */
+            ito_buf_append(&b, ITO(" --coverage -fcondition-coverage"));
+        }
+    }
 }
 
 static const char *kaji_so_ext(void) {
@@ -258,6 +270,22 @@ static int kaji_parse_target_key(kaji_parse_ctx *ctx, ito key, ito values) {
             !kaji_expand(ctx->k, to, po->to, sizeof(po->to))) {
             return kaji_fail(ctx, "bad ${...} expansion in", from);
         }
+        return 1;
+    }
+    if (ito_eq(key, ITO("std"))) {
+        ito v = ito_next_token(&values);
+        if      (ito_eq(v, ITO("c89"))) t->opts.std = KAJI_C89;
+        else if (ito_eq(v, ITO("c99"))) t->opts.std = KAJI_C99;
+        else if (ito_eq(v, ITO("c11"))) t->opts.std = KAJI_C11;
+        else return kaji_fail(ctx, "std needs c89|c99|c11, got", v);
+        return 1;
+    }
+    if (ito_eq(key, ITO("pedantic"))) {
+        t->opts.pedantic = 1;
+        return 1;
+    }
+    if (ito_eq(key, ITO("coverage"))) {
+        t->opts.coverage = 1;
         return 1;
     }
     return kaji_fail(ctx, "unknown key", key);
@@ -550,7 +578,8 @@ static int kaji_command_for(kaji *k, const kaji_target *t,
         return !b.overflow;
     }
 
-    ito_buf_appendf(&b, "\"%s\"", kaji_tool(k, ITO("cc")));
+    const char *cc = kaji_tool(k, ITO("cc"));
+    ito_buf_appendf(&b, "\"%s\"", cc);
     if (t->kind == KAJI_KIND_OBJECT) {
         ito_buf_append(&b, ITO(" -c"));
     } else if (t->kind == KAJI_KIND_PCH) {
@@ -560,6 +589,13 @@ static int kaji_command_for(kaji *k, const kaji_target *t,
     }
     if (kaji_is_posix() && t->kind != KAJI_KIND_EXE) {
         ito_buf_append(&b, ITO(" -fPIC"));
+    }
+    {   /* compiler-agnostic std/pedantic, translated to the cc backend's
+           flags -- the cfg never carries raw -std=/-W strings */
+        char optflags[128];
+        kaji_opts_to_flags(kaji_cc_kind_from_name(cc), &t->opts,
+                           optflags, sizeof(optflags));
+        ito_buf_append(&b, ito_from(optflags));
     }
     for (int i = 0; i < t->flag_count; i++)    ito_buf_appendf(&b, " %s", t->flag[i]);
     for (int i = 0; i < t->define_count; i++)  ito_buf_appendf(&b, " -D%s", t->define[i]);

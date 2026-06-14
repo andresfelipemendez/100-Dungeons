@@ -92,7 +92,10 @@ typedef enum { KAJI_STD_DEFAULT, KAJI_C89, KAJI_C99, KAJI_C11 } kaji_cstd;
 
 typedef struct {
     kaji_cstd std;      /* gcc: -std=c89 ; msvc: /std:c11 ; tcc: -std=... */
-    int       pedantic; /* gcc: -pedantic -Wall -Wextra ; msvc: /W4 */
+    int       pedantic; /* gcc: -pedantic -Wall -Wextra -Werror ; msvc: /W4 /WX */
+    int       coverage; /* MC/DC instrumentation. clang: -fcoverage-mcdc
+                           -fprofile-instr-generate -fcoverage-mapping ;
+                           gcc 14+: --coverage -fcondition-coverage */
 } kaji_compile_opts;
 
 /* A cfg-less kaji with default tools (cc=gcc), for ad-hoc compiles that are

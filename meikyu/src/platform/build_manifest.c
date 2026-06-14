@@ -25,6 +25,32 @@ static void set_err(arena *a, ito *err, const char *msg) {
     err->len = c ? n : 0;
 }
 
+/* split a comma-separated value into trimmed views, appended to arr. Empty
+   tokens are skipped. 0 on overflow (sets *err). */
+static b32 split_commas(arena *a, ito *err, ito v, ito *arr, int *count, int max) {
+    while (v.len) {
+        int comma = ito_find(v, ',');
+        ito tok;
+        if (comma < 0) {
+            tok = v;
+            v.len = 0;
+        } else {
+            tok = ito_slice(v, 0, (size_t)comma);
+            v = ito_slice(v, (size_t)comma + 1, v.len);
+        }
+        tok = ito_trim(tok);
+        if (!tok.len) {
+            continue;
+        }
+        if (*count >= max) {
+            set_err(a, err, "too many entries in lib_test list field");
+            return 0;
+        }
+        arr[(*count)++] = tok;
+    }
+    return 1;
+}
+
 b32 build_manifest_parse(arena *a, ito text, BuildManifest *out, ito *err) {
     memset(out, 0, sizeof(*out));
     while (text.len) {
@@ -83,6 +109,53 @@ b32 build_manifest_parse(arena *a, ito text, BuildManifest *out, ito *err) {
             }
             if (!out->platform[idx].name.len) {
                 set_err(a, err, "platform row missing name"); return 0;
+            }
+        } else if (ito_eq_c(key, "coverage_min_mcdc")) {
+            out->coverage_min_mcdc = rest;
+        } else if (ito_eq_c(key, "llvmcov_candidate")) {
+            if (out->llvmcov_count >= BM_MAX_GLSLC) {
+                set_err(a, err, "too many llvmcov_candidate"); return 0;
+            }
+            out->llvmcov_candidate[out->llvmcov_count++] = rest;
+        } else if (ito_eq_c(key, "llvmprofdata_candidate")) {
+            if (out->llvmprofdata_count >= BM_MAX_GLSLC) {
+                set_err(a, err, "too many llvmprofdata_candidate"); return 0;
+            }
+            out->llvmprofdata_candidate[out->llvmprofdata_count++] = rest;
+        } else if (ito_eq_c(key, "lib_test")) {
+            BmLibTest *lt;
+            if (out->lib_test_count >= BM_MAX_LIB_TEST) {
+                set_err(a, err, "too many lib_test rows"); return 0;
+            }
+            lt = &out->lib_test[out->lib_test_count++];
+            lt->name = ito_next_token(&rest);
+            lt->pedantic = 1; /* default on (rest zeroed by memset) */
+            if (!lt->name.len) {
+                set_err(a, err, "lib_test row missing name"); return 0;
+            }
+            for (;;) {
+                ito field = ito_next_token(&rest);
+                ito fk, fv;
+                if (!field.len) {
+                    break;
+                }
+                kv_split(field, &fk, &fv);
+                if (ito_eq_c(fk, "std")) {
+                    lt->std = fv;
+                } else if (ito_eq_c(fk, "pedantic")) {
+                    lt->pedantic = !ito_eq_c(fv, "0");
+                } else if (ito_eq_c(fk, "src")) {
+                    if (!split_commas(a, err, fv, lt->src, &lt->src_count,
+                                      BM_MAX_LT_LIST)) return 0;
+                } else if (ito_eq_c(fk, "include")) {
+                    if (!split_commas(a, err, fv, lt->include, &lt->include_count,
+                                      BM_MAX_LT_LIST)) return 0;
+                } else if (ito_eq_c(fk, "link")) {
+                    if (!split_commas(a, err, fv, lt->link, &lt->link_count,
+                                      BM_MAX_LT_LIST)) return 0;
+                } else {
+                    set_err(a, err, "unknown lib_test field"); return 0;
+                }
             }
         } else {
             set_err(a, err, "unknown manifest key");

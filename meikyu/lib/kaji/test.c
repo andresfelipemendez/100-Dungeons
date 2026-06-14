@@ -31,6 +31,9 @@ UTEST(compile, opts_to_flags_gcc) {
     kaji_opts_to_flags(KAJI_CC_GCC, &c89, b, sizeof(b));
     ASSERT_TRUE(strstr(b, "-std=c89") != NULL);
     ASSERT_TRUE(strstr(b, "-pedantic") != NULL);
+    ASSERT_TRUE(strstr(b, "-Wall") != NULL);
+    ASSERT_TRUE(strstr(b, "-Wextra") != NULL);
+    ASSERT_TRUE(strstr(b, "-Werror") != NULL); /* warnings-as-errors discipline */
 
     kaji_compile_opts deflt = { KAJI_STD_DEFAULT, 0 };
     kaji_opts_to_flags(KAJI_CC_GCC, &deflt, b, sizeof(b));
@@ -41,11 +44,34 @@ UTEST(compile, opts_to_flags_gcc) {
     ASSERT_EQ((size_t)0, strlen(b));
 }
 
+UTEST(compile, coverage_flags) {
+    char b[256];
+    kaji_compile_opts cov = { KAJI_STD_DEFAULT, 0, 1 }; /* coverage on */
+
+    /* MC/DC is backend-specific: clang and gcc instrument differently. */
+    kaji_opts_to_flags(KAJI_CC_CLANG, &cov, b, sizeof(b));
+    ASSERT_TRUE(strstr(b, "-fcoverage-mcdc") != NULL);
+    ASSERT_TRUE(strstr(b, "-fprofile-instr-generate") != NULL);
+    ASSERT_TRUE(strstr(b, "-fcoverage-mapping") != NULL);
+
+    kaji_opts_to_flags(KAJI_CC_GCC, &cov, b, sizeof(b));
+    ASSERT_TRUE(strstr(b, "-fcondition-coverage") != NULL);
+    ASSERT_TRUE(strstr(b, "--coverage") != NULL);
+
+    {   /* coverage off emits no instrumentation */
+        kaji_compile_opts off = { KAJI_STD_DEFAULT, 0, 0 };
+        kaji_opts_to_flags(KAJI_CC_CLANG, &off, b, sizeof(b));
+        ASSERT_TRUE(strstr(b, "coverage") == NULL);
+    }
+}
+
 UTEST(compile, cc_kind_from_name) {
     ASSERT_EQ((int)KAJI_CC_GCC,  (int)kaji_cc_kind_from_name("gcc"));
     ASSERT_EQ((int)KAJI_CC_GCC,  (int)kaji_cc_kind_from_name("/opt/homebrew/bin/gcc"));
     ASSERT_EQ((int)KAJI_CC_MSVC, (int)kaji_cc_kind_from_name("cl.exe"));
     ASSERT_EQ((int)KAJI_CC_TCC,  (int)kaji_cc_kind_from_name("/usr/bin/tcc"));
+    ASSERT_EQ((int)KAJI_CC_CLANG, (int)kaji_cc_kind_from_name("clang"));
+    ASSERT_EQ((int)KAJI_CC_CLANG, (int)kaji_cc_kind_from_name("/usr/bin/clang"));
 }
 
 UTEST(ito, views_and_compare) {
@@ -243,6 +269,43 @@ UTEST(parse, command_assembly) {
     } else {
         ASSERT_STREQ("\"gcc\" -shared -g0 -DED=1 \"u.c\" \"bb/a.o\" -L\"L1\" -lz -o \"TMP\"", cmd);
     }
+    kaji_free(k);
+}
+
+UTEST(command, std_pedantic_keys) {
+    /* the cfg `std` and `pedantic` keys route through kaji's compiler
+       abstraction, not raw flag strings, so the same cfg is cross-platform. */
+    char err[256];
+    kaji *k = load_cfg(
+        "builddir bb\nbuilddir_linux bb\n"
+        "target t object\n  in a.c\n  out bb/a.o\n  std c89\n  pedantic\n",
+        err, sizeof(err));
+    ASSERT_TRUE_MSG(k != NULL, err);
+
+    char cmd[1024];
+    kaji_target *t = kaji_find(k, ITO("t"));
+    ASSERT_TRUE(kaji_command_for(k, t, cmd, sizeof(cmd), t->out));
+    ASSERT_TRUE(strstr(cmd, "-std=c89") != NULL);
+    ASSERT_TRUE(strstr(cmd, "-pedantic -Wall -Wextra -Werror") != NULL);
+    kaji_free(k);
+}
+
+UTEST(command, coverage_key) {
+    /* `coverage` cfg key + a clang cc tool -> MC/DC instrumentation in the
+       compile/link command for the test exe. */
+    char err[256];
+    kaji *k = load_cfg(
+        "builddir bb\nbuilddir_linux bb\n"
+        "tool cc clang\n"
+        "target t exe\n  in a.c\n  out bb/t\n  std c99\n  coverage\n",
+        err, sizeof(err));
+    ASSERT_TRUE_MSG(k != NULL, err);
+
+    char cmd[1024];
+    kaji_target *t = kaji_find(k, ITO("t"));
+    ASSERT_TRUE(kaji_command_for(k, t, cmd, sizeof(cmd), t->out));
+    ASSERT_TRUE(strstr(cmd, "-fcoverage-mcdc") != NULL);
+    ASSERT_TRUE(strstr(cmd, "-fprofile-instr-generate") != NULL);
     kaji_free(k);
 }
 

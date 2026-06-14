@@ -97,6 +97,7 @@ lib/           first-party libraries (own test.sh suites, usable standalone):
   kansi (監視) source watcher: reports a debounced change edge
   kaji (鍛冶)  the forge: builds targets from a generated description
   seni         persistent-state layout differ + migration codegen (strict C89)
+  horu (彫)    constructive solid geometry: carve solids from primitives
 ```
 
 `vendor/` (repo root) is **third-party only**: SDL3, cgltf, stb, clay.

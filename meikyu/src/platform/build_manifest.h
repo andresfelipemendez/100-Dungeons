@@ -22,6 +22,20 @@
 #define BM_MAX_INCLUDE_ROOT  16
 #define BM_MAX_GLSLC         8
 #define BM_MAX_PLATFORM      8
+#define BM_MAX_LIB_TEST      16
+#define BM_MAX_LT_LIST       8   /* comma-list cap per lib_test field */
+
+/* One lib_test row: how the engine builds + runs a leaf lib's test through
+   kaji. `test.c` is implicit; src lists EXTRA translation units. All ito
+   fields are views into the manifest text (see header note). */
+typedef struct {
+    ito name;                          /* the lib dir basename, e.g. "horu" */
+    ito std;                           /* "c89"/"c99"/"c11"; empty => c99 */
+    b32 pedantic;                      /* default 1; pedantic=0 turns it off */
+    ito src[BM_MAX_LT_LIST];     int src_count;     /* extra TUs, rel to lib */
+    ito include[BM_MAX_LT_LIST]; int include_count; /* extra include roots */
+    ito link[BM_MAX_LT_LIST];    int link_count;    /* link libs: m, pthread */
+} BmLibTest;
 
 /* The selected per-OS row: views into the parsed manifest text. The resolved
    shader compiler is NOT here -- it is written to a caller buffer by
@@ -46,6 +60,10 @@ typedef struct {
     ito cc_candidate[BM_MAX_GLSLC];         int cc_count;
     struct { ito name, builddir, exe, dll, dodai, rpath, sdl; } platform[BM_MAX_PLATFORM];
     int platform_count;
+    BmLibTest lib_test[BM_MAX_LIB_TEST];        int lib_test_count;
+    ito coverage_min_mcdc;                      /* MC/DC gate %, as text */
+    ito llvmcov_candidate[BM_MAX_GLSLC];        int llvmcov_count;
+    ito llvmprofdata_candidate[BM_MAX_GLSLC];   int llvmprofdata_count;
 } BuildManifest;
 
 /* Parse manifest text (arena-copied by the caller). Returns 0 and sets *err

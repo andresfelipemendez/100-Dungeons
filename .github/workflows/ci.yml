@@ -21,10 +21,18 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential cmake ninja-build git \
+            build-essential cmake ninja-build git gcc-mingw-w64-x86-64 \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
             libxi-dev libxfixes-dev libwayland-dev libxkbcommon-dev \
             libegl1-mesa-dev libgl1-mesa-dev libasound2-dev libpulse-dev
+
+      # First-ever Windows compile: dodai_windows.c mirrors posix line-for-line;
+      # a syntax-only mingw build keeps the mirror from rotting (it never runs).
+      - name: Windows cross-compile check (dodai_windows.c)
+        run: |
+          x86_64-w64-mingw32-gcc -fsyntax-only -std=c99 \
+            -I meikyu/src -I meikyu/lib/dodai \
+            meikyu/lib/dodai/dodai_windows.c
 
       # Library suites are self-contained gcc + utest.h scripts; run them first
       # since they need no SDL and fail fast on a broken lib.
@@ -39,6 +47,7 @@ jobs:
         run: |
           sh meikyu/src/platform/test_seni_answers.sh
           sh meikyu/src/platform/test_build_manifest.sh
+          sh meikyu/src/platform/test_migrate_core.sh
 
       # Bootstraps the engine exe (reads build.manifest for sources/SDL version;
       # also builds SDL3 the first time).
@@ -49,6 +58,9 @@ jobs:
       # single-source-of-truth guard. Catches a .c added to one but not the other.
       - name: Manifest drift guard (cmake == build.manifest)
         run: sh meikyu/src/platform/test_manifest_drift.sh
+
+      - name: project_gen golden
+        run: sh meikyu/src/platform/test_project_gen.sh
 
       # Headless --build: generates the project's kaji cfg and forges each
       # target. kaji's deny_include boundary checks run here -- a layering

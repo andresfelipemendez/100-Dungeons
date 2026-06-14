@@ -47,6 +47,59 @@ UTEST(manifest, parse_lists) {
     ASSERT_TRUE(ito_eq_c(m.host_src[0], "src/platform/host_main.c"));
 }
 
+/* lib_test table + coverage facts: rows mirror the platform row (name + k=v),
+   with comma-list values for src/include/link. */
+static const char *MANIFEST_LT =
+    "platform mac builddir=build-mac exe= dll=.so dodai=dodai_posix.c"
+    " rpath=@loader_path sdl=fetch\n"
+    "coverage_min_mcdc 90\n"
+    "llvmcov_candidate $TOOLCHAIN/llvm-cov\n"
+    "llvmcov_candidate /usr/bin/llvm-cov\n"
+    "llvmprofdata_candidate /usr/bin/llvm-profdata\n"
+    "lib_test ito   std=c99\n"
+    "lib_test seni  std=c89 src=seni.c,arena.c\n"
+    "lib_test kansi std=c99 src=kansi.c,../dodai/dodai_posix.c"
+    " include=lib/dodai link=pthread\n"
+    "lib_test horu  std=c89 src=horu.c link=m pedantic=0\n";
+
+static b32 load_txt(arena *a, const char *s, BuildManifest *m, ito *err) {
+    char *txt = arena_copy_string(a, s, strlen(s));
+    ito text;
+    text.ptr = txt;
+    text.len = strlen(s);
+    return build_manifest_parse(a, text, m, err);
+}
+
+UTEST(manifest, parse_lib_test) {
+    static char buf[1u << 16];
+    arena a; BuildManifest m; ito err = {0,0};
+    create_arena(&a, buf, sizeof(buf));
+    ASSERT_TRUE(load_txt(&a, MANIFEST_LT, &m, &err));
+
+    ASSERT_EQ(4, m.lib_test_count);
+    ASSERT_TRUE(ito_eq_c(m.coverage_min_mcdc, "90"));
+    ASSERT_EQ(2, m.llvmcov_count);
+    ASSERT_EQ(1, m.llvmprofdata_count);
+
+    ASSERT_TRUE(ito_eq_c(m.lib_test[0].name, "ito"));
+    ASSERT_TRUE(ito_eq_c(m.lib_test[0].std, "c99"));
+    ASSERT_TRUE(m.lib_test[0].pedantic);          /* default on */
+    ASSERT_EQ(0, m.lib_test[0].src_count);
+
+    ASSERT_TRUE(ito_eq_c(m.lib_test[1].name, "seni"));
+    ASSERT_EQ(2, m.lib_test[1].src_count);
+    ASSERT_TRUE(ito_eq_c(m.lib_test[1].src[1], "arena.c"));
+
+    ASSERT_EQ(1, m.lib_test[2].include_count);
+    ASSERT_TRUE(ito_eq_c(m.lib_test[2].include[0], "lib/dodai"));
+    ASSERT_EQ(1, m.lib_test[2].link_count);
+    ASSERT_TRUE(ito_eq_c(m.lib_test[2].link[0], "pthread"));
+
+    ASSERT_TRUE(ito_eq_c(m.lib_test[3].name, "horu"));
+    ASSERT_FALSE(m.lib_test[3].pedantic);         /* pedantic=0 */
+    ASSERT_TRUE(ito_eq_c(m.lib_test[3].link[0], "m"));
+}
+
 UTEST(manifest, select_mac_row) {
     static char buf[1u << 16];
     arena a; BuildManifest m; ito err = {0,0}; BuildPlatform bp;
