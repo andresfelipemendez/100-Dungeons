@@ -206,6 +206,87 @@ static void test_split_coplanar(void) {
     CHECK(nf == 0 && nb == 1); /* opposite orientation */
 }
 
+static void test_flip_poly(void) {
+    /* normal +z, verts CCW v0..v3 -> flip -> normal -z, verts reversed v3..v0 */
+    horu_poly sq = quad_z0(-1,-1, 1,-1, 1,1, -1,1);
+    horu_flip_poly(&sq);
+    CHECK(feq(sq.plane.nz, -1.0f));
+    CHECK(feq(sq.plane.d, 0.0f));
+    CHECK(sq.n == 4);
+    CHECK(feq(sq.v[0].x, -1.0f) && feq(sq.v[0].y, 1.0f)); /* old v3 */
+    CHECK(feq(sq.v[3].x, -1.0f) && feq(sq.v[3].y, -1.0f)); /* old v0 */
+}
+
+static int poly_normal_is(const horu_poly *p, float nx, float ny, float nz) {
+    return feq(p->plane.nx, nx) && feq(p->plane.ny, ny) && feq(p->plane.nz, nz);
+}
+
+static void test_box_polys(void) {
+    horu_poly f[8];
+    int n = horu_box_polys(0.0f, 0.0f, 0.0f, 2.0f, 2.0f, 2.0f, f, 8), i;
+    int seen_px = 0, seen_nz = 0;
+    CHECK(n == 6);
+    for (i = 0; i < n; i++) {
+        CHECK(f[i].n == 4);                       /* each face is a quad */
+        if (poly_normal_is(&f[i], 1.0f, 0.0f, 0.0f)) {
+            seen_px = 1;
+            CHECK(feq(f[i].plane.d, 1.0f));        /* +x face at x = 1 */
+        }
+        if (poly_normal_is(&f[i], 0.0f, 0.0f, -1.0f)) {
+            seen_nz = 1;
+            CHECK(feq(f[i].plane.d, 1.0f));        /* -z face: -z = 1 -> z = -1 */
+        }
+    }
+    CHECK(seen_px && seen_nz);
+
+    /* every face vertex lies on the box surface (|coord| == 1 on its axis) */
+    for (i = 0; i < n; i++) {
+        int j;
+        for (j = 0; j < f[i].n; j++) {
+            CHECK(feq(f[i].v[j].x,  1.0f) || feq(f[i].v[j].x, -1.0f) ||
+                  feq(f[i].v[j].y,  1.0f) || feq(f[i].v[j].y, -1.0f) ||
+                  feq(f[i].v[j].z,  1.0f) || feq(f[i].v[j].z, -1.0f));
+        }
+    }
+}
+
+static void test_box_polys_capacity(void) {
+    horu_poly f[2];
+    int n = horu_box_polys(0,0,0, 2,2,2, f, 2);
+    CHECK(n == 2); /* stops at capacity */
+}
+
+static void test_mesh_from_polys(void) {
+    horu_poly f[8];
+    int npoly = horu_box_polys(0.0f, 0.0f, 0.0f, 2.0f, 2.0f, 2.0f, f, 8);
+    float vx[64], vy[64], vz[64];
+    int idx[128], nv = 0, nt, i;
+    nt = horu_mesh_from_polys(f, npoly, vx, vy, vz, 64, idx, 128, &nv);
+    CHECK(nt == 12); /* 6 quads * (4-2) */
+    CHECK(nv == 24); /* 6 quads * 4 verts, no dedup */
+    for (i = 0; i < nt * 3; i++) {
+        CHECK(idx[i] >= 0 && idx[i] < nv); /* every index in range */
+    }
+}
+
+static void test_mesh_capacity(void) {
+    horu_poly f[8];
+    int npoly = horu_box_polys(0,0,0, 2,2,2, f, 8);
+    float vx[8], vy[8], vz[8];
+    int idx[3], nv = 0, nt;
+    /* triangle-index cap 3 -> at most 1 triangle (tri guard) */
+    nt = horu_mesh_from_polys(f, npoly, vx, vy, vz, 8, idx, 3, &nv);
+    CHECK(nt == 1);
+    /* vertex cap 2 -> stops partway through the first quad (vert guard) */
+    {
+        int idx2[128];
+        nv = 0;
+        nt = horu_mesh_from_polys(f, npoly, vx, vy, vz, 2, idx2, 128, &nv);
+        CHECK(nv == 2);
+        CHECK(nt == 0);
+    }
+}
+
 static void test_split_capacity(void) {
     /* cap 0: lists cannot grow -> the only guard (capacity) drops the piece */
     horu_poly sq = quad_z0(-1,-1, 1,-1, 1,1, -1,1);
@@ -228,6 +309,11 @@ int main(void) {
     test_split_whole_sides();
     test_split_coplanar();
     test_split_capacity();
+    test_flip_poly();
+    test_box_polys();
+    test_box_polys_capacity();
+    test_mesh_from_polys();
+    test_mesh_capacity();
     if (g_fail) {
         printf("%d check(s) failed\n", g_fail);
         return 1;

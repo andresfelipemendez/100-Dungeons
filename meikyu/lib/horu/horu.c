@@ -148,6 +148,90 @@ static void poly_push(horu_poly *list, int *count, int cap,
     p->plane = pl;
 }
 
+void horu_flip_poly(horu_poly *p) {
+    int i, n = p->n;
+    horu_v3 tmp;
+    p->plane.nx = -p->plane.nx;
+    p->plane.ny = -p->plane.ny;
+    p->plane.nz = -p->plane.nz;
+    p->plane.d  = -p->plane.d;
+    for (i = 0; i < n / 2; i++) {
+        tmp = p->v[i];
+        p->v[i] = p->v[n - 1 - i];
+        p->v[n - 1 - i] = tmp;
+    }
+}
+
+int horu_mesh_from_polys(const horu_poly *polys, int npoly,
+                         float *vx, float *vy, float *vz, int vcap,
+                         int *idx, int icap, int *out_nverts) {
+    int vn = 0, tn = 0, i, j, k, stop = 0;
+    for (i = 0; i < npoly && !stop; i++) {
+        int base = vn, m = polys[i].n;
+        for (j = 0; j < m; j++) {
+            if (vn >= vcap) { stop = 1; break; }
+            vx[vn] = polys[i].v[j].x;
+            vy[vn] = polys[i].v[j].y;
+            vz[vn] = polys[i].v[j].z;
+            vn++;
+        }
+        if (stop) {
+            break;
+        }
+        for (k = 0; k + 2 < m; k++) {  /* fan from v0 */
+            if (tn * 3 + 3 > icap) { stop = 1; break; }
+            idx[tn * 3 + 0] = base;
+            idx[tn * 3 + 1] = base + k + 1;
+            idx[tn * 3 + 2] = base + k + 2;
+            tn++;
+        }
+    }
+    *out_nverts = vn;
+    return tn;
+}
+
+int horu_box_polys(float cx, float cy, float cz,
+                   float sx, float sy, float sz,
+                   horu_poly *out, int cap) {
+    float hx = sx * 0.5f, hy = sy * 0.5f, hz = sz * 0.5f;
+    float x0 = cx - hx, x1 = cx + hx;
+    float y0 = cy - hy, y1 = cy + hy;
+    float z0 = cz - hz, z1 = cz + hz;
+    horu_v3 c[8];
+    /* faces wound CCW seen from outside, so plane_from_points -> outward normal */
+    static const int faces[6][4] = {
+        {0, 3, 2, 1}, /* -z */ {4, 5, 6, 7}, /* +z */
+        {0, 4, 7, 3}, /* -x */ {1, 2, 6, 5}, /* +x */
+        {0, 1, 5, 4}, /* -y */ {3, 7, 6, 2}  /* +y */
+    };
+    int i, j, n = 0;
+
+    c[0].x = x0; c[0].y = y0; c[0].z = z0;
+    c[1].x = x1; c[1].y = y0; c[1].z = z0;
+    c[2].x = x1; c[2].y = y1; c[2].z = z0;
+    c[3].x = x0; c[3].y = y1; c[3].z = z0;
+    c[4].x = x0; c[4].y = y0; c[4].z = z1;
+    c[5].x = x1; c[5].y = y0; c[5].z = z1;
+    c[6].x = x1; c[6].y = y1; c[6].z = z1;
+    c[7].x = x0; c[7].y = y1; c[7].z = z1;
+
+    for (i = 0; i < 6; i++) {
+        horu_poly *p;
+        if (n >= cap) {
+            break;
+        }
+        p = &out[n++];
+        p->n = 4;
+        for (j = 0; j < 4; j++) {
+            p->v[j] = c[faces[i][j]];
+        }
+        p->plane = horu_plane_from_points(p->v[0].x, p->v[0].y, p->v[0].z,
+                                          p->v[1].x, p->v[1].y, p->v[1].z,
+                                          p->v[2].x, p->v[2].y, p->v[2].z);
+    }
+    return n;
+}
+
 void horu_split_poly(horu_plane plane, const horu_poly *poly,
                      horu_poly *front, int *nf,
                      horu_poly *back, int *nb, int cap) {

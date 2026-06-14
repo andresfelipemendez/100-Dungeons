@@ -132,4 +132,23 @@ void horu_split_poly(horu_plane plane, const horu_poly *poly,
                      horu_poly *front, int *nf,
                      horu_poly *back, int *nb, int cap);
 
+/* Flip a polygon in place: reverse winding and negate its plane, so its solid
+   side swaps (used to invert a solid for difference/intersection). */
+void horu_flip_poly(horu_poly *p);
+
+/* Emit the 6 face quads of an axis-aligned box (CCW, outward normals) into
+   out[] (capacity `cap`). Returns the number written (6, or fewer at cap). */
+int horu_box_polys(float cx, float cy, float cz,
+                   float sx, float sy, float sz,
+                   horu_poly *out, int cap);
+
+/* Fan-triangulate `polys` into a structure-of-arrays mesh the caller sizes:
+   positions to vx/vy/vz (capacity vcap), 3 indices per triangle into idx
+   (capacity icap). Vertices are not deduplicated. Writes the vertex count to
+   *out_nverts; returns the triangle count. Stops cleanly when either buffer
+   is full. */
+int horu_mesh_from_polys(const horu_poly *polys, int npoly,
+                         float *vx, float *vy, float *vz, int vcap,
+                         int *idx, int icap, int *out_nverts);
+
 #endif /* HORU_H */
