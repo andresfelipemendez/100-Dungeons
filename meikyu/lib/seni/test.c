@@ -2829,6 +2829,435 @@ UTEST(parse, operand_isolation_bounds_and_comments) {
     ASSERT_FALSE(r.err);                        /* block + // line comment */
 }
 
+/* MC/DC for the array-size decision (digits==0 || v==0 || overflow || v>MAX)
+   and the field-declarator scans: each disjunct isolated by [], [0], a huge
+   size, a non-numeric size; plus field-name-to-EOF and comma-separated fields. */
+UTEST(parse, array_size_and_declarator_operands) {
+    char buf[8192];
+    arena a;
+    parse_result r;
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x[]; } s;");
+    ASSERT_TRUE(r.err != NULL);                 /* digits == 0 */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x[0]; } s;");
+    ASSERT_TRUE(r.err != NULL);                 /* v == 0 */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x[999999999999]; } s;");
+    ASSERT_TRUE(r.err != NULL);                 /* overflow / v > MAX */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x[abc]; } s;");
+    ASSERT_TRUE(r.err != NULL);                 /* non-numeric */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x[4]; } s;");
+    ASSERT_FALSE(r.err);                        /* valid array */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x");
+    ASSERT_TRUE(r.err != NULL);                 /* field name runs to EOF */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x, y; } s;");
+    ASSERT_FALSE(r.err);                        /* comma-separated fields */
+}
+
+/* annotate_dropped error paths (struct not found, already dropped) + happy
+   path, and strip_was -- the migration tooling's annotation editors. */
+UTEST(annotate, dropped_and_strip_was) {
+    char buf[8192];
+    arena a;
+    annotate_result r;
+
+    create_arena(&a, buf, sizeof(buf));
+    r = annotate_dropped(&a, "typedef struct { int x; } player;", "ghost", "x");
+    ASSERT_TRUE(r.err != NULL);                 /* struct not found */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = annotate_dropped(&a,
+        "typedef struct { int x; SENI_DROPPED(y) } player;", "player", "y");
+    ASSERT_TRUE(r.err != NULL);                 /* already dropped */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = annotate_dropped(&a,
+        "typedef struct { int x; int y; } player;", "player", "y");
+    ASSERT_FALSE(r.err);                        /* happy: inserts SENI_DROPPED(y) */
+    ASSERT_TRUE(strstr(r.code, "SENI_DROPPED(y)") != NULL);
+
+    create_arena(&a, buf, sizeof(buf));
+    r = strip_was(&a, "typedef struct { int x SENI_WAS(old); } s;");
+    ASSERT_FALSE(r.err);
+    ASSERT_TRUE(strstr(r.code, "SENI_WAS") == NULL); /* annotation removed */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = strip_was(&a, "typedef struct { int x; } s;");
+    ASSERT_FALSE(r.err);                        /* nothing to strip */
+}
+
+/* MC/DC for the field-declarator and annotation-arg boundary scans: whitespace
+   around array brackets, an empty field name, trailing whitespace after an
+   annotation, a SENI_DEFAULT argument containing '(', and a nested struct. */
+UTEST(parse, declarator_and_arg_boundaries) {
+    char buf[8192];
+    arena a;
+    parse_result r;
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x [ 4 ] ; } s;");
+    ASSERT_TRUE(r.err != NULL);                 /* whitespace around brackets */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x[4 ] ; } s;");
+    ASSERT_TRUE(r.err != NULL);                 /* ws before ']' */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int ; } s;");
+    ASSERT_TRUE(r.err != NULL);                 /* empty field name */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x SENI_WAS(y)   ; } s;");
+    ASSERT_FALSE(r.err);                        /* trailing ws after annotation */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x SENI_DEFAULT((1)); } s;");
+    ASSERT_TRUE(r.err != NULL);                 /* '(' inside default arg */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { struct { int z; } inner; } s;");
+    ASSERT_TRUE(r.err != NULL);                 /* nested struct -> unknown type */
+}
+
+/* skip_comment's // and block branches (reached only via the annotate callers,
+   not parse_header) + is_white_space's \t and \r operands. */
+UTEST(annotate, skip_comment_and_whitespace) {
+    char buf[8192];
+    arena a;
+    annotate_result ar;
+    parse_result pr;
+
+    create_arena(&a, buf, sizeof(buf));
+    ar = strip_was(&a, "typedef struct { int x SENI_WAS(o); // c\n } s;");
+    ASSERT_FALSE(ar.err);                       /* // comment via strip_was */
+
+    create_arena(&a, buf, sizeof(buf));
+    ar = strip_was(&a, "typedef struct { /* b */ int x SENI_WAS(o); } s;");
+    ASSERT_FALSE(ar.err);                       /* block comment via strip_was */
+
+    create_arena(&a, buf, sizeof(buf));
+    pr = parse_header(&a, "typedef\tstruct\t{\tint\tx;\t}\ts;");
+    ASSERT_FALSE(pr.err);                       /* tab whitespace */
+
+    create_arena(&a, buf, sizeof(buf));
+    pr = parse_header(&a, "typedef struct {\r int x;\r } s;");
+    ASSERT_FALSE(pr.err);                       /* CR whitespace */
+}
+
+/* MC/DC for the arg-parsing (p < end) / (p >= end) boundary operands: an
+   annotation truncated at the field end makes the parser enter each arg-scan
+   loop with p == end, exercising the bound's independent (false) effect. */
+UTEST(parse, annotation_boundary_truncation) {
+    char buf[8192];
+    arena a;
+    parse_result r;
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x SENI_WAS; } s;");
+    ASSERT_TRUE(r.err != NULL);                 /* p==end right after keyword */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x SENI_WAS(; } s;");
+    ASSERT_TRUE(r.err != NULL);                 /* p==end after '(' */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x SENI_WAS(y; } s;");
+    ASSERT_TRUE(r.err != NULL);                 /* p hits end during ident scan */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x SENI_DEFAULT; } s;");
+    ASSERT_TRUE(r.err != NULL);
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x SENI_DEFAULT(; } s;");
+    ASSERT_TRUE(r.err != NULL);                 /* default arg scan to end */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x; SENI_DROPPED(  ");
+    ASSERT_TRUE(r.err != NULL);                 /* SENI_DROPPED ws to end */
+}
+
+/* the annotate functions' own scanning loops (separate from parse_header):
+   strip_was over keyword-prefix / spaced-arg / multi-field headers, and
+   annotate_dropped over comment / keyword-prefix / spaced-field headers. */
+UTEST(annotate, scan_edges) {
+    char buf[8192];
+    arena a;
+    annotate_result r;
+
+    create_arena(&a, buf, sizeof(buf));
+    r = strip_was(&a, "typedef struct { int SENI_WASX; } s;");
+    ASSERT_FALSE(r.err);                        /* SENI_WAS prefix (!is_ident) */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = strip_was(&a, "typedef struct { int x SENI_WAS ( old ) ; } s;");
+    ASSERT_FALSE(r.err);                        /* whitespace in/around the arg */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = strip_was(&a, "typedef struct { int a SENI_WAS(p); int b SENI_WAS(q); } s;");
+    ASSERT_FALSE(r.err);                        /* multiple SENI_WAS fields */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = annotate_dropped(&a, "typedef struct { /* c */ int x; int y; } p;", "p", "y");
+    ASSERT_FALSE(r.err);                        /* comment in the body */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = annotate_dropped(&a, "typedef struct { int x; SENI_DROPPEDX z; } p;", "p", "x");
+    ASSERT_FALSE(r.err);                        /* SENI_DROPPED prefix */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = annotate_dropped(&a, "typedef struct { int   y  ; } p;", "p", "y");
+    ASSERT_FALSE(r.err);                        /* spaced field name */
+}
+
+/* annotate_dropped scanning past an array field and to the last field (the
+   declarator / close-boundary operands), plus the SENI_ prefix-search compound:
+   SENI_FOO matches the SENI_ prefix but is neither WAS nor DEFAULT, and an
+   ident char before SENI_WAS means it is not a keyword start. */
+UTEST(annotate, field_scan_and_prefix) {
+    char buf[8192];
+    arena a;
+    annotate_result ar;
+    parse_result pr;
+
+    create_arena(&a, buf, sizeof(buf));
+    ar = annotate_dropped(&a, "typedef struct { int x[4]; int y; } p;", "p", "y");
+    ASSERT_FALSE(ar.err);                       /* scans past an array field */
+
+    create_arena(&a, buf, sizeof(buf));
+    ar = annotate_dropped(&a, "typedef struct { int a; int z; } p;", "p", "z");
+    ASSERT_FALSE(ar.err);                       /* drops the last field */
+
+    create_arena(&a, buf, sizeof(buf));
+    pr = parse_header(&a, "typedef struct { int x SENI_FOO; } s;");
+    ASSERT_TRUE(pr.err != NULL);                /* SENI_ prefix, not WAS/DEFAULT */
+
+    create_arena(&a, buf, sizeof(buf));
+    pr = parse_header(&a, "typedef struct { int xSENI_WAS; } s;");
+    ASSERT_FALSE(pr.err);                       /* ident before SENI_WAS */
+}
+
+/* annotate_dropped / strip_was field-scan variety: array fields, a middle
+   field (the name-comparison decision both ways), comma lists, and comments --
+   the field-finding loops inside the annotate functions. */
+UTEST(annotate, dropped_strip_variety) {
+    char buf[8192];
+    arena a;
+    annotate_result r;
+
+    create_arena(&a, buf, sizeof(buf));
+    r = annotate_dropped(&a, "typedef struct { int hp[3]; int y; } p;", "p", "hp");
+    ASSERT_FALSE(r.err);                        /* array field */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = annotate_dropped(&a, "typedef struct { int a; int b; int c; } p;", "p", "b");
+    ASSERT_FALSE(r.err);                        /* middle field: name compare both ways */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = annotate_dropped(&a, "typedef struct { int a, b, c; } p;", "p", "b");
+    ASSERT_FALSE(r.err);                        /* comma list */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = strip_was(&a, "typedef struct { int v[4] SENI_WAS(old); } s;");
+    ASSERT_FALSE(r.err);                        /* array field with SENI_WAS */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = strip_was(&a, "typedef struct { int a; int b SENI_WAS(o); int c; } s;");
+    ASSERT_FALSE(r.err);                        /* middle field */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = strip_was(&a, "typedef struct { /* x */ int a SENI_WAS(o); } s;");
+    ASSERT_FALSE(r.err);                        /* with a comment */
+}
+
+/* precise operand isolation in the duplicate-SENI_DROPPED name compare and the
+   strip_was argument scan: an existing SENI_DROPPED of equal vs different length
+   to the target (strncmp / length operands), strip_was args terminated by ';' /
+   newline, the keyword at end-of-string, a tab before it, and at index 0. */
+UTEST(annotate, dropped_dup_and_strip_boundaries) {
+    char buf[8192];
+    arena a;
+    annotate_result r;
+
+    create_arena(&a, buf, sizeof(buf));
+    r = annotate_dropped(&a, "typedef struct { int x; SENI_DROPPED(zz) } p;", "p", "yy");
+    ASSERT_FALSE(r.err);                        /* same length, different name */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = annotate_dropped(&a, "typedef struct { int x; SENI_DROPPED(abc) } p;", "p", "y");
+    ASSERT_FALSE(r.err);                        /* different length */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = strip_was(&a, "typedef struct { int x SENI_WAS(o; } s;");
+    ASSERT_FALSE(r.err);                        /* arg ends in ';' */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = strip_was(&a, "typedef struct { int x SENI_WAS(o\n); } s;");
+    ASSERT_FALSE(r.err);                        /* arg has a newline */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = strip_was(&a, "typedef struct { int x SENI_WAS");
+    ASSERT_FALSE(r.err);                        /* keyword at end of string */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = strip_was(&a, "typedef struct { int x\tSENI_WAS(o); } s;");
+    ASSERT_FALSE(r.err);                        /* tab before the annotation */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = strip_was(&a, "SENI_WAS(o) typedef struct { int x; } s;");
+    ASSERT_FALSE(r.err);                        /* SENI_WAS at index 0 */
+}
+
+/* diff's "SENI_WAS names a missing old field" check (the os / g>=count
+   operands) and skip_comment at end-of-string (// and unterminated block). */
+UTEST(diff, was_source_validation) {
+    char buf[16384];
+    arena a;
+    diff_result d;
+    annotate_result s;
+
+    create_arena(&a, buf, sizeof(buf));
+    d = diff_structs(&a, "typedef struct { int x; } a;",
+        "typedef struct { int x; } a; typedef struct { int y SENI_WAS(z); } b;");
+    ASSERT_TRUE(d.err != NULL);                 /* !os: new struct */
+
+    create_arena(&a, buf, sizeof(buf));
+    d = diff_structs(&a, "typedef struct { int x; } a;",
+        "typedef struct { int x; int y SENI_WAS(gone); } a;");
+    ASSERT_TRUE(d.err != NULL);                 /* os present, old field missing */
+
+    create_arena(&a, buf, sizeof(buf));
+    d = diff_structs(&a, "typedef struct { int x; int oldy; } a;",
+        "typedef struct { int x; int y SENI_WAS(oldy); } a;");
+    ASSERT_FALSE(d.err);                        /* old field found -> success */
+
+    create_arena(&a, buf, sizeof(buf));
+    s = strip_was(&a, "typedef struct { int x SENI_WAS(o); } s; // end");
+    ASSERT_FALSE(s.err);                        /* // comment at end of string */
+
+    create_arena(&a, buf, sizeof(buf));
+    s = strip_was(&a, "typedef struct { int x; } s; /* unterminated");
+    ASSERT_FALSE(s.err);                        /* unterminated block at EOS */
+}
+
+/* the annotate field-scan close-brace / end-of-string boundary operands: a
+   target field last in the struct with no terminator (declarator scan reaches
+   close), and unterminated struct bodies (scan reaches '\0'). These error, but
+   the SCAN running to the boundary is what exercises the operands. */
+UTEST(annotate, scan_to_close_boundaries) {
+    char buf[8192];
+    arena a;
+    annotate_result r;
+
+    create_arena(&a, buf, sizeof(buf));
+    r = annotate_rename(&a, "struct p { int a; int b }", "p", "old", "b");
+    ASSERT_TRUE(r.err != NULL);                 /* last field, no ';' -> p==close */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = annotate_rename(&a, "struct p { int b[4] }", "p", "old", "b");
+    ASSERT_TRUE(r.err != NULL);                 /* array, no ';' -> bracket scan to close */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = annotate_rename(&a, "struct p { int x", "p", "old", "x");
+    ASSERT_TRUE(r.err != NULL);                 /* unterminated -> scan to '\0' */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = annotate_dropped(&a, "struct p { int x; SENI_DROPPED(zz)", "p", "y");
+    ASSERT_TRUE(r.err != NULL);                 /* dropped scan to '\0' */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = annotate_dropped(&a, "struct p { int x[4]", "p", "x");
+    ASSERT_TRUE(r.err != NULL);                 /* array field, unterminated */
+}
+
+/* the last boundary operands: a '}' followed by whitespace to end-of-string
+   (after-brace name scan reaches '\0'), empty / whitespace-only headers, a
+   2^32 array size (overflow disjunct), and an existing SENI_DROPPED for a
+   different field (the duplicate scan compares and continues). */
+UTEST(parse, final_boundary_operands) {
+    char buf[8192];
+    arena a;
+    parse_result pr;
+    annotate_result ar;
+
+    create_arena(&a, buf, sizeof(buf));
+    pr = parse_header(&a, "typedef struct { int x; }   ");
+    ASSERT_TRUE(pr.err != NULL);                /* '}' then ws to '\0', no name */
+
+    create_arena(&a, buf, sizeof(buf));
+    pr = parse_header(&a, "   \n\t  ");
+    ASSERT_FALSE(pr.err);                        /* whitespace-only */
+
+    create_arena(&a, buf, sizeof(buf));
+    pr = parse_header(&a, "");
+    ASSERT_FALSE(pr.err);                        /* empty */
+
+    create_arena(&a, buf, sizeof(buf));
+    pr = parse_header(&a, "typedef struct { int x[4294967296]; } s;");
+    ASSERT_TRUE(pr.err != NULL);                /* 2^32 array size */
+
+    create_arena(&a, buf, sizeof(buf));
+    ar = annotate_dropped(&a,
+        "typedef struct { int a; int b; SENI_DROPPED(a) } p;", "p", "b");
+    ASSERT_FALSE(ar.err);                        /* existing SENI_DROPPED, other field */
+}
+
+/* arena exhaustion: the OOM guards in allocate_bytes / allocate / copy_string
+   that the rest of the suite (which always sizes its arenas generously) never
+   trips. */
+UTEST(arena, oom_paths) {
+    char buf[64];
+    arena a;
+    void* p;
+
+    create_arena(&a, buf, sizeof(buf));
+    ASSERT_TRUE(allocate_bytes(&a, 1000) == NULL);        /* request > remaining */
+    ASSERT_TRUE(arena_copy_string(&a, "x", 1000) == NULL); /* copy OOM */
+
+    p = allocate_bytes(&a, 60);
+    ASSERT_TRUE(p != NULL);
+    ASSERT_TRUE(allocate(&a, 100) == NULL);               /* padded alloc OOM */
+}
+
+/* the last scan-boundary operands: an existing SENI_DROPPED whose whitespace
+   runs to the close brace (the duplicate-scan p<close operands), a stray '/'
+   that does not start a comment (skip_comment's second char), and a type token
+   running to end-of-input (the field-scan '\0' operand). */
+UTEST(parse, last_scan_operands) {
+    char buf[8192];
+    arena a;
+    annotate_result ar;
+    parse_result pr;
+
+    create_arena(&a, buf, sizeof(buf));
+    ar = annotate_dropped(&a, "struct p { int x; SENI_DROPPED   }", "p", "x");
+    ASSERT_FALSE(ar.err);                        /* ws after keyword to close */
+
+    create_arena(&a, buf, sizeof(buf));
+    ar = annotate_dropped(&a, "struct p { int x; SENI_DROPPED(   }", "p", "x");
+    ASSERT_FALSE(ar.err);                        /* ws after '(' to close */
+
+    create_arena(&a, buf, sizeof(buf));
+    ar = strip_was(&a, "typedef struct { int x SENI_WAS(o); } s; / x");
+    ASSERT_FALSE(ar.err);                        /* '/' not starting a comment */
+
+    create_arena(&a, buf, sizeof(buf));
+    pr = parse_header(&a, "typedef struct { int");
+    ASSERT_TRUE(pr.err != NULL);                 /* type token to end-of-input */
+}
+
 /* seni_migrate_block's every failure branch, driven by hand-crafted migration
    dlls with missing / mismatched migrate_<name> symbols (the codegen always
    emits correct ones, so these refusals were never exercised). */

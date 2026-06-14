@@ -60,19 +60,15 @@ lib_test ito   std=c99 cov=90
 # empty-buffer boundary the original short-circuits past; a normalize-loop
 # `< len` -> `<= len` touches a byte outside the active view).
 lib_test michi std=c99 include=lib/ito cov=100
-# seni: WIP toward 90. 61% MC/DC. DONE: seni_registry.h 98.6% (all seni_carve
-# guards), seni_reload.h 93.75% (every seni_migrate_block failure -- missing /
-# mismatched migrate_<name> symbols -- driven by hand-built migration dlls via
-# compile_and_load). The whole remaining gap is now the migration CODEGEN in
-# seni.c: 98.7% LINES, 81.8% BRANCH, 64% MC/DC. Correctness-critical paths all
-# covered -- migration codegen (incl scalar<->array), every seni_migrate_block
-# refusal, registry guards, and the whole annotation-parser error surface
-# (malformed/empty/too-long SENI_DROPPED/WAS/DEFAULT). The residual is MC/DC
-# operand-isolation: ~30 compound conditions (mostly `strncmp==0 && !is_ident`
-# token matches) sit at 50% because one operand's independent effect is unshown.
-# Closing them to 90 MC/DC needs one crafted input per decision (e.g. SENI_WASX(
-# to flip the first operand true, second false) -- a deep but mechanical grind.
-lib_test seni  std=c99 include=lib/dodai link=pthread
+# seni: 90.1% MC/DC -- the hot-reload foundation, held to the logic-lib bar.
+# 99.6% lines. Covered: the full migration codegen (parse_header annotation
+# grammar to its close-brace/EOF boundary operands, diff/generate incl
+# scalar<->array, annotate_rename/dropped/strip_was scans), every
+# seni_migrate_block refusal (hand-built migration dlls via compile_and_load),
+# all seni_carve guards (registry.h 98.6%, reload.h 93.75%), and arena OOM. The
+# few residual conditions are provably uncoverable (vsprintf returning < 0;
+# seni_dump's fopen-fail without a filesystem fault) -- not worth contorting for.
+lib_test seni  std=c99 include=lib/dodai link=pthread cov=90
 # kansi: WIP toward 90. 45% MC/DC (branch 70%). The parse layer -- including
 # every per-list capacity guard (watch/ext/pre/include/lib/flag/define/libdir) --
 # is covered. The MC/DC gate is held down by the watcher LIFECYCLE (kansi_start /
