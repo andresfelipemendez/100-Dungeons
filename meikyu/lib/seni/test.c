@@ -2640,3 +2640,76 @@ UTEST(stress, migrate_200k_elements) {
     free(old_blk);
     free(new_blk);
 }
+
+/* every seni_carve / registry guard path (pure logic, no migration dll): the
+   existing tests only drive the happy carve, so the refusals were uncovered. */
+UTEST(registry, carve_guards) {
+    static char block[4096];
+    char longname[SENI_REGISTRY_NAME_MAX + 8];
+    int i;
+
+    seni_registry_init(block, sizeof(block));
+    ASSERT_TRUE(seni_carve(block, "a", 4, 8) != NULL);        /* happy */
+    ASSERT_TRUE(seni_carve(block, "a", 1, 1) == NULL);        /* duplicate name */
+
+    memset(longname, 'x', sizeof(longname) - 1);
+    longname[sizeof(longname) - 1] = 0;
+    ASSERT_TRUE(seni_carve(block, longname, 1, 1) == NULL);   /* name too long */
+
+    ASSERT_TRUE(seni_carve(block, "ov", (size_t)-1, 2) == NULL); /* count*stride overflow */
+    ASSERT_TRUE(seni_carve(block, "big", 1, sizeof(block) * 2) == NULL); /* OOM */
+
+    /* a block with no registry header (wrong magic) */
+    {
+        static char raw[256];
+        memset(raw, 0, sizeof(raw));
+        ASSERT_TRUE(seni_registry_get(raw) == NULL);
+        ASSERT_TRUE(seni_carve(raw, "x", 1, 1) == NULL);
+        ASSERT_TRUE(seni_registry_find(raw, "x") == NULL);
+    }
+
+    /* fill the registry to capacity, then one carve too many */
+    {
+        static char fb[1 << 16];
+        char nm[16];
+        seni_registry_init(fb, sizeof(fb));
+        for (i = 0; i < SENI_REGISTRY_MAX_ARRAYS; i++) {
+            snprintf(nm, sizeof(nm), "e%d", i);
+            ASSERT_TRUE(seni_carve(fb, nm, 1, 1) != NULL);
+        }
+        ASSERT_TRUE(seni_carve(fb, "over", 1, 1) == NULL);   /* registry full */
+    }
+}
+
+/* parse_header annotation error paths: malformed SENI_DROPPED, over-long
+   SENI_DROPPED / SENI_WAS arguments, and stray text where an annotation or ';'
+   is expected. Each returns r.err instead of crashing. */
+UTEST(parse, annotation_errors) {
+    char buf[8192];
+    arena a;
+    parse_result r;
+    char longname[80];
+    char hdr[256];
+    memset(longname, 'a', 70);
+    longname[70] = 0;
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x; SENI_DROPPED } s;");
+    ASSERT_TRUE(r.err != NULL);                 /* SENI_DROPPED without (name) */
+
+    create_arena(&a, buf, sizeof(buf));
+    snprintf(hdr, sizeof(hdr),
+             "typedef struct { int x; SENI_DROPPED(%s) } s;", longname);
+    r = parse_header(&a, hdr);
+    ASSERT_TRUE(r.err != NULL);                 /* SENI_DROPPED name too long */
+
+    create_arena(&a, buf, sizeof(buf));
+    r = parse_header(&a, "typedef struct { int x BOGUSTOK; } s;");
+    ASSERT_TRUE(r.err != NULL);                 /* unexpected text in annotations */
+
+    create_arena(&a, buf, sizeof(buf));
+    snprintf(hdr, sizeof(hdr),
+             "typedef struct { int x SENI_WAS(%s); } s;", longname);
+    r = parse_header(&a, hdr);
+    ASSERT_TRUE(r.err != NULL);                 /* SENI_WAS argument too long */
+}

@@ -60,6 +60,12 @@ lib_test ito   std=c99 cov=90
 # empty-buffer boundary the original short-circuits past; a normalize-loop
 # `< len` -> `<= len` touches a byte outside the active view).
 lib_test michi std=c99 include=lib/ito cov=100
+# seni: WIP toward 90. 61% MC/DC. seni_registry.h now 98.6% (all seni_carve
+# guard paths -- bad magic / dup / name-too-long / full / overflow / OOM --
+# covered directly). The remaining gap is the migration CODEGEN in seni.c
+# (parse_header / annotate_* / strip_was / splice / skip_comment: ~160 branches,
+# each needing a crafted header-text input) plus seni_reload.h's migrate-failure
+# paths (missing symbol / stride mismatch -- need hand-built migration dlls).
 lib_test seni  std=c99 include=lib/dodai link=pthread
 lib_test kansi std=c99 src=../dodai/dodai_posix.c include=lib/dodai link=pthread
 # kaji: WIP toward 90. 45% MC/DC (was 28%): parse + all error paths + every
