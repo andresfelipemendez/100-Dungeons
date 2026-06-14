@@ -15,9 +15,11 @@
 
    Strict C89. */
 
-/* ---- plane (half-space) ------------------------------------------------- */
-/* The set { p : dot(n, p) - d >= 0 } is "inside" (the +normal side is solid).
-   n is unit length by construction (horu_plane_make normalizes). */
+/* ---- plane (oriented) --------------------------------------------------- */
+/* An oriented plane dot(n, p) = d; n is unit length (horu_plane_make
+   normalizes). The plane carries no notion of "solid side" -- that is a
+   solid-level convention (see horu_solid) -- so the same primitive serves both
+   a face half-space and a BSP splitting plane. */
 typedef struct {
     float nx, ny, nz; /* unit normal */
     float d;          /* signed distance of the plane from the origin */
@@ -31,7 +33,7 @@ typedef struct {
 horu_plane horu_plane_make(float nx, float ny, float nz, float d);
 
 /* Classify a point against a plane:
-   +1 = in front  (signed distance >  HORU_EPS, the solid/inside side)
+   +1 = in front  (signed distance >  HORU_EPS)
    -1 = behind    (signed distance < -HORU_EPS)
     0 = on        (|signed distance| <= HORU_EPS) */
 int horu_side(horu_plane p, float x, float y, float z);
@@ -42,5 +44,66 @@ int horu_side(horu_plane p, float x, float y, float z);
 horu_plane horu_plane_from_points(float ax, float ay, float az,
                                   float bx, float by, float bz,
                                   float cx, float cy, float cz);
+
+/* ---- convex solid ------------------------------------------------------- */
+/* A convex solid is the intersection of its faces' half-spaces. Faces carry
+   OUTWARD normals, so a point is INSIDE when it is behind-or-on every face
+   (never strictly in front of one). Data-oriented: a flat plane array, no
+   tree, no vertices -- containment streams the planes in a loop. Non-convex
+   results (union/difference) are built later as plane-partition trees. */
+#define HORU_MAX_PLANES 64
+
+typedef struct {
+    horu_plane planes[HORU_MAX_PLANES];
+    int count;
+} horu_solid;
+
+/* 1 if (x,y,z) is inside-or-on the convex solid (behind every face), else 0. */
+int horu_contains(const horu_solid *s, float x, float y, float z);
+
+/* ---- primitives --------------------------------------------------------- */
+/* Axis-aligned box centred at (cx,cy,cz) with full extents (sx,sy,sz): six
+   faces with outward normals. */
+horu_solid horu_box(float cx, float cy, float cz,
+                    float sx, float sy, float sz);
+
+/* ---- CSG tree (the boolean abstract) ------------------------------------ */
+/* A general solid is a tree: leaves are convex solids, internal nodes are
+   boolean ops over child nodes. This is the abstract boolean layer -- closed
+   under all ops (just add a node), evaluated by a recursive point-membership
+   walk; triangulation (horu_tri.h, part 2) clips faces against it. Data-
+   oriented: flat node + solid pools addressed by int index, no pointers.
+
+   Build bottom-up; every builder call sets the root to the node it returns, so
+   the last call is the tree root. */
+typedef enum {
+    HORU_LEAF, HORU_UNION, HORU_DIFFERENCE, HORU_INTERSECTION
+} horu_op;
+
+#define HORU_CSG_MAX_NODES  64
+#define HORU_CSG_MAX_LEAVES 16
+
+typedef struct {
+    horu_op op;
+    int a;   /* leaf: solid index. op: first child node index.  */
+    int b;   /* op: second child node index. unused for a leaf. */
+} horu_csg_node;
+
+typedef struct {
+    horu_solid    solids[HORU_CSG_MAX_LEAVES];  int solid_count;
+    horu_csg_node nodes[HORU_CSG_MAX_NODES];    int node_count;
+    int root;
+} horu_csg;
+
+void horu_csg_init(horu_csg *t);
+
+/* Add a leaf wrapping a copy of `s`; returns its node index (also the root). */
+int  horu_csg_leaf(horu_csg *t, const horu_solid *s);
+
+/* Add an op over child node indices a, b; returns its node index (the root). */
+int  horu_csg_op(horu_csg *t, horu_op op, int a, int b);
+
+/* 1 if (x,y,z) is inside the solid described by the tree's root, else 0. */
+int  horu_csg_contains(const horu_csg *t, float x, float y, float z);
 
 #endif /* HORU_H */

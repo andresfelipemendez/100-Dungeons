@@ -8,6 +8,7 @@
 host_src      src/platform/host_main.c
 host_src      src/platform/project_gen.c
 host_src      src/platform/tests_gen.c
+host_src      src/platform/mutate.c
 host_src      src/platform/seni_answers.c
 host_src      src/platform/build_manifest.c
 host_src      src/platform/migrate_core.c
@@ -55,20 +56,33 @@ platform windows builddir=build        exe=.exe dll=.dll  dodai=dodai_windows.c 
 # only genuinely separate TUs (the per-OS dodai source) go in src=.
 lib_test ito   std=c99
 lib_test michi std=c99 include=lib/ito
-lib_test seni  std=c99
+lib_test seni  std=c99 include=lib/dodai link=pthread
 lib_test kansi std=c99 src=../dodai/dodai_posix.c include=lib/dodai link=pthread
 lib_test kaji  std=c99 src=../dodai/dodai_posix.c include=lib/dodai link=pthread
-lib_test horu  std=c89 src=horu.c link=m
+# horu is new + TDD'd from scratch: hold it to 100% coverage (branch, since its
+# decisions are single-condition so MC/DC is n/a). Legacy libs stay at the
+# aspirational global default until their tests are backfilled.
+lib_test horu  std=c89 src=horu.c link=m cov=100
 
 # ---- coverage (MC/DC) ----------------------------------------------------
 # Gate `meikyu --test --coverage` below this MC/DC %. clang instruments;
 # llvm-cov/llvm-profdata read the per-condition records (xcrun on macOS).
 coverage_min_mcdc 90
+# one cross-OS list: a path that does not exist on this machine is skipped.
+# macOS: Xcode/CLT/homebrew. Linux: the apt symlink then versioned fallbacks.
 llvmcov_candidate       $TOOLCHAIN/usr/bin/llvm-cov
 llvmcov_candidate       /Library/Developer/CommandLineTools/usr/bin/llvm-cov
 llvmcov_candidate       /opt/homebrew/opt/llvm/bin/llvm-cov
 llvmcov_candidate       /usr/bin/llvm-cov
+llvmcov_candidate       /usr/bin/llvm-cov-18
+llvmcov_candidate       /usr/lib/llvm-18/bin/llvm-cov
+llvmcov_candidate       /usr/bin/llvm-cov-17
+llvmcov_candidate       /usr/bin/llvm-cov-16
 llvmprofdata_candidate  $TOOLCHAIN/usr/bin/llvm-profdata
 llvmprofdata_candidate  /Library/Developer/CommandLineTools/usr/bin/llvm-profdata
 llvmprofdata_candidate  /opt/homebrew/opt/llvm/bin/llvm-profdata
 llvmprofdata_candidate  /usr/bin/llvm-profdata
+llvmprofdata_candidate  /usr/bin/llvm-profdata-18
+llvmprofdata_candidate  /usr/lib/llvm-18/bin/llvm-profdata
+llvmprofdata_candidate  /usr/bin/llvm-profdata-17
+llvmprofdata_candidate  /usr/bin/llvm-profdata-16

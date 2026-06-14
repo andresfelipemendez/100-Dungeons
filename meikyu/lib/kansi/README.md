@@ -77,7 +77,8 @@ linked per rebuild.
 
 ## tests
 
-`test.bat` (windows) / `test.sh` (linux): unit tests (parser, ext filter,
+`meikyu --test kansi` builds + runs the suite through kaji (configured by the
+`lib_test kansi` row in `build.manifest`): unit tests (parser, ext filter,
 command assembly, stamps) + e2e (watch a real dir, rebuild a real dll via
 gcc, assert BUILT/ERROR edges). OS specifics live in `../dodai`
 (`dodai_posix.c` / `dodai_windows.c`).

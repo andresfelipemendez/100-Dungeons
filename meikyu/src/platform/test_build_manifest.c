@@ -60,7 +60,7 @@ static const char *MANIFEST_LT =
     "lib_test seni  std=c89 src=seni.c,arena.c\n"
     "lib_test kansi std=c99 src=kansi.c,../dodai/dodai_posix.c"
     " include=lib/dodai link=pthread\n"
-    "lib_test horu  std=c89 src=horu.c link=m pedantic=0\n";
+    "lib_test horu  std=c89 src=horu.c link=m pedantic=0 cov=100\n";
 
 static b32 load_txt(arena *a, const char *s, BuildManifest *m, ito *err) {
     char *txt = arena_copy_string(a, s, strlen(s));
@@ -85,6 +85,7 @@ UTEST(manifest, parse_lib_test) {
     ASSERT_TRUE(ito_eq_c(m.lib_test[0].std, "c99"));
     ASSERT_TRUE(m.lib_test[0].pedantic);          /* default on */
     ASSERT_EQ(0, m.lib_test[0].src_count);
+    ASSERT_EQ(0, m.lib_test[0].cov);              /* default 0 => use global */
 
     ASSERT_TRUE(ito_eq_c(m.lib_test[1].name, "seni"));
     ASSERT_EQ(2, m.lib_test[1].src_count);
@@ -98,6 +99,7 @@ UTEST(manifest, parse_lib_test) {
     ASSERT_TRUE(ito_eq_c(m.lib_test[3].name, "horu"));
     ASSERT_FALSE(m.lib_test[3].pedantic);         /* pedantic=0 */
     ASSERT_TRUE(ito_eq_c(m.lib_test[3].link[0], "m"));
+    ASSERT_EQ(100, m.lib_test[3].cov);            /* per-lib 100% gate */
 }
 
 UTEST(manifest, select_mac_row) {

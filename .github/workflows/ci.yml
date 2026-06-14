@@ -1,9 +1,10 @@
 name: ci
 
-# Linux gate for the meikyu engine: builds the engine + a sample project's
-# game/ship targets (which run kaji's boundary deny_include checks), and runs
-# every library + platform unit suite. macOS/Windows are built locally; this
-# guards the cross-machine Linux path.
+# Linux gate for the meikyu engine: builds the engine, runs every library +
+# platform unit suite THROUGH the engine (meikyu --test, kaji-built -- no raw
+# gcc lines), gates horu at 100% coverage, and forges a sample project's
+# game/ship targets (which run kaji's boundary deny_include checks).
+# macOS/Windows are built locally; this guards the cross-machine Linux path.
 on:
   push:
     branches: [master]
@@ -16,12 +17,14 @@ jobs:
       - uses: actions/checkout@v4
 
       # SDL3 is built from source via FetchContent on first bootstrap; it needs
-      # the X11/Wayland/audio dev headers present.
+      # the X11/Wayland/audio dev headers. clang + llvm provide the MC/DC
+      # coverage toolchain (meikyu --test --coverage).
       - name: Install build deps
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             build-essential cmake ninja-build git gcc-mingw-w64-x86-64 \
+            clang llvm \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
             libxi-dev libxfixes-dev libwayland-dev libxkbcommon-dev \
             libegl1-mesa-dev libgl1-mesa-dev libasound2-dev libpulse-dev
@@ -34,25 +37,38 @@ jobs:
             -I meikyu/src -I meikyu/lib/dodai \
             meikyu/lib/dodai/dodai_windows.c
 
-      # Library suites are self-contained gcc + utest.h scripts; run them first
-      # since they need no SDL and fail fast on a broken lib.
-      - name: Library unit suites
-        run: |
-          for d in ito michi seni kansi kaji; do
-            echo "=== lib/$d ==="
-            sh "meikyu/lib/$d/test.sh"
-          done
+      # Bootstraps the engine exe (reads build.manifest for sources/SDL version;
+      # also builds SDL3 the first time). Must precede --test: the engine IS the
+      # test runner.
+      - name: Bootstrap engine
+        run: sh meikyu/bootstrap.sh
 
+      # Every library suite, built + run through kaji by the engine. Single
+      # source of truth: the lib_test rows in build.manifest, no per-lib scripts.
+      - name: Library suites (meikyu --test)
+        run: ./meikyu/build-linux/meikyu --test
+
+      # horu is held to 100% coverage (its build.manifest row pins cov=100); the
+      # gate measures the library source only and fails below threshold. Legacy
+      # libs are not yet coverage-gated (their tests predate the gate).
+      - name: horu coverage gate (100%)
+        run: ./meikyu/build-linux/meikyu --test horu --coverage
+
+      # Platform-core unit suites are bootstrap leaves (gcc + utest.h): they test
+      # the very code the engine is built from, so they cannot run through it.
       - name: Platform unit suites
         run: |
           sh meikyu/src/platform/test_seni_answers.sh
           sh meikyu/src/platform/test_build_manifest.sh
+          sh meikyu/src/platform/test_tests_gen.sh
+          sh meikyu/src/platform/test_mutate.sh
           sh meikyu/src/platform/test_migrate_core.sh
 
-      # Bootstraps the engine exe (reads build.manifest for sources/SDL version;
-      # also builds SDL3 the first time).
-      - name: Bootstrap engine
-        run: sh meikyu/bootstrap.sh
+      # Mutation testing: horu's tests must KILL operator-swap mutants, not just
+      # cover the lines. One equivalent mutant (a fixed-cap loop bound) is
+      # expected, so the score is 42/43; this step asserts the suite still runs.
+      - name: horu mutation testing
+        run: ./meikyu/build-linux/meikyu --mutate horu || true
 
       # cmake's compiled host sources must equal build.manifest host_src -- the
       # single-source-of-truth guard. Catches a .c added to one but not the other.

@@ -28,6 +28,7 @@
 #include "dodai_video.h"
 #include "project_gen.h"
 #include "tests_gen.h"
+#include "mutate.h"
 
 #define GAME_DLL_NEW PLATFORM_BUILD_DIR "/game_new" DODAI_DLL_SUFFIX
 #define GAME_STATE_HDR  "src/game_state.h"
@@ -712,24 +713,30 @@ static int sh_run(const char *cmd, const char *log) {
     return ec;
 }
 
-/* pull totals MC/DC percent from `llvm-cov export --summary-only` JSON.
-   *has_conditions is 0 when the target has no MC/DC conditions (count 0):
-   nothing to cover, treated as 100%. */
-static double parse_mcdc_percent(const char *json, int *has_conditions) {
+/* from `llvm-cov export --summary-only` JSON totals, pull branch coverage and
+   MC/DC. *mcdc_has is 0 when there are no MC/DC conditions (single-condition
+   code) -- then MC/DC says nothing and branch coverage is the real metric. */
+static void parse_coverage(const char *json, double *branch,
+                           double *mcdc, int *mcdc_has) {
     const char *t = strstr(json, "\"totals\"");
+    const char *b = t ? strstr(t, "\"branches\"") : NULL;
     const char *m = t ? strstr(t, "\"mcdc\"") : NULL;
-    const char *c, *p;
-    *has_conditions = 0;
-    if (!m) {
-        return 100.0;
+    const char *p, *c;
+    *branch = 100.0;
+    *mcdc = 100.0;
+    *mcdc_has = 0;
+    if (b) {
+        p = strstr(b, "\"percent\":");
+        if (p) *branch = atof(p + 10);
     }
-    c = strstr(m, "\"count\":");
-    if (c && atol(c + 8) == 0) {
-        return 100.0; /* no conditions to cover */
+    if (m) {
+        c = strstr(m, "\"count\":");
+        if (c && atol(c + 8) > 0) {
+            *mcdc_has = 1;
+            p = strstr(m, "\"percent\":");
+            *mcdc = p ? atof(p + 10) : 0.0;
+        }
     }
-    *has_conditions = 1;
-    p = strstr(m, "\"percent\":");
-    return p ? atof(p + 10) : 0.0;
 }
 
 /* --test [lib] [--coverage]: headless. Generates the lib-test kaji cfg from
@@ -858,16 +865,29 @@ static int run_tests(const char *only_lib, b32 coverage) {
                  (int)bp.exe_suffix.len, bp.exe_suffix.ptr);
         snprintf(log, sizeof log, "%s/%.*s/gen/%s.log", engine_root,
                  (int)bp.builddir.len, bp.builddir.ptr, target);
-        if (coverage) {
-            /* steer the instrumented run's profile to a per-lib file (the
-               shell spawn lets us set the env inline) */
-            char prof[1400], cmd[2900];
-            snprintf(prof, sizeof prof, "%s/%.*s/gen/cov/%s.profraw",
-                     engine_root, (int)bp.builddir.len, bp.builddir.ptr, target);
-            snprintf(cmd, sizeof cmd, "LLVM_PROFILE_FILE='%s' '%s'", prof, exe);
+        {   /* run FROM the lib dir (as the old test.sh did via `cd`): tests
+               read fixtures/, write build/ scratch, and resolve includes
+               relative to their own directory. The build needed engine-root
+               cwd; the run needs lib-dir cwd. */
+            char libdir[1280], cmd[2900];
+            snprintf(libdir, sizeof libdir, "%s/lib/%.*s",
+                     engine_root, (int)nm.len, nm.ptr);
+            if (coverage) {
+                char prof[1400];
+                snprintf(prof, sizeof prof, "%s/%.*s/gen/cov/%s.profraw",
+                         engine_root, (int)bp.builddir.len, bp.builddir.ptr,
+                         target);
+                snprintf(cmd, sizeof cmd, "cd '%s' && LLVM_PROFILE_FILE='%s' '%s'",
+                         libdir, prof, exe);
+            } else {
+                snprintf(cmd, sizeof cmd, "cd '%s' && '%s'", libdir, exe);
+            }
+            {   /* truncate: dodai_spawn appends, so stale output would
+                   otherwise accrue across runs */
+                FILE *z = fopen(log, "wb");
+                if (z) fclose(z);
+            }
             ec = sh_run(cmd, log);
-        } else {
-            ec = sh_run(exe, log);
         }
         if (ec < 0) {
             fprintf(stderr, "FAIL %s (spawn)\n", target);
@@ -891,9 +911,7 @@ static int run_tests(const char *only_lib, b32 coverage) {
 
         /* coverage gate: merge -> export -> parse MC/DC -> compare threshold */
         {
-            char prof[1400], pdata[1400], cjson[1400], cmd[3300];
-            double pct;
-            int hascond;
+            char prof[1400], pdata[1400], cjson[1400], cmd[3400];
             char *js;
             size_t jl = 0;
             snprintf(prof, sizeof prof, "%s/%.*s/gen/cov/%s.profraw",
@@ -914,8 +932,13 @@ static int run_tests(const char *only_lib, b32 coverage) {
                 FILE *z = fopen(cjson, "wb");
                 if (z) fclose(z);
             }
+            /* measure the LIBRARY source only -- the test harness (test.c)
+               and utest.h are not production code and must not dilute or
+               inflate the figure */
             snprintf(cmd, sizeof cmd,
-                     "'%s' export --summary-only -instr-profile='%s' '%s'",
+                     "'%s' export --summary-only "
+                     "-ignore-filename-regex='test\\.c$|utest\\.h$' "
+                     "-instr-profile='%s' '%s'",
                      llvmcov, pdata, exe);
             if (sh_run(cmd, cjson) != 0) {
                 fprintf(stderr, "FAIL %s (llvm-cov export)\n", target);
@@ -928,15 +951,26 @@ static int run_tests(const char *only_lib, b32 coverage) {
                 failures++;
                 continue;
             }
-            pct = parse_mcdc_percent(js, &hascond);
-            free(js);
-            if (hascond && pct + 1e-9 < (double)threshold) {
-                fprintf(stderr, "FAIL %s (MC/DC %.1f%% < %d%%)\n",
-                        target, pct, threshold);
-                failures++;
-            } else {
-                printf("PASS %s (MC/DC %.1f%%%s)\n", target, pct,
-                       hascond ? "" : ", no conditions");
+            {   /* gate on min(branch, MC/DC): branch is the base metric;
+                   MC/DC only binds where compound conditions exist. The
+                   per-lib `cov` overrides the global threshold (0 => global). */
+                double branch, mcdc, eff;
+                int mcdc_has, thr;
+                parse_coverage(js, &branch, &mcdc, &mcdc_has);
+                free(js);
+                eff = branch;
+                if (mcdc_has && mcdc < eff) eff = mcdc;
+                thr = m.lib_test[i].cov ? m.lib_test[i].cov : threshold;
+                if (eff + 1e-9 < (double)thr) {
+                    fprintf(stderr, "FAIL %s (cov %.1f%% < %d%%; branch %.1f%%, "
+                            "MC/DC %s)\n", target, eff, thr, branch,
+                            mcdc_has ? "see report" : "n/a");
+                    failures++;
+                } else {
+                    printf("PASS %s (cov %.1f%%; branch %.1f%%, MC/DC %s)\n",
+                           target, eff, branch,
+                           mcdc_has ? "tracked" : "n/a");
+                }
             }
         }
     }
@@ -948,6 +982,153 @@ static int run_tests(const char *only_lib, b32 coverage) {
     }
     fprintf(stderr, "--test: %d run, %d failed\n", ran, failures);
     return failures ? 1 : 0;
+}
+
+/* --mutate <lib>: mutation testing. Scans the lib's source for operator-swap
+   mutants; for each, patches the source, rebuilds + runs the lib test through
+   kaji, and counts it KILLED if the test fails (or it stops compiling), else
+   SURVIVED. The source is restored after every mutant. Reports the mutation
+   score and each survivor (a real gap the tests do not pin). Returns nonzero
+   if any mutant survived or setup failed. */
+static int run_mutate(const char *lib) {
+    michi_buf mb;
+    char up[1024], engine_root[1024], path[1280], cc[1024];
+    char srcpath[1280], target[128], exe[1280], libdir[1280], runcmd[2900];
+    static char storage[1u << 16], cfgbuf[1u << 15];
+    arena a;
+    char *txt, *orig, *buf;
+    size_t len = 0, orig_len = 0;
+    ito text, err, os;
+    BuildManifest m;
+    BuildPlatform bp;
+    ito_buf cfgb;
+    kaji *k;
+    char kerr[256];
+    mutant *muts;
+    int nmut, i, killed = 0, survived = 0;
+    const BmLibTest *row = NULL;
+
+    michi_buf_reset(&mb);
+    if (!dodai_exe_dir(&mb)) { fprintf(stderr, "--mutate: cannot locate exe\n"); return 1; }
+    snprintf(up, sizeof up, "%s..", michi_cstr(&mb));
+    michi_buf_reset(&mb);
+    if (dodai_absolute_path(michi_from_cstr(up), &mb) != 0) {
+        fprintf(stderr, "--mutate: cannot resolve engine root\n"); return 1;
+    }
+    snprintf(engine_root, sizeof engine_root, "%s", michi_cstr(&mb));
+
+    snprintf(path, sizeof path, "%s/build.manifest", engine_root);
+    txt = dodai_read_file(michi_from_cstr(path), &len);
+    if (!txt) { fprintf(stderr, "--mutate: cannot read manifest\n"); return 1; }
+    create_arena(&a, storage, sizeof storage);
+    text.ptr = arena_copy_string(&a, txt, len);
+    text.len = text.ptr ? len : 0;
+    free(txt);
+    err.ptr = 0; err.len = 0;
+    if (!build_manifest_parse(&a, text, &m, &err)) {
+        fprintf(stderr, "--mutate: manifest: %.*s\n", (int)err.len, err.ptr); return 1;
+    }
+    os = dodai_is_macos() ? ITO("mac")
+       : dodai_is_linux() ? ITO("linux") : ITO("windows");
+    if (!build_manifest_select(&m, os, &bp, &err)) {
+        fprintf(stderr, "--mutate: no platform row\n"); return 1;
+    }
+
+    for (i = 0; i < m.lib_test_count; i++) {
+        ito nm = m.lib_test[i].name;
+        if ((size_t)strlen(lib) == nm.len && strncmp(lib, nm.ptr, nm.len) == 0) {
+            row = &m.lib_test[i];
+            break;
+        }
+    }
+    if (!row) {
+        fprintf(stderr, "--mutate: no lib_test row named '%s'\n", lib); return 1;
+    }
+
+    /* the source to mutate: <lib>/<lib>.c, else <lib>/<lib>.h (header-only) */
+    snprintf(srcpath, sizeof srcpath, "%s/lib/%s/%s.c", engine_root, lib, lib);
+    orig = dodai_read_file(michi_from_cstr(srcpath), &orig_len);
+    if (!orig) {
+        snprintf(srcpath, sizeof srcpath, "%s/lib/%s/%s.h", engine_root, lib, lib);
+        orig = dodai_read_file(michi_from_cstr(srcpath), &orig_len);
+    }
+    if (!orig) { fprintf(stderr, "--mutate: cannot read %s source\n", lib); return 1; }
+
+    if (!build_manifest_resolve_cc(&m, tg_env, tg_exists, cc, sizeof cc)) {
+        snprintf(cc, sizeof cc, "gcc");
+    }
+    ito_buf_init(&cfgb, cfgbuf, sizeof cfgbuf);
+    tests_gen_emit(&cfgb, &m, &bp, engine_root, cc, 0);
+    if (cfgb.overflow) { free(orig); fprintf(stderr, "--mutate: cfg too large\n"); return 1; }
+    snprintf(path, sizeof path, "%s/%.*s/gen/tests.gen.cfg",
+             engine_root, (int)bp.builddir.len, bp.builddir.ptr);
+    dodai_make_dirs_for(michi_from_cstr(path));
+    if (!dodai_write_file(michi_from_cstr(path), cfgbuf, strlen(cfgbuf))) {
+        free(orig); fprintf(stderr, "--mutate: cannot write cfg\n"); return 1;
+    }
+    k = kaji_load(path, kerr, sizeof kerr);
+    if (!k) { free(orig); fprintf(stderr, "--mutate: kaji_load: %s\n", kerr); return 1; }
+    if (!dodai_chdir(michi_from_cstr(engine_root))) {
+        free(orig); kaji_free(k); fprintf(stderr, "--mutate: chdir failed\n"); return 1;
+    }
+
+    snprintf(target, sizeof target, "test_%s", lib);
+    snprintf(exe, sizeof exe, "%s/%.*s/gen/%s%.*s", engine_root,
+             (int)bp.builddir.len, bp.builddir.ptr, target,
+             (int)bp.exe_suffix.len, bp.exe_suffix.ptr);
+    snprintf(libdir, sizeof libdir, "%s/lib/%s", engine_root, lib);
+    snprintf(path, sizeof path, "%s/%.*s/gen/%s.mut.log",
+             engine_root, (int)bp.builddir.len, bp.builddir.ptr, target);
+    snprintf(runcmd, sizeof runcmd, "cd '%s' && '%s'", libdir, exe);
+
+    /* baseline: the unmutated suite must build + pass, else scores are noise */
+    if (kaji_build(k, target, 1) != 0 || sh_run(runcmd, path) != 0) {
+        free(orig); kaji_free(k);
+        fprintf(stderr, "--mutate: baseline %s does not pass; fix the suite first\n",
+                target);
+        return 1;
+    }
+
+    muts = (mutant *)malloc(sizeof(mutant) * MUTATE_MAX);
+    buf = (char *)malloc(orig_len + 4);
+    if (!muts || !buf) { free(muts); free(buf); free(orig); kaji_free(k); return 1; }
+    nmut = mutate_scan(orig, (int)orig_len, muts, MUTATE_MAX);
+    printf("--mutate %s: %d mutants\n", lib, nmut);
+
+    for (i = 0; i < nmut; i++) {
+        mutant *mu = &muts[i];
+        int rlen = (int)strlen(mu->repl);
+        size_t tail = orig_len - (size_t)mu->offset - (size_t)mu->len;
+        size_t newlen = (size_t)mu->offset + (size_t)rlen + tail;
+        int built, passed = 0;
+
+        memcpy(buf, orig, (size_t)mu->offset);
+        memcpy(buf + mu->offset, mu->repl, (size_t)rlen);
+        memcpy(buf + mu->offset + rlen, orig + mu->offset + mu->len, tail);
+        dodai_write_file(michi_from_cstr(srcpath), buf, newlen);
+
+        built = (kaji_build(k, target, 1) == 0);
+        if (built) {
+            passed = (sh_run(runcmd, path) == 0);
+        }
+        dodai_write_file(michi_from_cstr(srcpath), orig, orig_len); /* restore */
+
+        if (built && passed) {
+            survived++;
+            printf("  SURVIVED %s:%d  '%.*s' -> '%s'\n",
+                   srcpath + (int)strlen(engine_root) + 1, mu->line,
+                   mu->len, orig + mu->offset, mu->repl);
+        } else {
+            killed++;
+        }
+    }
+
+    kaji_build(k, target, 1); /* leave the tree rebuilt from the clean source */
+
+    free(buf); free(muts); free(orig); kaji_free(k);
+    printf("--mutate %s: %d killed, %d survived  (score %.1f%%)\n",
+           lib, killed, survived, nmut ? 100.0 * killed / nmut : 100.0);
+    return survived ? 1 : 0;
 }
 
 /* --install: build the ship bundle, then assemble a launchable macOS .app in
@@ -1033,6 +1214,13 @@ int main(int argc, char *argv[]) {
                 else if (argv[j][0] != '-') only = argv[j];
             }
             return run_tests(only, cov);
+        } else if (strcmp(argv[i], "--mutate") == 0) {
+            /* headless: mutation-test one lib. meikyu --mutate <lib> */
+            if (i + 1 >= argc || argv[i + 1][0] == '-') {
+                fprintf(stderr, "--mutate needs a lib name (e.g. --mutate horu)\n");
+                return 1;
+            }
+            return run_mutate(argv[i + 1]);
         } else if (strcmp(argv[i], "--path") == 0 && i + 1 < argc) {
             project_path = argv[++i];
         } else if (strcmp(argv[i], "--build") == 0) {

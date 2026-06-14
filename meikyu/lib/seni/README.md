@@ -37,10 +37,14 @@ memory, use indices/handles in hot-reloaded state instead.
 
 ## tests
 
-`test.bat` (windows) or `test.sh` (linux, e.g. `wsl sh test.sh`) runs unit
-tests (test.c) then end-to-end tests (test_e2e.c).
-The e2e tests read header pairs from `fixtures/`, generate migration code,
-compile it with gcc into a shared library in `build/` (dll on windows, so on
-linux), load it, run the migration on a real memory block and assert the
-resulting layout. OS specifics (mkdir, compile command, dynamic loading) go
-through `../dodai` (`dodai_posix.c` / `dodai_windows.c`).
+`meikyu --test seni` builds + runs the whole suite through kaji, configured by
+the `lib_test seni` row in `build.manifest`. All 100 tests live in one `test.c`
+(unit + e2e + fuzz + stress under one `UTEST_MAIN`): the unit tests cover the
+parser/diff/codegen; the e2e tests read header pairs from `fixtures/`, generate
+migration code, compile it via kaji into a shared library in `build/` (dll on
+windows, so on linux), load it, run the migration on a real memory block and
+assert the resulting layout; fuzz throws random/mutated headers at the parser;
+stress pushes max struct/name counts and arena exhaustion. The runner executes
+each lib test from its own dir, so `fixtures/` and the `build/` scratch dir
+resolve. OS specifics (mkdir, compile command, dynamic loading) go through
+`../dodai` (`dodai_posix.c` / `dodai_windows.c`).

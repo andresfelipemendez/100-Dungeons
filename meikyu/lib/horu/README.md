@@ -43,5 +43,6 @@ horu_free(&carved);
 ## test
 
 ```sh
-./test.sh        # gcc -std=c99, links horu.c + linalg, runs build/test.out
+meikyu --test horu              # build + run via kaji
+meikyu --test horu --coverage   # + MC/DC/branch gate (horu is pinned 100%)
 ```

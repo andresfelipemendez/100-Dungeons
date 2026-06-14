@@ -38,3 +38,82 @@ horu_plane horu_plane_from_points(float ax, float ay, float az,
     float d = nx * ax + ny * ay + nz * az;          /* plane through a */
     return horu_plane_make(nx, ny, nz, d);          /* normalizes n and d */
 }
+
+/* inside-or-on = strictly in front of no face (faces have outward normals) */
+int horu_contains(const horu_solid *s, float x, float y, float z) {
+    int i;
+    for (i = 0; i < s->count; i++) {
+        if (horu_side(s->planes[i], x, y, z) > 0) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+horu_solid horu_box(float cx, float cy, float cz,
+                    float sx, float sy, float sz) {
+    horu_solid s;
+    float hx = sx * 0.5f, hy = sy * 0.5f, hz = sz * 0.5f;
+    s.count = 0;
+    /* six faces, outward normals; the -axis faces' d is negated to match */
+    s.planes[s.count++] = horu_plane_make( 1.0f, 0.0f, 0.0f,  cx + hx);
+    s.planes[s.count++] = horu_plane_make(-1.0f, 0.0f, 0.0f, -(cx - hx));
+    s.planes[s.count++] = horu_plane_make( 0.0f, 1.0f, 0.0f,  cy + hy);
+    s.planes[s.count++] = horu_plane_make( 0.0f,-1.0f, 0.0f, -(cy - hy));
+    s.planes[s.count++] = horu_plane_make( 0.0f, 0.0f, 1.0f,  cz + hz);
+    s.planes[s.count++] = horu_plane_make( 0.0f, 0.0f,-1.0f, -(cz - hz));
+    return s;
+}
+
+/* ---- CSG tree ----------------------------------------------------------- */
+
+void horu_csg_init(horu_csg *t) {
+    t->solid_count = 0;
+    t->node_count = 0;
+    t->root = 0;
+}
+
+int horu_csg_leaf(horu_csg *t, const horu_solid *s) {
+    int si = t->solid_count++;
+    int ni = t->node_count++;
+    t->solids[si] = *s;
+    t->nodes[ni].op = HORU_LEAF;
+    t->nodes[ni].a = si;
+    t->nodes[ni].b = 0;
+    t->root = ni;
+    return ni;
+}
+
+int horu_csg_op(horu_csg *t, horu_op op, int a, int b) {
+    int ni = t->node_count++;
+    t->nodes[ni].op = op;
+    t->nodes[ni].a = a;
+    t->nodes[ni].b = b;
+    t->root = ni;
+    return ni;
+}
+
+/* recursive point membership: leaves test their convex solid, ops combine.
+   if-chain (not switch) so adding an op never trips -Wswitch, and the last
+   op needs no catch-all branch to leave uncovered. */
+static int csg_node_in(const horu_csg *t, int n, float x, float y, float z) {
+    const horu_csg_node *nd = &t->nodes[n];
+    if (nd->op == HORU_LEAF) {
+        return horu_contains(&t->solids[nd->a], x, y, z);
+    }
+    if (nd->op == HORU_UNION) {
+        return csg_node_in(t, nd->a, x, y, z) ||
+               csg_node_in(t, nd->b, x, y, z);
+    }
+    if (nd->op == HORU_DIFFERENCE) {
+        return csg_node_in(t, nd->a, x, y, z) &&
+               !csg_node_in(t, nd->b, x, y, z);
+    }
+    /* HORU_INTERSECTION */
+    return csg_node_in(t, nd->a, x, y, z) &&
+           csg_node_in(t, nd->b, x, y, z);
+}
+
+int horu_csg_contains(const horu_csg *t, float x, float y, float z) {
+    return csg_node_in(t, t->root, x, y, z);
+}

@@ -30,6 +30,16 @@ static void test_plane_make_normalizes(void) {
     CHECK(feq(p.d, 2.0f));
 }
 
+static void test_plane_degenerate(void) {
+    /* a zero-length normal has no direction: horu_plane_make returns the
+       degenerate zero plane (exercises the len <= 0 branch). */
+    horu_plane p = horu_plane_make(0.0f, 0.0f, 0.0f, 5.0f);
+    CHECK(feq(p.nx, 0.0f));
+    CHECK(feq(p.ny, 0.0f));
+    CHECK(feq(p.nz, 0.0f));
+    CHECK(feq(p.d, 0.0f));
+}
+
 static void test_side_classifies(void) {
     /* plane y = 2 with +normal pointing +y: the front (solid/inside) side is
        y > 2, behind is y < 2, and |dist| <= HORU_EPS counts as on. */
@@ -38,6 +48,16 @@ static void test_side_classifies(void) {
     CHECK(horu_side(p, 0.0f, 0.0f, 0.0f) == -1);  /* below -> behind */
     CHECK(horu_side(p, 3.0f, 2.0f, -7.0f) == 0);  /* exactly on */
     CHECK(horu_side(p, 0.0f, 2.0f + 1e-6f, 0.0f) == 0); /* within epsilon */
+}
+
+static void test_side_epsilon_boundary(void) {
+    /* a point at EXACTLY +/-HORU_EPS distance counts as ON the plane, not
+       front/behind. Pins the `> EPS` and `< -EPS` thresholds (a point clearly
+       inside/outside can't tell `>` from `>=`). Plane through the origin so
+       dist == y exactly, no float rounding. */
+    horu_plane p = horu_plane_make(0.0f, 1.0f, 0.0f, 0.0f); /* y = 0 */
+    CHECK(horu_side(p, 0.0f,  HORU_EPS, 0.0f) == 0);
+    CHECK(horu_side(p, 0.0f, -HORU_EPS, 0.0f) == 0);
 }
 
 static void test_plane_from_points(void) {
@@ -54,10 +74,91 @@ static void test_plane_from_points(void) {
     CHECK(horu_side(p, 0.0f, 0.0f, -1.0f) == -1); /* below -> behind */
 }
 
+static void test_solid_contains(void) {
+    /* a slab -1 <= x <= 1 from two faces with OUTWARD normals:
+       +x face at x=1, -x face at x=-1. inside = behind both. */
+    horu_solid s;
+    s.count = 0;
+    s.planes[s.count++] = horu_plane_make( 1.0f, 0.0f, 0.0f, 1.0f); /* x=1 */
+    s.planes[s.count++] = horu_plane_make(-1.0f, 0.0f, 0.0f, 1.0f); /* x=-1 */
+    CHECK(horu_contains(&s, 0.0f, 0.0f, 0.0f) == 1);  /* inside */
+    CHECK(horu_contains(&s, 0.5f, 9.0f, 9.0f) == 1);  /* inside (slab is in x) */
+    CHECK(horu_contains(&s, 2.0f, 0.0f, 0.0f) == 0);  /* past +x face */
+    CHECK(horu_contains(&s, -2.0f, 0.0f, 0.0f) == 0); /* past -x face */
+    CHECK(horu_contains(&s, 1.0f, 0.0f, 0.0f) == 1);  /* exactly on a face */
+}
+
+static void test_box(void) {
+    /* unit box [-1,1]^3 centred at origin */
+    horu_solid b = horu_box(0.0f, 0.0f, 0.0f, 2.0f, 2.0f, 2.0f);
+    CHECK(b.count == 6);
+    CHECK(horu_contains(&b, 0.0f, 0.0f, 0.0f) == 1);    /* centre */
+    CHECK(horu_contains(&b, 0.9f, -0.9f, 0.9f) == 1);   /* near a corner */
+    CHECK(horu_contains(&b, 1.0f, 1.0f, 1.0f) == 1);    /* on a corner */
+    CHECK(horu_contains(&b, 1.1f, 0.0f, 0.0f) == 0);    /* past +x */
+    CHECK(horu_contains(&b, 0.0f, 0.0f, -1.1f) == 0);   /* past -z */
+
+    /* off-centre box, asymmetric extents */
+    b = horu_box(5.0f, 0.0f, 0.0f, 2.0f, 4.0f, 6.0f);
+    CHECK(horu_contains(&b, 5.0f, 1.9f, 2.9f) == 1);
+    CHECK(horu_contains(&b, 3.9f, 0.0f, 0.0f) == 0);    /* past -x (x<4) */
+}
+
+static void test_csg_booleans(void) {
+    /* two slabs overlapping in x: A spans x in [-1,1], B spans x in [0,2]
+       (both huge in y,z). Four regions along x exercise every op and every
+       &&/|| condition pair: A-only, both, B-only, neither. */
+    horu_solid A = horu_box(0.0f, 0.0f, 0.0f, 2.0f, 100.0f, 100.0f);
+    horu_solid B = horu_box(1.0f, 0.0f, 0.0f, 2.0f, 100.0f, 100.0f);
+    horu_csg t;
+    int la, lb;
+
+    /* union: inside if in A OR B */
+    horu_csg_init(&t);
+    la = horu_csg_leaf(&t, &A);
+    lb = horu_csg_leaf(&t, &B);
+    horu_csg_op(&t, HORU_UNION, la, lb);
+    CHECK(horu_csg_contains(&t, -0.5f, 0.0f, 0.0f) == 1); /* A only  (a=T)     */
+    CHECK(horu_csg_contains(&t,  1.5f, 0.0f, 0.0f) == 1); /* B only  (a=F,b=T) */
+    CHECK(horu_csg_contains(&t,  0.5f, 0.0f, 0.0f) == 1); /* both             */
+    CHECK(horu_csg_contains(&t,  3.0f, 0.0f, 0.0f) == 0); /* neither (a=F,b=F) */
+
+    /* difference A - B: in A AND NOT in B */
+    horu_csg_init(&t);
+    la = horu_csg_leaf(&t, &A);
+    lb = horu_csg_leaf(&t, &B);
+    horu_csg_op(&t, HORU_DIFFERENCE, la, lb);
+    CHECK(horu_csg_contains(&t, -0.5f, 0.0f, 0.0f) == 1); /* A not B (a=T,b=F) */
+    CHECK(horu_csg_contains(&t,  0.5f, 0.0f, 0.0f) == 0); /* A and B (a=T,b=T) */
+    CHECK(horu_csg_contains(&t,  1.5f, 0.0f, 0.0f) == 0); /* B only  (a=F)     */
+    CHECK(horu_csg_contains(&t,  3.0f, 0.0f, 0.0f) == 0); /* neither           */
+
+    /* intersection A & B: in A AND in B */
+    horu_csg_init(&t);
+    la = horu_csg_leaf(&t, &A);
+    lb = horu_csg_leaf(&t, &B);
+    horu_csg_op(&t, HORU_INTERSECTION, la, lb);
+    CHECK(horu_csg_contains(&t,  0.5f, 0.0f, 0.0f) == 1); /* both    (a=T,b=T) */
+    CHECK(horu_csg_contains(&t, -0.5f, 0.0f, 0.0f) == 0); /* A not B (a=T,b=F) */
+    CHECK(horu_csg_contains(&t,  1.5f, 0.0f, 0.0f) == 0); /* B not A (a=F)     */
+    CHECK(horu_csg_contains(&t,  3.0f, 0.0f, 0.0f) == 0); /* neither           */
+
+    /* a lone leaf is a valid root: membership == its solid */
+    horu_csg_init(&t);
+    horu_csg_leaf(&t, &A);
+    CHECK(horu_csg_contains(&t, 0.0f, 0.0f, 0.0f) == 1);
+    CHECK(horu_csg_contains(&t, 5.0f, 0.0f, 0.0f) == 0);
+}
+
 int main(void) {
     test_plane_make_normalizes();
+    test_plane_degenerate();
     test_side_classifies();
+    test_side_epsilon_boundary();
     test_plane_from_points();
+    test_solid_contains();
+    test_box();
+    test_csg_booleans();
     if (g_fail) {
         printf("%d check(s) failed\n", g_fail);
         return 1;

@@ -1,6 +1,7 @@
 #include "build_manifest.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 /* split "key=value" into key (before '=') and value (after). Missing '=' ->
    empty value pointing just past the field. */
@@ -144,6 +145,10 @@ b32 build_manifest_parse(arena *a, ito text, BuildManifest *out, ito *err) {
                     lt->std = fv;
                 } else if (ito_eq_c(fk, "pedantic")) {
                     lt->pedantic = !ito_eq_c(fv, "0");
+                } else if (ito_eq_c(fk, "cov")) {
+                    char nb[16];
+                    snprintf(nb, sizeof(nb), "%.*s", (int)fv.len, fv.ptr);
+                    lt->cov = atoi(nb);
                 } else if (ito_eq_c(fk, "src")) {
                     if (!split_commas(a, err, fv, lt->src, &lt->src_count,
                                       BM_MAX_LT_LIST)) return 0;

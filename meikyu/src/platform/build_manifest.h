@@ -32,6 +32,7 @@ typedef struct {
     ito name;                          /* the lib dir basename, e.g. "horu" */
     ito std;                           /* "c89"/"c99"/"c11"; empty => c99 */
     b32 pedantic;                      /* default 1; pedantic=0 turns it off */
+    int cov;                           /* per-lib coverage % gate; 0 => global */
     ito src[BM_MAX_LT_LIST];     int src_count;     /* extra TUs, rel to lib */
     ito include[BM_MAX_LT_LIST]; int include_count; /* extra include roots */
     ito link[BM_MAX_LT_LIST];    int link_count;    /* link libs: m, pthread */
