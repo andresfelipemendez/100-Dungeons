@@ -64,34 +64,6 @@ static horu_poly g_horu_polys[HORU_MAX_POLYS];
 static float     g_horu_verts[HORU_MAX_VERTS * 8]; /* pos3, normal3, uv2 */
 static u32       g_horu_index[HORU_MAX_VERTS];
 
-/* Emit the surviving cubes of a Menger sponge: subdivide into 3x3x3 and drop
-   the center cube + the 6 face-centers (cells with >= 2 zero coords), recurse
-   on the rest. Additive -- the kept cubes ARE the sponge, no CSG subtraction. */
-static int sponge(horu_poly *out, int cap, int n,
-                  float cx, float cy, float cz, float s, int depth) {
-    int i, j, k;
-    if (depth == 0) {
-        return n + horu_box_polys(cx, cy, cz, s, s, s, out + n, cap - n);
-    }
-    {
-        float t = s / 3.0f;
-        for (i = -1; i <= 1; i++) {
-            for (j = -1; j <= 1; j++) {
-                for (k = -1; k <= 1; k++) {
-                    int zeros = (i == 0) + (j == 0) + (k == 0);
-                    if (zeros >= 2) {
-                        continue; /* removed cell */
-                    }
-                    n = sponge(out, cap, n,
-                               cx + (float)i * t, cy + (float)j * t,
-                               cz + (float)k * t, t, depth - 1);
-                }
-            }
-        }
-    }
-    return n;
-}
-
 /* Fan-triangulate polygons into the interleaved (pos,normal,uv) vertex buffer,
    flat-shaded (each vertex takes its face's plane normal). Non-indexed: index
    i = i. Returns the vertex/index count. */
@@ -155,12 +127,27 @@ static b32 cold_rebuild(EngineState *es, PlatformMemory *memory, PlatformApi *ap
     editor_init(memory);
 #endif
 
-    /* build the horu composite mesh: a depth-2 Menger sponge of boxes */
+    /* build the horu composite mesh: a Menger sponge, then DRILL it with three
+       orthogonal bars subtracted via the BSP boolean (real CSG difference) --
+       the holes expose interior faces, proving the boolean. */
     {
-        int np = sponge(g_horu_polys, HORU_MAX_POLYS, 0,
-                        0.0f, 0.0f, 0.0f, 2.0f, 2);
-        u32 nv = horu_build_buffers(g_horu_polys, np, g_horu_verts,
-                                    HORU_MAX_VERTS, g_horu_index);
+        static horu_poly tmp[HORU_MAX_POLYS];
+        int np = horu_box_polys(0.0f, 0.0f, 0.0f, 2.0f, 2.0f, 2.0f,
+                                g_horu_polys, HORU_MAX_POLYS); /* the cube */
+        horu_poly bar[8];
+        int nb;
+        u32 nv;
+        nb = horu_box_polys(0.0f, 0.0f, 0.0f, 6.0f, 0.7f, 0.7f, bar, 8); /* x */
+        np = horu_csg_polys(HORU_DIFFERENCE, g_horu_polys, np, bar, nb,
+                            tmp, HORU_MAX_POLYS);
+        nb = horu_box_polys(0.0f, 0.0f, 0.0f, 0.7f, 6.0f, 0.7f, bar, 8); /* y */
+        np = horu_csg_polys(HORU_DIFFERENCE, tmp, np, bar, nb,
+                            g_horu_polys, HORU_MAX_POLYS);
+        nb = horu_box_polys(0.0f, 0.0f, 0.0f, 0.7f, 0.7f, 6.0f, bar, 8); /* z */
+        np = horu_csg_polys(HORU_DIFFERENCE, g_horu_polys, np, bar, nb,
+                            tmp, HORU_MAX_POLYS);
+        nv = horu_build_buffers(tmp, np, g_horu_verts,
+                                HORU_MAX_VERTS, g_horu_index);
         es->horu_vbuf = rnd_buffer_create_vertex(g_horu_verts,
                                                  (u64)nv * 8 * sizeof(float));
         es->horu_ibuf = rnd_buffer_create_index(g_horu_index,

@@ -151,4 +151,13 @@ int horu_mesh_from_polys(const horu_poly *polys, int npoly,
                          float *vx, float *vy, float *vz, int vcap,
                          int *idx, int icap, int *out_nverts);
 
+/* Exact CSG boolean of two polygon solids (each a closed set of CCW,
+   outward-normal polygons -- e.g. from horu_box_polys). op is HORU_UNION,
+   HORU_DIFFERENCE (a - b), or HORU_INTERSECTION. Writes the result polygons
+   to out[] (capacity cap) and returns the count. The polygons are clipped
+   exactly (sharp edges); feed the result to horu_mesh_from_polys to render.
+   Bounded to inputs of a few hundred polygons. */
+int horu_csg_polys(horu_op op, const horu_poly *a, int na,
+                   const horu_poly *b, int nb, horu_poly *out, int cap);
+
 #endif /* HORU_H */
