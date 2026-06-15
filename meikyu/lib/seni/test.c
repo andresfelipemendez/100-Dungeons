@@ -385,16 +385,134 @@ UTEST(diff, nested_struct_type_change_rejected) {
     ASSERT_STREQ("field 'ed' in struct 'game' changed struct type from editor to weapon, cannot migrate", r.err);
 }
 
-UTEST(diff, array_of_structs_rejected) {
+UTEST(diff, nested_member_type_change_rejected) {
+    /* an error inside a nested struct's member propagates out of the recursive
+       diff -- a member changing type cannot migrate. */
+    char buf[8192];
+    arena a;
+    create_arena(&a, buf, sizeof(buf));
+    char* old_header =
+        "typedef struct { int hp; } ed;"
+        "typedef struct { ed e; } game;";
+    char* new_header =
+        "typedef struct { float hp; } ed;"  /* member hp int -> float */
+        "typedef struct { ed e; } game;";
+    diff_result r = diff_structs(&a, old_header, new_header);
+    ASSERT_TRUE(r.err);
+    ASSERT_STREQ("field 'hp' in struct 'ed' changed type from int to float, cannot migrate", r.err);
+}
+
+UTEST(diff, new_struct_field_with_pending_was_rejected) {
+    /* a NEW struct field diffs its element against no old layout, so a member
+       carrying a SENI_WAS (a rename not yet migrated) cannot resolve -- the
+       error propagates out of the nested diff. (the element struct itself
+       migrates fine at top level, where its old layout exists.) */
+    char buf[8192];
+    arena a;
+    create_arena(&a, buf, sizeof(buf));
+    char* old_header =
+        "typedef struct { int hp; } ent;"
+        "typedef struct { int n; } world;";
+    char* new_header =
+        "typedef struct { int health SENI_WAS(hp); } ent;"
+        "typedef struct { int n; ent ents[1]; } world;"; /* ents is new */
+    diff_result r = diff_structs(&a, old_header, new_header);
+    ASSERT_TRUE(r.err);
+    ASSERT_STREQ("field 'health' in struct 'ent': SENI_WAS(hp) but old layout has no field 'hp'", r.err);
+}
+
+UTEST(diff, array_of_structs_inner_array_rejected) {
+    /* an array-of-structs migrates element-by-element in a single `j` loop, so
+       an element member that is itself an array would need a second index --
+       rejected for now with a clear message. */
     char buf[8192];
     arena a;
     create_arena(&a, buf, sizeof(buf));
     char* header =
-        "typedef struct { int hp; } editor;"
-        "typedef struct { editor ed[4]; } game;";
+        "typedef struct { int slots[4]; } ent;"
+        "typedef struct { ent ents[2]; } world;";
     diff_result r = diff_structs(&a, header, header);
     ASSERT_TRUE(r.err);
-    ASSERT_STREQ("field 'ed' in struct 'game': arrays of structs are not supported", r.err);
+    ASSERT_STREQ("field 'ents' in struct 'world': an array-of-structs element may not contain arrays ('slots')", r.err);
+}
+
+UTEST(generate, array_of_structs) {
+    char buf[16384];
+    arena a;
+    create_arena(&a, buf, sizeof(buf));
+    char* old_header =
+        "typedef struct { int hp; } ent;"
+        "typedef struct { int n; ent ents[2]; } world;";
+    char* new_header =
+        "typedef struct { int hp; int xp SENI_DEFAULT(5); } ent;"  /* ent grew xp */
+        "typedef struct { int n; ent ents[3]; } world;";           /* array 2 -> 3 */
+    diff_result d = diff_structs(&a, old_header, new_header);
+    ASSERT_FALSE(d.err);
+    generate_result g = generate_migration(&a, d.value);
+    ASSERT_FALSE(g.err);
+    /* the array of structs is inlined in both world typedefs */
+    ASSERT_TRUE(strstr(g.code, "typedef struct { int n; struct { int hp; } ents[2]; } seni__world_old;") != NULL);
+    ASSERT_TRUE(strstr(g.code, "typedef struct { int n; struct { int hp; int xp; } ents[3]; } seni__world_new;") != NULL);
+    /* overlap elements [0,2) migrate member-wise; the grown member defaults */
+    ASSERT_TRUE(strstr(g.code, "for (j = 0; j < 2; j++) {") != NULL);
+    ASSERT_TRUE(strstr(g.code, "n[i].ents[j].hp = o[i].ents[j].hp;") != NULL);
+    ASSERT_TRUE(strstr(g.code, "n[i].ents[j].xp = 5;") != NULL);
+    /* the grown tail [2,3) default-inits every member of the new element */
+    ASSERT_TRUE(strstr(g.code, "for (j = 2; j < 3; j++) {") != NULL);
+    ASSERT_TRUE(strstr(g.code, "n[i].ents[j].hp = 0;") != NULL);
+}
+
+UTEST(generate, array_of_structs_new_field) {
+    /* a brand-new array-of-structs field: no overlap (m = 0), so only the
+       default tail runs over the whole array. */
+    char buf[16384];
+    arena a;
+    create_arena(&a, buf, sizeof(buf));
+    diff_result d = diff_structs(&a,
+        "typedef struct { int hp; } ent; typedef struct { int n; } world;",
+        "typedef struct { int hp; } ent; typedef struct { int n; ent ents[2]; } world;");
+    ASSERT_FALSE(d.err);
+    generate_result g = generate_migration(&a, d.value);
+    ASSERT_FALSE(g.err);
+    ASSERT_TRUE(strstr(g.code, "n[i].n = o[i].n;") != NULL);
+    ASSERT_TRUE(strstr(g.code, "for (j = 0; j < 2; j++) {") != NULL);  /* tail from 0 */
+    ASSERT_TRUE(strstr(g.code, "n[i].ents[j].hp = 0;") != NULL);
+}
+
+UTEST(generate, array_of_structs_shrink) {
+    /* a shrinking array: overlap [0,2) copies, no tail (new <= old). */
+    char buf[16384];
+    arena a;
+    create_arena(&a, buf, sizeof(buf));
+    diff_result d = diff_structs(&a,
+        "typedef struct { int hp; } ent; typedef struct { ent ents[3]; } world;",
+        "typedef struct { int hp; } ent; typedef struct { ent ents[2]; } world;");
+    ASSERT_FALSE(d.err);
+    generate_result g = generate_migration(&a, d.value);
+    ASSERT_FALSE(g.err);
+    ASSERT_TRUE(strstr(g.code, "for (j = 0; j < 2; j++) {") != NULL);
+    ASSERT_TRUE(strstr(g.code, "n[i].ents[j].hp = o[i].ents[j].hp;") != NULL);
+    /* no tail loop: a "for (j = 2;" would be the grown-tail header */
+    ASSERT_TRUE(strstr(g.code, "for (j = 2;") == NULL);
+}
+
+UTEST(generate, array_of_structs_nested_member) {
+    /* an element whose member is a nested scalar struct: the grown tail must
+       default that nested member too (force_default through a scalar struct). */
+    char buf[16384];
+    arena a;
+    create_arena(&a, buf, sizeof(buf));
+    diff_result d = diff_structs(&a,
+        "typedef struct { float x; } tf; typedef struct { tf t; } ent;"
+        "typedef struct { ent ents[1]; } world;",
+        "typedef struct { float x; } tf; typedef struct { tf t; } ent;"
+        "typedef struct { ent ents[2]; } world;");
+    ASSERT_FALSE(d.err);
+    generate_result g = generate_migration(&a, d.value);
+    ASSERT_FALSE(g.err);
+    /* overlap copies the nested member; the grown tail defaults it */
+    ASSERT_TRUE(strstr(g.code, "n[i].ents[j].t.x = o[i].ents[j].t.x;") != NULL);
+    ASSERT_TRUE(strstr(g.code, "n[i].ents[j].t.x = 0;") != NULL);
 }
 
 /* nit: field-name token scan didn't count newlines -> later error lines drifted */
@@ -1604,6 +1722,38 @@ UTEST(e2e, nested_struct_new) {
         ASSERT_EQ(old_block[i].n, new_block[i].n);   // surviving field copied
         ASSERT_EQ(7, new_block[i].ed.hp);            // whole new nested struct defaults
         ASSERT_EQ(1.5f, new_block[i].ed.mp);
+    }
+    dodai_lib_close(mod);
+}
+
+UTEST(e2e, array_of_structs_grow) {
+    char buf[16384];
+    arena a;
+    create_arena(&a, buf, sizeof(buf));
+    void *mod = NULL;
+    migrate_fn migrate = build_migration(&a, "fixtures/aos_v1.h", "fixtures/aos_v2.h",
+                                         "aos_grow", "world", &mod);
+    ASSERT_TRUE(migrate != NULL);
+
+    typedef struct { int hp; } ent_v1;
+    typedef struct { int n; ent_v1 ents[2]; } world_v1;
+    typedef struct { int hp; int xp; } ent_v2;
+    typedef struct { int n; ent_v2 ents[3]; } world_v2;
+
+    world_v1 old_block[2] = { {7, {{11}, {22}}}, {8, {{33}, {44}}} };
+    world_v2 new_block[2];
+    memset(new_block, 0xCD, sizeof(new_block));  // poison: catches missed init
+
+    migrate(old_block, new_block, 2);
+
+    for (int i = 0; i < 2; i++) {
+        ASSERT_EQ(old_block[i].n, new_block[i].n);              // top scalar copy
+        ASSERT_EQ(old_block[i].ents[0].hp, new_block[i].ents[0].hp); // element copy
+        ASSERT_EQ(old_block[i].ents[1].hp, new_block[i].ents[1].hp);
+        ASSERT_EQ(5, new_block[i].ents[0].xp);                  // grown member default
+        ASSERT_EQ(5, new_block[i].ents[1].xp);
+        ASSERT_EQ(0, new_block[i].ents[2].hp);                  // grown tail element
+        ASSERT_EQ(5, new_block[i].ents[2].xp);                  // ...defaults its members
     }
     dodai_lib_close(mod);
 }

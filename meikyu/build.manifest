@@ -103,6 +103,11 @@ lib_test tsumami std=c89 src=tsumami.c link=m cov=100
 # render/UI glue (henshu_ui.c) is NOT tested here, it compiles into the game dll.
 # seni_annotations.h (for EditorState's SENI_DEFAULTs) comes from lib/seni.
 lib_test henshu std=c89 src=henshu.c,../horu/horu.c,../tsumami/tsumami.c include=lib/horu,lib/tsumami,lib/seni link=m cov=90
+# mono: the entity model -- a sparse fixed table of fat Entity structs addressed
+# by generational handles. Pure + headless; seni_annotations.h (EditorState-style
+# SENI_DEFAULTs on the transform) comes from lib/seni. The game nests mono_world
+# in hot state; seni's array-of-structs migration carries it across reloads.
+lib_test mono std=c89 src=mono.c include=lib/seni cov=100
 
 # ---- coverage (MC/DC) ----------------------------------------------------
 # Gate `meikyu --test --coverage` below this MC/DC %. clang instruments;

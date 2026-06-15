@@ -106,6 +106,7 @@ lib/           first-party libraries (own test.sh suites, usable standalone):
   horu (彫)    constructive solid geometry: carve solids from primitives
   tsumami (摘) 3D ray-pick + drag gizmo for viewport manipulation
   henshu (編集) reusable CSG scene editor; games nest its state + define in-game UI
+  mono (物)    entity model: sparse fat-struct table with generational handles
 ```
 
 `vendor/` (repo root) is **third-party only**: SDL3, cgltf, stb, clay.

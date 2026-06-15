@@ -273,9 +273,11 @@ void henshu_register_panels(EditorState *e) {
 /* ---- per-frame interaction --------------------------------------------- */
 
 void henshu_update(EditorState *e, EditorCold *cold, const henshu_view *v) {
-    /* resizable panels: grab a panel's inner edge on press, drag to set width. */
+    /* resizable panels: grab a panel's inner edge on press, drag to set width.
+       the scene edge sits at scene_w + left_pad so a host panel stacked after the
+       scene panel does not bury the grip. */
     f32 mx = v->mouse_x;
-    f32 scene_edge = e->scene_w;
+    f32 scene_edge = e->scene_w + v->left_pad;
     f32 insp_edge = v->screen_w - e->inspector_w;
     int press = v->mouse_left && !e->prev_mouse_left;
     if (!v->mouse_left) {
@@ -285,15 +287,16 @@ void henshu_update(EditorState *e, EditorCold *cold, const henshu_view *v) {
         else if (fabsf(mx - insp_edge) <= SPLITTER_GRAB)  e->ui_drag = 2;
     }
     if (e->ui_drag == 1) {
-        e->scene_w = clampf(mx, PANEL_W_MIN, PANEL_W_MAX);
+        e->scene_w = clampf(mx - v->left_pad, PANEL_W_MIN, PANEL_W_MAX);
     } else if (e->ui_drag == 2) {
         e->inspector_w = clampf(v->screen_w - mx, PANEL_W_MIN, PANEL_W_MAX);
     }
     e->prev_mouse_left = v->mouse_left;
 
     /* viewport pick + drag via tsumami. Gated to the right of the editor panels
-       so button clicks do not pick. */
-    {
+       so button clicks do not pick. Skipped entirely when the host disables the
+       viewport gizmo (it owns a single gizmo elsewhere). */
+    if (v->viewport_gizmo) {
         tsu_ray ray;
         tsu_target targets[HENSHU_MAX_SHAPES * 4];
         int nt, mouse, out_id = -1;
@@ -302,14 +305,23 @@ void henshu_update(EditorState *e, EditorCold *cold, const henshu_view *v) {
                                   v->tan_half_fov, v->aspect,
                                   v->mouse_x, v->mouse_y, v->screen_w, v->screen_h);
         nt = henshu_targets(e, targets, HENSHU_MAX_SHAPES * 4);
+        /* the targets come back in the solid's LOCAL space; shift them to world
+           by the solid's origin so the ray (world) picks correctly. */
+        {
+            int q;
+            for (q = 0; q < nt; q++) {
+                targets[q].center.x += v->origin.x; targets[q].center.y += v->origin.y; targets[q].center.z += v->origin.z;
+                targets[q].origin.x += v->origin.x; targets[q].origin.y += v->origin.y; targets[q].origin.z += v->origin.z;
+            }
+        }
         mouse = (v->mouse_left && e->ui_drag == 0 &&
-                 v->mouse_x > e->scene_w &&
+                 v->mouse_x > e->scene_w + v->left_pad &&
                  v->mouse_x < v->screen_w - e->inspector_w) ? 1 : 0;
         if (tsu_gizmo_update(&cold->gizmo, ray, mouse, v->fwd, targets, nt, &out_id, &mv)) {
             int node = out_id / 4; /* id = node*4 + slot */
-            e->csg_x[node] = mv.x;
-            e->csg_y[node] = mv.y;
-            e->csg_z[node] = mv.z;
+            e->csg_x[node] = mv.x - v->origin.x; /* world -> local */
+            e->csg_y[node] = mv.y - v->origin.y;
+            e->csg_z[node] = mv.z - v->origin.z;
             e->csg_dirty = 1;
         }
         /* only let a viewport pick change the selection while the mouse is
@@ -321,15 +333,16 @@ void henshu_update(EditorState *e, EditorCold *cold, const henshu_view *v) {
     }
 }
 
-void henshu_draw_scene(const EditorState *e, const EditorCold *cold, mat4 mvp) {
+void henshu_draw_scene(const EditorState *e, const EditorCold *cold, mat4 mvp, int draw_gizmo) {
     /* the CSG result mesh, shaded with the triplanar grid (no UVs needed) */
     if (cold->mesh_index_count > 0 && cold->mesh_vbuf.id && cold->mesh_ibuf.id) {
         rnd_draw_model(cold->csg_pipeline, cold->mesh_vbuf, cold->mesh_ibuf,
                        cold->grid_tex, cold->mesh_index_count, mvp, mat4_identity());
     }
     /* the translate gizmo at the selected shape: one solid-coloured arrow per
-       axis, on the plain pipeline (no triplanar grid). */
-    if (e->csg_selected >= 0 && e->csg_selected < e->csg_count) {
+       axis, on the plain pipeline (no triplanar grid). off when the host owns
+       the only gizmo. */
+    if (draw_gizmo && e->csg_selected >= 0 && e->csg_selected < e->csg_count) {
         int s = e->csg_selected, a;
         mat4 t = giz_translate_m(e->csg_x[s], e->csg_y[s], e->csg_z[s]);
         mat4 gmvp = mat4_mul(mvp, t);
@@ -357,9 +370,10 @@ static void draw_grip(f32 x, f32 h, int hot) {
 
 void henshu_draw_overlay(const EditorState *e, const henshu_view *v) {
     f32 mx = v->mouse_x, sh = v->screen_h;
+    f32 scene_edge = e->scene_w + v->left_pad;
     f32 insp_edge = v->screen_w - e->inspector_w;
-    int scene_hot = e->ui_drag == 1 || fabsf(mx - e->scene_w) <= SPLITTER_GRAB;
+    int scene_hot = e->ui_drag == 1 || fabsf(mx - scene_edge) <= SPLITTER_GRAB;
     int insp_hot  = e->ui_drag == 2 || fabsf(mx - insp_edge) <= SPLITTER_GRAB;
-    draw_grip(e->scene_w, sh, scene_hot);
+    draw_grip(scene_edge, sh, scene_hot);
     draw_grip(insp_edge, sh, insp_hot);
 }

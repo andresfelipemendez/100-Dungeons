@@ -10,6 +10,7 @@
 
 #include "seni_annotations.h"
 #include "henshu_state.h"   /* EditorState -- the reusable CSG editor's hot state */
+#include "mono_state.h"     /* mono_world -- the entity table */
 
 typedef struct {
     int initialized;
@@ -29,4 +30,12 @@ typedef struct {
     /* the CSG scene editor's hot state, owned by the henshu lib and migrated as a
        nested struct. Everything editor-related lives here now. */
     EditorState editor;
+
+    /* the entity table, owned by the mono lib -- migrated as a nested struct
+       (its Entity ents[] is an array-of-structs). */
+    mono_world world;
+
+    /* the entity outliner's current pick: a mono_id (0 = none) stored as int,
+       since seni parses int but not the unsigned mono_id typedef. */
+    int entity_sel;
 } game_state;

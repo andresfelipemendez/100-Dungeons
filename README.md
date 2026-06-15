@@ -69,6 +69,7 @@ Each is standalone with its own `test.sh` suite, named for its function:
 | [horu](meikyu/lib/horu) | 彫 | constructive solid geometry — carve solids from primitives |
 | [tsumami](meikyu/lib/tsumami) | 摘 | 3D ray-pick + drag gizmo for viewport manipulation |
 | [henshu](meikyu/lib/henshu) | 編集 | reusable CSG scene editor — games nest its state, define only in-game UI |
+| [mono](meikyu/lib/mono) | 物 | entity model — sparse fat-struct table with generational handles |
 
 ### Platform support
 
@@ -87,3 +88,6 @@ docs/        design specs + plans (docs/superpowers/)
 dev/         scratch / local dev artifacts
 postponed/   earlier engine/forge experiments, parked
 ```
+
+Where it's headed and what's missing: **[ROADMAP.md](ROADMAP.md)** (engine +
+editor gap analysis, leverage-ordered).

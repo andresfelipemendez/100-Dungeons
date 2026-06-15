@@ -47,11 +47,25 @@ the diff recurses into the referenced struct, so each member migrates by name
 (`n[i].ed.hp = o[i].ed.hp`); a brand-new struct field defaults every member
 (from its own `SENI_DEFAULT`s), never reading the absent old field; the old/new
 typedefs are emitted with the struct inlined (anonymous), so the migration dll
-needs no separate typedef. arrays of structs are rejected; a struct field that
-swaps to a different struct type is rejected. because seni reads the layout as
-raw text, a nested struct's array sizes must be **literal** (`[32]`), not a
-macro it cannot expand. for a lib-owned nested struct, the host concatenates the
-lib's state header ahead of `game_state.h` in the snapshot it diffs.
+needs no separate typedef. a struct field that swaps to a different struct type
+is rejected. because seni reads the layout as raw text, a nested struct's array
+sizes must be **literal** (`[32]`), not a macro it cannot expand. for a lib-owned
+nested struct, the host concatenates the lib's state header ahead of
+`game_state.h` in the snapshot it diffs.
+
+**arrays of structs** migrate element-by-element (`Entity ents[N]`):
+
+```c
+typedef struct { int hp; } ent;
+typedef struct { ent ents[2]; } world;   /* ents[3] in the new layout */
+```
+
+the overlap `[0, min(old,new))` migrates each element member-wise; the grown
+tail `[min, new)` default-inits every member of each new element. v1 keeps it a
+single `j` loop, so an element's own members must be scalars or nested *scalar*
+structs -- an element that itself contains an array (or array of structs) is
+rejected, since it would need a second loop index. this is the data model for a
+fat-struct entity array in hot state.
 
 ## tests
 

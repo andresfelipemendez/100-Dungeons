@@ -2,6 +2,7 @@
 # this folder's src/ tree. See meikyu/src/platform/project_gen.h.
 name dungeon1
 
-# the henshu editor nests EditorState in game_state; prepend its state header to
-# the seni layout snapshot so the reload diff can resolve the `editor` field.
+# nested hot-state structs whose definitions seni must see: prepend each lib's
+# state header to the game_state.h snapshot so the reload diff resolves the field.
 layout_include lib/henshu/henshu_state.h
+layout_include lib/mono/mono_state.h

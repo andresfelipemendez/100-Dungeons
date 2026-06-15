@@ -45,6 +45,19 @@ typedef struct {
     float  tan_half_fov, aspect;
     float  mouse_x, mouse_y, screen_w, screen_h;
     int    mouse_left;
+    /* world position of the edited solid -- the CSG model is built in local
+       space; the host sets this so viewport pick/drag lands on the solid wherever
+       its owning entity sits. zero = solid at the origin. */
+    tsu_v3 origin;
+    /* 1 = run the viewport shape gizmo (pick/drag primitives); 0 = panels only
+       (the host owns a single gizmo elsewhere, e.g. an entity gizmo, and edits
+       primitives through the inspector). */
+    int viewport_gizmo;
+    /* extra host UI width to the LEFT of the viewport, beyond the scene panel
+       (e.g. an entity outliner the host stacks after it). the scene resize grip
+       sits at scene_w + left_pad so it lands on the real viewport edge, not
+       buried under the host's panel. 0 = scene panel is flush with the viewport. */
+    float left_pad;
 } henshu_view;
 
 /* build the editor's cold GPU objects (grid texture, gizmo arrow meshes +
@@ -66,8 +79,9 @@ void henshu_rebuild(EditorState *e, EditorCold *cold);
    Mutates `e` (panel widths, selection, shape transforms, dirty). */
 void henshu_update(EditorState *e, EditorCold *cold, const henshu_view *v);
 
-/* draw the CSG mesh + the selected shape's move gizmo (3D, needs the MVP). */
-void henshu_draw_scene(const EditorState *e, const EditorCold *cold, mat4 mvp);
+/* draw the CSG mesh (3D, needs the MVP). draw_gizmo != 0 also draws the selected
+   shape's move-gizmo arrows; pass 0 when the host owns the only gizmo. */
+void henshu_draw_scene(const EditorState *e, const EditorCold *cold, mat4 mvp, int draw_gizmo);
 
 /* draw the resizable panel grips (2D overlay -- call after the UI panels so the
    grips sit on the panel boundary). */

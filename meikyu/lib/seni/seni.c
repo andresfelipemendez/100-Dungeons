@@ -570,14 +570,16 @@ static void emit_field(strbuf* b, ast_field* f) {
     if (f->type == ast_struct_t) {
         /* a nested struct field is emitted inline (anonymous struct) so the
            migration dll needs no separate typedef for the referenced struct,
-           and the old/new typedefs each carry their own snapshot of it. the
-           parser always resolves nested for ast_struct_t, and the diff rejects
-           arrays of structs, so this is a scalar struct member. */
+           and the old/new typedefs each carry their own snapshot of it. an
+           array-of-structs is the same struct with an array declarator. */
         size_t k;
         sb_appendf(b, "struct { ");
         for (k = 0; k < f->nested->fields_count; k++)
             emit_field(b, &f->nested->fields[k]);
-        sb_appendf(b, "} %s; ", f->name);
+        if (f->array_size > 0)
+            sb_appendf(b, "} %s[%lu]; ", f->name, (unsigned long)f->array_size);
+        else
+            sb_appendf(b, "} %s; ", f->name);
         return;
     }
     if (f->array_size > 0)
@@ -599,30 +601,60 @@ static int ops_need_j(field_op* ops, size_t n) {
 /* emit one field's migration. lhs/rhs are the base lvalues ("n[i]" / "o[i]" at
    the top level, "n[i].ed" / "o[i].ed" one level down): the field is reached as
    `<lhs>.<name>`. a struct field recurses into its members with the dotted base
-   extended. when a struct field is new (kind == zero) its nested ops are all
-   zero, so rhs is never dereferenced. */
-static void emit_op(strbuf* b, field_op* op, const char* lhs, const char* rhs) {
+   extended; an array of structs loops over `j` and recurses per element. when
+   force_default is set (a new struct field, or the grown tail of a struct
+   array), every leaf takes its default/zero and rhs is never read. */
+static void emit_op(strbuf* b, field_op* op, const char* lhs, const char* rhs, int force_default) {
     if (op->nested) {
         /* build the dotted base on the stack -- NOT via the arena: sb_appendf
            relies on its appends being contiguous in the arena, so allocating a
-           string there mid-build would splice into the output. */
+           string there mid-build would splice into the output. lhs/rhs grow in
+           lockstep; reserve MAX_NAME for the member plus room for a "[j]". */
         char nlhs[512];
         char nrhs[512];
         size_t k;
-        /* lhs and rhs grow in lockstep (n[i]... vs o[i]..., identical length),
-           and every member name is bounded by MAX_NAME, so reserving MAX_NAME
-           for the leaf on top of the current base bounds both buffers with a
-           single check -- no per-side comparison that could never differ. */
-        if (strlen(lhs) + MAX_NAME + 2 > sizeof nlhs) {
+        if (strlen(lhs) + MAX_NAME + 5 > sizeof nlhs) {
             b->err = "nested field path too long"; return;
         }
-        sprintf(nlhs, "%s.%s", lhs, op->name);
-        sprintf(nrhs, "%s.%s", rhs, op->old_name);
-        for (k = 0; k < op->nested->ops_count; k++)
-            emit_op(b, &op->nested->ops[k], nlhs, nrhs);
-        return;
+        if (op->new_array_size == 0) {
+            /* a single nested struct: migrate its members at the dotted base. */
+            sprintf(nlhs, "%s.%s", lhs, op->name);
+            sprintf(nrhs, "%s.%s", rhs, op->old_name);
+            for (k = 0; k < op->nested->ops_count; k++)
+                emit_op(b, &op->nested->ops[k], nlhs, nrhs, force_default);
+            return;
+        }
+        /* an array of structs: migrate element by element in a `j` loop. element
+           members are scalar or nested-scalar (build_ops rejects inner arrays),
+           so the body uses no nested loop and `j` cannot collide. copy the
+           overlap [0,m); default-init the grown tail [m,new). */
+        {
+            /* min(old,new) overlap copies; the tail defaults. force_default need
+               not special-case m: it only reaches here for an array-of-structs
+               inside a defaulted struct, whose op was built against no old
+               layout, so old_array_size is already 0 and m falls out as 0. */
+            size_t m = op->old_array_size < op->new_array_size
+                       ? op->old_array_size : op->new_array_size;
+            if (m > 0) {
+                sb_appendf(b, "        for (j = 0; j < %lu; j++) {\n", (unsigned long)m);
+                sprintf(nlhs, "%s.%s[j]", lhs, op->name);
+                sprintf(nrhs, "%s.%s[j]", rhs, op->old_name);
+                for (k = 0; k < op->nested->ops_count; k++)
+                    emit_op(b, &op->nested->ops[k], nlhs, nrhs, 0);
+                sb_appendf(b, "        }\n");
+            }
+            if (op->new_array_size > m) {
+                sb_appendf(b, "        for (j = %lu; j < %lu; j++) {\n",
+                           (unsigned long)m, (unsigned long)op->new_array_size);
+                sprintf(nlhs, "%s.%s[j]", lhs, op->name);
+                for (k = 0; k < op->nested->ops_count; k++)
+                    emit_op(b, &op->nested->ops[k], nlhs, nlhs, 1); /* rhs unused */
+                sb_appendf(b, "        }\n");
+            }
+            return;
+        }
     }
-    if (op->kind == field_op_copy) {
+    if (op->kind == field_op_copy && !force_default) {
         /* old_name differs from name only for SENI_WAS renames */
         if (op->old_array_size == 0 && op->new_array_size == 0) {
             sb_appendf(b, "        %s.%s = %s.%s;\n", lhs, op->name, rhs, op->old_name);
@@ -713,7 +745,7 @@ generate_result generate_migration(arena* a, diff d) {
             sb_appendf(&b, "    (void)old_p;\n");
         sb_appendf(&b, "    for (i = 0; i < count; i++) {\n");
         for (j = 0; j < sd->ops_count; j++)
-            emit_op(&b, &sd->ops[j], "n[i]", "o[i]");
+            emit_op(&b, &sd->ops[j], "n[i]", "o[i]", 0);
         sb_appendf(&b, "    }\n}\n\n");
     }
     if (b.err) { r.err = b.err; return r; }
@@ -1025,11 +1057,6 @@ static char* build_ops(arena* a, ast_struct* os, ast_struct* ns, struct_diff* sd
         if (nf->type == ast_struct_t) {
             struct_diff* nsd;
             char* e;
-            if (nf->array_size > 0) {
-                char* msg = arena_sprintf(a, "field '%s' in struct '%s': arrays of structs are not supported",
-                                          nf->name, ns->name);
-                return msg ? msg : "arrays of structs are not supported";
-            }
             if (old_nested && strcmp(old_nested->name, nf->nested->name) != 0) {
                 char* msg = arena_sprintf(a, "field '%s' in struct '%s' changed struct type from %s to %s, cannot migrate",
                                           nf->name, ns->name, old_nested->name, nf->nested->name);
@@ -1043,6 +1070,21 @@ static char* build_ops(arena* a, ast_struct* os, ast_struct* ns, struct_diff* sd
             e = build_ops(a, op->kind == field_op_copy ? old_nested : NULL, nf->nested, nsd);
             if (e) return e;
             op->nested = nsd;
+            /* an ARRAY of structs migrates element-by-element in a `j` loop;
+               keeping it a single loop means the element's own members must be
+               scalars or nested scalar structs -- a member array (or array of
+               structs) would need a second index. reject that for now with a
+               clear message rather than emit colliding loops. */
+            if (nf->array_size > 0) {
+                size_t q;
+                for (q = 0; q < nsd->ops_count; q++) {
+                    if (nsd->ops[q].new_array_size > 0) {
+                        char* msg = arena_sprintf(a, "field '%s' in struct '%s': an array-of-structs element may not contain arrays ('%s')",
+                                                  nf->name, ns->name, nsd->ops[q].name);
+                        return msg ? msg : "array-of-structs element contains an array";
+                    }
+                }
+            }
         }
     }
     return NULL;
