@@ -1,5 +1,0 @@
-*.png filter=lfs diff=lfs merge=lfs -text
-*.zip filter=lfs diff=lfs merge=lfs -text
-*.glb filter=lfs diff=lfs merge=lfs -text
-# vendor/ is third-party only; first-party libs live in meikyu/lib
-vendor/** filter=lfs diff=lfs merge=lfs -text

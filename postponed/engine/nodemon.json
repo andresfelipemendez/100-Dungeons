@@ -1,5 +1,0 @@
-{
-  "watch": ["src/generator"],
-  "ext": "c,h",
-  "exec": "test_component_serializer.bat"
-}
