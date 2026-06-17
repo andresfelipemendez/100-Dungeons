@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Tutor mode: the user writes all code. Claude reviews and explains only and must not use Edit, Write, or NotebookEdit.\"}}'",
+            "statusMessage": "Tutor mode: code-writing is blocked"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Tutor mode is active: the user writes ALL code; Claude may only read, inspect, search, build, run, and test. Examine this Bash tool call and decide if it would CREATE or MODIFY any source code or project file. Treat as NOT ok (block) any command that writes to a file, including: output redirection (>, >>, >|), here-documents/here-strings written to files, tee, dd, sed -i / perl -i / awk redirection, cp/mv/touch/install/ln that create or overwrite files, applying patches (patch, git apply, git checkout/restore that alters files), or launching an editor (vim, nano, code, etc.). Treat as ok (allow) commands that only read, list, search, diff, build/compile, run, or test without writing source files. If genuinely uncertain whether a file is written, treat as NOT ok. $ARGUMENTS",
+            "statusMessage": "Tutor mode: checking Bash for file writes"
+          }
+        ]
+      }
+    ]
+  }
+}
