@@ -30,7 +30,7 @@ void game_update(GameMemory *mem) {
 	s->frames++;
 	s->t += (float)mem->dt;
 
-	SDL_GPUCommandBuffer *cmd = SDL_AcquireGPUCommandBuffer(mem->devide);
+	SDL_GPUCommandBuffer *cmd = SDL_AcquireGPUCommandBuffer(mem->device);
 	if(!cmd){
 		return;
 	}
@@ -42,6 +42,18 @@ void game_update(GameMemory *mem) {
 	}
 
 	float r = 0.5f + 0.5f * SDL_sinf(s->t*s->speed_r);
-	float b = 0.5f + 0.5f * SDL_sinf(s->t*s->speed_g + 2.0f);
+	float g = 0.5f + 0.5f * SDL_sinf(s->t*s->speed_g + 2.0f);
 	float b = 0.5f + 0.5f * SDL_sinf(s->t*s->speed_b + 4.0f);
+
+	SDL_GPUColorTargetInfo target;
+	SDL_zero(target);
+	target.texture = swapchain;
+	target.clear_color = (SDL_FColor){r,g,b,1.0f};
+	target.load_op = SDL_GPU_LOADOP_CLEAR;
+	target.store_op = SDL_GPU_STOREOP_STORE;
+
+	SDL_GPURenderPass *pass = SDL_BeginGPURenderPass(cmd, &target, 1, NULL);
+	SDL_EndGPURenderPass(pass);
+
+	SDL_SubmitGPUCommandBuffer(cmd);
 }
