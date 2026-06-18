@@ -36,7 +36,7 @@ add_dependencies(engine game)
 
 target_compile_definitions(engine PRIVATE
     GAME_LIB_PATH="$<TARGET_FILE:game>"
-    GAME_LIB_TEMP_PATH="$<TARGET_FILE_DIR:game/game_active$<TARGET_FILE_SUFFIX:game")
+    GAME_LIB_TEMP_PATH="$<TARGET_FILE_DIR:game>/game_active$<TARGET_FILE_SUFFIX:game>")
 
 add_custom_command(TARGET engine POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
