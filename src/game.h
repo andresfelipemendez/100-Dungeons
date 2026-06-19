@@ -31,7 +31,16 @@ typedef struct GameMemory {
 typedef void (*GameInitFn)(GameMemory *mem);
 typedef void (*GameUpdateFn)(GameMemory *mem);
 
+#ifdef _WIN32
+#define GAME_API __declspec(dllexport)
+#else
+#define GAME_API __attribute__((visibility("default")))
+#endif
+
 #define GAME_INIT_SYMBOL "game_init"
 #define GAME_UPDATE_SYMBOL "game_update"
+
+GAME_API void game_init(GameMemory *mem);
+GAME_API void game_update(GameMemory *mem);
 
 #endif // !GAME_H
