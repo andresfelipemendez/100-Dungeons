@@ -1,5 +1,6 @@
 #include <SDL3/SDL.h>
 #include "game.h"
+#include "watch.h"
 
 #ifndef GAME_LIB_PATH
 #define GAME_LIB_PATH "game.dll"
@@ -107,6 +108,8 @@ int main(int argc, char* argv[]) {
 
 	game.init(&mem);
 	mem.initialized = true;
+
+	watch_create("src")
 
 	const float freq = (float)SDL_GetPerformanceFrequency();
 	uint64_t prev = SDL_GetPerformanceCounter();

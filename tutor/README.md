@@ -63,6 +63,12 @@ Phase B reuses Phase A's watcher and `HotState.shader_dirty` flag. The catch is 
 
 [07-reading-order.md](07-reading-order.md) — what to read from your eleven books, mapped onto the roadmap milestones. Build-along vs reference vs theory; the big caveat is they teach OOP/scene-graph while you build fat-struct DOD — read for concepts, not code structure.
 
+## Concepts (not in the build sequence)
+
+Standalone background that the build docs lean on but don't depend on in order. Read whenever.
+
+- [string-views.md](string-views.md) — why a pointer+length string beats a null-terminated `char *`: O(1) length, zero-copy slicing, bounds safety, the DOD/cache angle, and the 1970s history behind C's worse default. Underpins later asset-name and parser/reflection work.
+
 ## Read order if you're short on time
 
 1. [01-explicit-exports.md](01-explicit-exports.md) — the bug, 2 minutes.

@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "README.md",
+                "file": "02-file-watcher.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "README"
+              "title": "02-file-watcher"
             }
           },
           {
@@ -50,7 +50,7 @@
             }
           }
         ],
-        "currentTab": 2
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -212,25 +212,27 @@
       "bases:Create new base": false
     }
   },
-  "active": "88ceb1ae829b5501",
+  "active": "ff6a2e14b18636bd",
   "lastOpenFiles": [
-    "02-file-watcher.md",
-    "README.md",
+    "README.md.tmp.38316.fdc9512b947e",
+    "string-views.md.tmp.38316.bc41f0f9b89f",
+    "08-string-views.md",
+    "08-string-views.md.tmp.35180.5f3517d2fdc8",
+    "02-file-watcher.md.tmp.35180.02eba354d8b8",
+    "02-file-watcher.md.tmp.35180.f9b6c9944e9a",
+    "02-file-watcher.md.tmp.35180.7ce913765602",
+    "02-file-watcher.md.tmp.33896.b9a4719b9920",
+    "02-file-watcher.md.tmp.37236.f2ad379698de",
     "01-explicit-exports.md",
+    "README.md",
+    "02-file-watcher.md",
     "README.md.tmp.6908.241f63857283",
     "07-reading-order.md",
     "07-reading-order.md.tmp.6908.5ab3d9d930af",
     "README.md.tmp.6908.456d7d72dfce",
     "06-roadmap.md",
-    "06-roadmap.md.tmp.6908.b9d37006d7bd",
-    "README.md.tmp.6908.9bdc88cca8d3",
     "05-shadercross.md",
-    "05-shadercross.md.tmp.6908.a94ba59ae6b5",
-    "04-wiring.md.tmp.6908.5e714c9f489f",
-    "02-file-watcher.md.tmp.6908.ab3620c11407",
-    "README.md.tmp.6908.0ac1ff22cd9d",
     "04-wiring.md",
-    "04-wiring.md.tmp.6908.3cec7fc52788",
     "Welcome.md",
     "03-auto-build.md"
   ]

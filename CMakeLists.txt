@@ -34,6 +34,16 @@ target_include_directories(engine PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(engine PRIVATE SDL3::SDL3)
 add_dependencies(engine game)
 
+if(WIN32)
+    set(PLATFORM_SRC src/platform/windows.c)
+elseif(APPLE)
+    set(PLATFORM_SRC src/platform/osx.h)
+else(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(PLATFORM_SRC src/platform/linux.c)
+endif()
+
+target_sources(engine PRIVATE ${PLATFORM_SRC})
+
 target_compile_definitions(engine PRIVATE
     GAME_LIB_PATH="$<TARGET_FILE:game>"
     GAME_LIB_TEMP_PATH="$<TARGET_FILE_DIR:game>/game_active$<TARGET_FILE_SUFFIX:game>")
