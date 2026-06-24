@@ -109,7 +109,7 @@ int main(int argc, char* argv[]) {
 	game.init(&mem);
 	mem.initialized = true;
 
-	watch_create("src")
+	watch_create(SRC_DIR, on_file_changed)
 
 	const float freq = (float)SDL_GetPerformanceFrequency();
 	uint64_t prev = SDL_GetPerformanceCounter();

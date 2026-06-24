@@ -2,3 +2,6 @@
 /.idea
 /out
 /build
+/.build
+*.exe
+*.pdb
