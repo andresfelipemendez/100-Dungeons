@@ -50,7 +50,7 @@
             }
           }
         ],
-        "currentTab": 1
+        "currentTab": 2
       }
     ],
     "direction": "vertical"
@@ -212,8 +212,9 @@
       "bases:Create new base": false
     }
   },
-  "active": "ff6a2e14b18636bd",
+  "active": "88ceb1ae829b5501",
   "lastOpenFiles": [
+    "02-file-watcher.md",
     "02-file-watcher.md.tmp.42152.17b0c6176def",
     "README.md.tmp.38316.fdc9512b947e",
     "string-views.md.tmp.38316.bc41f0f9b89f",
@@ -226,10 +227,8 @@
     "02-file-watcher.md.tmp.37236.f2ad379698de",
     "01-explicit-exports.md",
     "README.md",
-    "02-file-watcher.md",
     "README.md.tmp.6908.241f63857283",
     "07-reading-order.md",
-    "07-reading-order.md.tmp.6908.5ab3d9d930af",
     "06-roadmap.md",
     "05-shadercross.md",
     "04-wiring.md",
